@@ -14,6 +14,8 @@ dependencies = [
     "cartopy>=0.21",
     "h5py>=3.0",
     "pandas>=1.0",
+    "netCDF4>=1.5.7",
+    "scipy>=1.7.0",
     "wandb",
     "tqdm"
 ]
