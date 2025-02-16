@@ -4,8 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "weatherflow"
-description = "Flow-based weather prediction models with physics constraints"
+description = "Physics-guided flow models for weather prediction"
 requires-python = ">=3.8"
+authors = [
+    {name = "monksealseal", email = "esiman@msn.com"}
+]
 dependencies = [
     "torch>=1.9",
     "numpy>=1.20",
@@ -16,7 +19,24 @@ dependencies = [
     "pandas>=1.0",
     "netCDF4>=1.5.7",
     "scipy>=1.7.0",
+    "fsspec>=2023.0.0",
+    "gcsfs>=2023.0.0",
+    "zarr>=2.14.0",
     "wandb",
     "tqdm"
 ]
 dynamic = ["version"]
+readme = "README.md"
+license = {file = "LICENSE"}
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Atmospheric Science"
+]
+
+[project.urls]
+Homepage = "https://github.com/monksealseal/weatherflow"
+Documentation = "https://monksealseal.github.io/weatherflow/"
+Repository = "https://github.com/monksealseal/weatherflow.git"
