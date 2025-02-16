@@ -1,66 +1,70 @@
-import torch
-from torch.utils.data import Dataset
-import numpy as np
 import xarray as xr
+import numpy as np
 from pathlib import Path
-import h5py
+from typing import List, Optional, Tuple, Union
+import fsspec
 
-class WeatherDataset(Dataset):
-    """Dataset for weather prediction with multiple variables"""
-    def __init__(self, root_dir, mode='train', variables=['temperature', 'pressure'], 
-                 sequence_length=24, stride=6):
-        self.root_dir = Path(root_dir)
-        self.mode = mode
+class ERA5Dataset:
+    """Dataset class for loading ERA5 reanalysis data from WeatherBench 2."""
+    
+    DEFAULT_URL = "gs://weatherbench2/datasets/era5/1959-2023_01_10-6h-64x32_equiangular_conservative.zarr"
+    
+    def __init__(
+        self,
+        data_path: Optional[str] = None,
+        resolution: str = "64x32",
+        variables: Optional[List[str]] = None,
+        years: Optional[List[int]] = None
+    ):
+        """
+        Initialize ERA5Dataset.
+        
+        Args:
+            data_path: Path to ERA5 data. Can be local path or GCS URL.
+                      If None, uses default WeatherBench 2 URL.
+            resolution: One of "64x32", "240x121", "1440x721"
+            variables: List of variables to load. If None, loads all.
+            years: List of years to load. If None, loads all.
+        """
+        self.data_path = data_path or self.DEFAULT_URL
         self.variables = variables
-        self.sequence_length = sequence_length
-        self.stride = stride
+        self.years = years
         self._load_data()
     
     def _load_data(self):
-        self.data = {}
-        for var in self.variables:
-            file_path = self.root_dir / f"{var}_{self.mode}.h5"
-            with h5py.File(file_path, 'r') as f:
-                self.data[var] = f[var][:]
-        self.valid_indices = range(0, len(self.data[self.variables[0]]) - self.sequence_length, 
-                                 self.stride)
+        """Load ERA5 data from local or GCS path."""
+        try:
+            # Handle both local and GCS paths
+            if self.data_path.startswith("gs://"):
+                mapper = fsspec.get_mapper(self.data_path)
+                ds = xr.open_zarr(mapper)
+            else:
+                ds = xr.open_zarr(self.data_path)
+            
+            # Filter by variables if specified
+            if self.variables:
+                ds = ds[self.variables]
+            
+            # Filter by years if specified
+            if self.years:
+                ds = ds.sel(
+                    time=ds.time.dt.year.isin(self.years)
+                )
+            
+            self.data = ds
+            
+        except Exception as e:
+            print(f"Error loading ERA5 data: {str(e)}")
+            self.data = None
     
     def __len__(self):
-        return len(self.valid_indices)
+        return len(self.data.time) - 1 if self.data is not None else 0
     
-    def __getitem__(self, idx):
-        start_idx = self.valid_indices[idx]
-        x = {var: torch.FloatTensor(self.data[var][start_idx:start_idx+self.sequence_length])
-             for var in self.variables}
-        if self.mode == 'train':
-            return ({var: x[var][:-1] for var in self.variables},
-                    {var: x[var][1:] for var in self.variables})
-        return x
-
-class ERA5Dataset(Dataset):
-    """Dataset specifically for ERA5 reanalysis data"""
-    def __init__(self, data_path, years=range(1979, 2022), variables=['z500']):
-        self.data_path = Path(data_path)
-        self.years = years
-        self.variables = variables
-        self._load_era5_data()
-    
-    def _load_era5_data(self):
-        datasets = []
-        for year in self.years:
-            try:
-                ds = xr.open_dataset(self.data_path / f"era5_{year}.nc")
-                datasets.append(ds[self.variables])
-            except FileNotFoundError:
-                print(f"Warning: No data found for year {year}")
-        self.data = xr.concat(datasets, dim='time')
-    
-    def __len__(self):
-        return len(self.data.time) - 1
-    
-    def __getitem__(self, idx):
-        current = {var: torch.FloatTensor(self.data[var].isel(time=idx).values)
-                  for var in self.variables}
-        next_step = {var: torch.FloatTensor(self.data[var].isel(time=idx+1).values)
-                    for var in self.variables}
-        return current, next_step
+    def __getitem__(self, idx: int) -> Tuple[np.ndarray, np.ndarray]:
+        if self.data is None:
+            raise ValueError("No data loaded")
+            
+        current = self.data.isel(time=idx)
+        next_state = self.data.isel(time=idx + 1)
+        
+        return current.to_array().values, next_state.to_array().values
