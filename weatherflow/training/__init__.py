@@ -1,8 +1,8 @@
-from .trainers import WeatherTrainer, PhysicsGuidedTrainer, StochasticFlowTrainer
+from .trainers import WeatherModelTrainer
+from .flow_trainer import FlowTrainer, compute_flow_loss
 
 __all__ = [
-    'WeatherTrainer',
-    'PhysicsGuidedTrainer',
-    'StochasticFlowTrainer'
+    'WeatherModelTrainer',
+    'FlowTrainer',
+    'compute_flow_loss'
 ]
-from .flow_trainer import FlowTrainer, compute_flow_loss
