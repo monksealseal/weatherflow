@@ -1,0 +1,7 @@
+include README.md
+include LICENSE
+include requirements.txt
+include requirements-dev.txt
+recursive-include weatherflow *.py
+recursive-include tests *.py
+recursive-include docs *.md

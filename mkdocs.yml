@@ -1,0 +1,38 @@
+site_name: WeatherFlow Documentation
+site_description: Documentation for the WeatherFlow weather prediction library
+theme:
+  name: material
+  palette:
+    primary: blue
+    accent: orange
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.sections
+    - navigation.expand
+    - search.highlight
+
+nav:
+  - Home: index.md
+  - Installation: installation.md
+  - Tutorials:
+    - Quick Start: tutorials/quickstart.md
+    - Working with ERA5: tutorials/era5.md
+    - Custom Physics: tutorials/physics.md
+  - API Reference:
+    - Models: api/models.md
+    - Data Loading: api/data.md
+    - Visualization: api/visualization.md
+  - Examples: examples.md
+  - Release Notes: release_notes.md
+
+markdown_extensions:
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed
+  - admonition
+  - footnotes
+
+repo_url: https://github.com/yourusername/weatherflow
