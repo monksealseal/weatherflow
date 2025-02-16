@@ -1,15 +1,13 @@
-from .version import __version__
+"""WeatherFlow package for weather prediction."""
 
-# Import main classes
-from .data import WeatherDataset, ERA5Dataset
-from .models import PhysicsGuidedAttention, StochasticFlowModel
+from .data import ERA5Dataset
+from .models import PhysicsGuidedAttention
 from .utils import WeatherVisualizer
 
+__version__ = "0.1.1"
+
 __all__ = [
-    "WeatherDataset",
     "ERA5Dataset",
     "PhysicsGuidedAttention",
-    "StochasticFlowModel",
     "WeatherVisualizer",
-    "__version__"
 ]
