@@ -194,3 +194,7 @@ def create_data_loaders(
     )
     
     return train_loader, val_loader
+
+class WeatherDataset(ERA5Dataset):
+    """Alias for ERA5Dataset for backward compatibility."""
+    pass
