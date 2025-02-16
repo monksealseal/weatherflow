@@ -13,6 +13,7 @@ dependencies = [
     "matplotlib>=3.4",
     "cartopy>=0.21",
     "h5py>=3.0",
+    "pandas>=1.0",
     "wandb",
     "tqdm"
 ]

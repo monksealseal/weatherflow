@@ -1,5 +1,7 @@
 import pytest
 import numpy as np
+import xarray as xr
+import pandas as pd  # Add missing import
 from weatherflow.data import WeatherDataset, ERA5Dataset
 from pathlib import Path
 
@@ -24,8 +26,6 @@ def test_weather_dataset(sample_data_path):
     assert isinstance(sample, dict) or isinstance(sample, tuple)
 
 def test_era5_dataset(sample_data_path):
-    import xarray as xr
-    
     # Create sample ERA5 file
     ds = xr.Dataset(
         {
