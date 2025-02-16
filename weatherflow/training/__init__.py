@@ -5,3 +5,4 @@ __all__ = [
     'PhysicsGuidedTrainer',
     'StochasticFlowTrainer'
 ]
+from .flow_trainer import FlowTrainer, compute_flow_loss
