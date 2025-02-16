@@ -4,17 +4,16 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "weatherflow"
-version = "0.1.0"
 description = "Flow-based weather prediction models with physics constraints"
-readme = "README.md"
 requires-python = ">=3.8"
-license = {text = "MIT"}
 dependencies = [
     "torch>=1.9",
     "numpy>=1.20",
     "xarray>=0.19",
     "matplotlib>=3.4",
     "cartopy>=0.21",
+    "h5py>=3.0",
     "wandb",
     "tqdm"
 ]
+dynamic = ["version"]
