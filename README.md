@@ -1,17 +1,19 @@
 # WeatherFlow
 
-A Python library for flow-based weather prediction with physics constraints.
+A deep learning library for weather prediction using physics-guided flow models.
+
+## Features
+- ERA5 data integration with WeatherBench 2
+- Physics-guided attention mechanisms
+- Stochastic flow models for uncertainty quantification
+- Easy-to-use visualization tools
 
 ## Installation
 
-
-## Features
-
-- Physics-guided attention models
-- Stochastic flow predictions
-- Weather path modeling
-- ERA5 data integration
-- Built-in visualization tools
-
 ## Quick Start
 
+## Documentation
+For full documentation, visit: https://monksealseal.github.io/weatherflow/
+
+## License
+MIT License
