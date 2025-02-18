@@ -1,4 +1,4 @@
-__version__ = "0.2.4"
+__version__ = "0.2.5"
 
 from .data import WeatherDataset, ERA5Dataset, create_data_loaders
 from .models import WeatherFlowMatch, PhysicsGuidedAttention, StochasticFlowModel
