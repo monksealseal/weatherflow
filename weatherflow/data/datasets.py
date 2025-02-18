@@ -2,8 +2,32 @@ import torch
 from torch.utils.data import Dataset
 import xarray as xr
 import numpy as np
-from typing import List, Optional, Dict, Tuple, Union
+import h5py
 from pathlib import Path
+from typing import List, Optional, Tuple, Union, Dict
+import fsspec
+
+class WeatherDataset:
+    """Dataset class for loading weather data from HDF5 files."""
+
+    def __init__(self, data_path: str, variables: List[str]):
+        self.data_path = Path(data_path)
+        self.variables = variables
+        self._load_data()
+
+    def _load_data(self):
+        self.data = {}
+        for var in self.variables:
+            file_path = self.data_path / f"{var}_train.h5"
+            if file_path.exists():
+                with h5py.File(file_path, "r") as f:
+                    self.data[var] = np.array(f[var])
+
+    def __len__(self):
+        return len(next(iter(self.data.values())))
+
+    def __getitem__(self, idx: int) -> Dict[str, np.ndarray]:
+        return {var: data[idx] for var, data in self.data.items()}
 
 class ERA5Dataset(Dataset):
     """Dataset class for loading ERA5 reanalysis data from WeatherBench 2."""
