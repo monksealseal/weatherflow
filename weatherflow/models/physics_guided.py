@@ -59,7 +59,9 @@ class MultiScaleAttention(nn.Module):
         
         # Scale-specific convolutions
         self.scale_convs = nn.ModuleList([
-            nn.Conv2d(hidden_dim, hidden_dim, kernel_size=2**i, padding=2**(i-1))
+            nn.Conv2d(hidden_dim, hidden_dim, 
+                     kernel_size=int(2**i),
+                     padding='same')  # Use same padding to maintain dimensions
             for i in range(3)
         ])
         
@@ -69,12 +71,14 @@ class MultiScaleAttention(nn.Module):
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         batch_size, seq_len, hidden_dim = x.shape
+        print(f"Input shape: {x.shape}")
         outputs = []
         
         # Process each scale
-        for attention, conv in zip(self.attention_layers, self.scale_convs):
+        for i, (attention, conv) in enumerate(zip(self.attention_layers, self.scale_convs)):
             # Reshape for convolution
             h = x.view(batch_size, int(np.sqrt(seq_len)), int(np.sqrt(seq_len)), hidden_dim)
+            print(f"Scale {i} reshape: {h.shape}")
             h = h.permute(0, 3, 1, 2)  # [B, C, H, W]
             
             # Apply scale-specific convolution
