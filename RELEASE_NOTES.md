@@ -21,3 +21,5 @@
   - WeatherDataset
 - Visualization Tools:
   - WeatherVisualizer
+
+- Fixed ERA5Dataset to properly handle anonymous access to WeatherBench2 data - Added explicit storage options for zarr data access - Improved error handling for data loading 

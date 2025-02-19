@@ -1,6 +1,10 @@
 import torch
 from torch.utils.data import Dataset
 import xarray as xr
+import fsspec
+import aiohttp
+import requests
+import gcsfs
 import numpy as np
 import h5py
 from pathlib import Path
@@ -74,6 +78,53 @@ class ERA5Dataset(Dataset):
         self._load_data(time_slice)
         
     def _load_data(self, time_slice: slice):
+        """Load the dataset and select time period."""
+        try:
+            logger.info("Opening zarr dataset with anonymous access...")
+            storage_options = {'anon': True}  # Explicitly request anonymous access
+            self.ds = xr.open_zarr(
+                self.data_path,
+                storage_options=storage_options,
+                consolidated=True
+            )
+        """Load the dataset and select time period."""
+        try:
+            logger.info("Opening zarr dataset with direct HTTP access...")
+            # Configure the filesystem with explicit anonymous access and HTTP
+            fs = fsspec.filesystem(
+                'http',
+                client_kwargs={
+                    'trust_env': False,
+                    'timeout': 30
+                }
+            )
+            store = fs.get_mapper(self.data_path.replace('gs://', 'https://storage.googleapis.com/'))
+            self.ds = xr.open_zarr(
+                store,
+                consolidated=True
+            )
+        """Load the dataset and select time period."""
+        try:
+            logger.info("Opening zarr dataset with anonymous gcs access...")
+            fs = gcsfs.GCSFileSystem(token='anon')
+            self.ds = xr.open_zarr(
+                fs.get_mapper(self.data_path),
+                consolidated=True
+            )
+        """Load the dataset and select time period."""
+        try:
+            logger.info("Opening zarr dataset with configured timeouts...")
+            storage_options = {
+                'anon': True,
+                'timeout': 30,
+                'retries': 10,
+                'default_fill_cache': False
+            }
+            self.ds = xr.open_zarr(
+                self.data_path,
+                storage_options=storage_options,
+                consolidated=True
+            )
         """Load the dataset and select time period."""
         try:
             self.ds = xr.open_zarr(self.data_path)
