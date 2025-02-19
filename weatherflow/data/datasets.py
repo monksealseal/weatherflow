@@ -1,3 +1,6 @@
+import logging
+logger = logging.getLogger(__name__)
+
 import torch
 from torch.utils.data import Dataset
 import xarray as xr
@@ -77,66 +80,78 @@ class ERA5Dataset(Dataset):
         print(f"Loading data from: {self.data_path}")
         self._load_data(time_slice)
         
-    def _load_data(self, time_slice: slice):
+        def _load_data(self, time_slice: slice):
         """Load the dataset and select time period."""
-        try:
-            logger.info("Opening zarr dataset with anonymous access...")
-            storage_options = {'anon': True}  # Explicitly request anonymous access
-            self.ds = xr.open_zarr(
-                self.data_path,
-                storage_options=storage_options,
-                consolidated=True
-            )
-        """Load the dataset and select time period."""
-        try:
-            logger.info("Opening zarr dataset with direct HTTP access...")
-            # Configure the filesystem with explicit anonymous access and HTTP
-            fs = fsspec.filesystem(
-                'http',
-                client_kwargs={
-                    'trust_env': False,
-                    'timeout': 30
+        methods = [
+            # Method 1: Simple anonymous access
+            lambda: {
+                'method': xr.open_zarr,
+                'args': [self.data_path],
+                'kwargs': {
+                    'storage_options': {'anon': True},
+                    'consolidated': True
                 }
-            )
-            store = fs.get_mapper(self.data_path.replace('gs://', 'https://storage.googleapis.com/'))
-            self.ds = xr.open_zarr(
-                store,
-                consolidated=True
-            )
-        """Load the dataset and select time period."""
-        try:
-            logger.info("Opening zarr dataset with anonymous gcs access...")
-            fs = gcsfs.GCSFileSystem(token='anon')
-            self.ds = xr.open_zarr(
-                fs.get_mapper(self.data_path),
-                consolidated=True
-            )
-        """Load the dataset and select time period."""
-        try:
-            logger.info("Opening zarr dataset with configured timeouts...")
-            storage_options = {
-                'anon': True,
-                'timeout': 30,
-                'retries': 10,
-                'default_fill_cache': False
-            }
-            self.ds = xr.open_zarr(
-                self.data_path,
-                storage_options=storage_options,
-                consolidated=True
-            )
-        """Load the dataset and select time period."""
-        try:
-            self.ds = xr.open_zarr(self.data_path)
-            self.times = self.ds.time.sel(time=time_slice)
-            print(f"Selected time period: {self.times[0].values} to {self.times[-1].values}")
-            print(f"Variables: {self.variables}")
-            print(f"Pressure levels: {self.pressure_levels}")
+            },
             
-        except Exception as e:
-            print(f"Error loading ERA5 data: {str(e)}")
-            raise
-    
+            # Method 2: Direct HTTP access
+            lambda: {
+                'method': xr.open_zarr,
+                'args': [fsspec.filesystem(
+                    'http',
+                    client_kwargs={
+                        'trust_env': False,
+                        'timeout': 30
+                    }
+                ).get_mapper(self.data_path.replace('gs://', 'https://storage.googleapis.com/'))],
+                'kwargs': {'consolidated': True}
+            },
+            
+            # Method 3: GCS anonymous access
+            lambda: {
+                'method': xr.open_zarr,
+                'args': [gcsfs.GCSFileSystem(token='anon').get_mapper(self.data_path)],
+                'kwargs': {'consolidated': True}
+            },
+            
+            # Method 4: Configured timeouts
+            lambda: {
+                'method': xr.open_zarr,
+                'args': [self.data_path],
+                'kwargs': {
+                    'storage_options': {
+                        'anon': True,
+                        'timeout': 30,
+                        'retries': 10,
+                        'default_fill_cache': False
+                    },
+                    'consolidated': True
+                }
+            }
+        ]
+
+        last_exception = None
+        for method_factory in methods:
+            try:
+                method_info = method_factory()
+                logger.info(f"Attempting to open dataset with method: {method_info}")
+                self.ds = method_info['method'](
+                    *method_info['args'],
+                    **method_info['kwargs']
+                )
+                self.times = self.ds.time.sel(time=time_slice)
+                print(f"Selected time period: {self.times[0].values} to {self.times[-1].values}")
+                print(f"Variables: {self.variables}")
+                print(f"Pressure levels: {self.pressure_levels}")
+                return  # Success! Exit the method
+                
+            except Exception as e:
+                last_exception = e
+                logger.warning(f"Method failed with error: {str(e)}")
+                continue
+        
+        # If we get here, all methods failed
+        raise RuntimeError(f"All methods to load data failed. Last error: {str(last_exception)}")
+
     def __len__(self) -> int:
         """Return number of samples (time steps - 1 for input/target pairs)."""
         return len(self.times) - 1
