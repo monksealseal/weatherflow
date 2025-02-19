@@ -80,7 +80,7 @@ class ERA5Dataset(Dataset):
         print(f"Loading data from: {self.data_path}")
         self._load_data(time_slice)
         
-        def _load_data(self, time_slice: slice):
+            def _load_data(self, time_slice: slice):
         """Load the dataset and select time period."""
         methods = [
             # Method 1: Simple anonymous access
