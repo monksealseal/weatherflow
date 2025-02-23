@@ -1,12 +1,8 @@
 
-# Copyright (c) 2024 WeatherFlow
-# Implementation integrating probability paths, sphere manifold, and ODE solver
-
 import torch
 from torch import nn, Tensor
 from typing import Optional, Tuple
 
-from ..path.prob_path import ProbPath
 from ..manifolds.sphere import Sphere
 from ..solvers.ode_solver import WeatherODESolver
 
@@ -21,13 +17,13 @@ class WeatherFlowModel(nn.Module):
     ):
         super().__init__()
         
-        # Initialize components
+        self.hidden_dim = hidden_dim
         self.sphere = Sphere()
         self.solver = WeatherODESolver(physics_constraints=physics_constraints)
         
         # Neural network for velocity field
         self.velocity_net = nn.Sequential(
-            nn.Linear(hidden_dim + 1, hidden_dim),  # +1 for time
+            nn.Linear(hidden_dim + 1, hidden_dim),
             nn.SiLU(),
             *[nn.Sequential(
                 nn.Linear(hidden_dim, hidden_dim),
@@ -38,35 +34,22 @@ class WeatherFlowModel(nn.Module):
     
     def forward(self, x: Tensor, t: Tensor) -> Tensor:
         """Compute velocity field at given points and times."""
-        # Project input to tangent space if needed
-        if not self._is_on_sphere(x):
-            x = self._project_to_sphere(x)
-            
-        # Combine state and time
-        t = t.view(-1, 1).expand(x.size(0), 1)
-        h = torch.cat([x, t], dim=-1)
+        batch_size = x.shape[0]
         
-        # Compute velocity in tangent space
+        # Flatten spatial dimensions while keeping batch and feature dims
+        x_flat = x.reshape(batch_size, -1)  # [B, (lat*lon*features)]
+        
+        # Project to hidden dimension
+        x_hidden = nn.Linear(x_flat.shape[1], self.hidden_dim).to(x.device)(x_flat)
+        
+        # Add time dimension
+        t = t.view(-1, 1).expand(batch_size, 1)
+        h = torch.cat([x_hidden, t], dim=1)
+        
+        # Compute velocity
         v = self.velocity_net(h)
         
-        # Ensure velocity is tangent to sphere
-        v = self._project_to_tangent_space(x, v)
+        # Project back to original shape
+        v_out = nn.Linear(self.hidden_dim, x_flat.shape[1]).to(x.device)(v)
         
-        return v
-    
-    def _is_on_sphere(self, x: Tensor, tol: float = 1e-5) -> bool:
-        """Check if points lie on the sphere."""
-        norms = torch.norm(x, dim=-1)
-        return torch.all((norms - self.sphere.radius).abs() < tol)
-    
-    def _project_to_sphere(self, x: Tensor) -> Tensor:
-        """Project points onto the sphere."""
-        norms = torch.norm(x, dim=-1, keepdim=True)
-        return x * (self.sphere.radius / norms)
-    
-    def _project_to_tangent_space(self, x: Tensor, v: Tensor) -> Tensor:
-        """Project vectors to tangent space of sphere."""
-        # Remove radial component
-        dot_prod = torch.sum(x * v, dim=-1, keepdim=True) / self.sphere.radius
-        v_tangent = v - dot_prod * x / self.sphere.radius
-        return v_tangent
+        return v_out.reshape(x.shape)
