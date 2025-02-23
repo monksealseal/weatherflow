@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="weatherflow",
-    version="0.2.2",  # Explicitly set to 0.2.1
+    version="0.2.15",  # Explicitly set to 0.2.1
     author="Eduardo Siman",
     author_email="esiman@msn.com",
     description="A Deep Learning Library for Weather Prediction",

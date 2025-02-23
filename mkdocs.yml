@@ -13,6 +13,9 @@ theme:
     - search.highlight
 
 nav:
+  - Advanced Topics:
+    - Continuous Normalizing Flows: advanced_topics/continuous_normalizing_flows.md
+
   - Home: index.md
   - Installation: installation.md
   - Tutorials:
