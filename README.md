@@ -1,82 +1,280 @@
-# WeatherFlow: A Deep Learning Library for Weather Prediction
+# WeatherFlow: Flow Matching for Weather Prediction
 
-## Introduction
+<div align="center">
+<img src="https://img.shields.io/badge/Python-3.8%2B-blue" alt="Python 3.8+"/>
+<img src="https://img.shields.io/badge/PyTorch-1.9%2B-orange" alt="PyTorch 1.9+"/>
+<img src="https://img.shields.io/badge/License-MIT-green" alt="License: MIT"/>
+<img src="https://img.shields.io/badge/Version-0.3.0-brightgreen" alt="Version 0.3.0"/>
+</div>
 
-WeatherFlow is a Python library built on PyTorch that aims to provide a flexible and extensible framework for developing and evaluating deep learning models for weather prediction. It leverages recent advancements in flow matching and incorporates design principles for handling spatiotemporal data, particularly geopotential height fields.  This documentation covers the package structure, API, usage examples, and development guidelines.
+WeatherFlow is a Python library built on PyTorch that provides a flexible and extensible framework for developing weather prediction models using flow matching techniques. It integrates seamlessly with ERA5 reanalysis data and incorporates physics-guided neural network architectures.
 
 ## Key Features
 
-*   **Modular Design:** The library is organized into modules for data loading, model definition, training, evaluation, and visualization, making it easy to extend and customize.
-*   **ERA5 Data Integration:** Includes a `WeatherDataset` class for easy loading and preprocessing of ERA5 reanalysis data, a standard dataset for weather prediction research.  It supports both local netCDF files and direct loading from the WeatherBench 2 Google Cloud Storage (requires authentication).
-*   **Flow Matching Models:** Implements a `WeatherFlowMatch` model that utilizes the principles of flow matching for generating weather predictions.
-*   **Physics-Guided Architecture (Planned):** Future versions will incorporate physics-informed components.
-*   **Configurable Training:** Provides a flexible `train_model` function with options for various optimizers, learning rate schedulers, and early stopping.
-*   **Comprehensive Evaluation:** Includes functions for calculating standard weather prediction metrics (RMSE, ACC) and visualizing predictions.
-*   **Extensible Design:** The modular structure allows users to easily add custom models, data processing steps, and evaluation metrics.
+* **Flow Matching Models:** Implementation of continuous normalizing flows for weather prediction, inspired by Meta AI's approach
+* **Physics-Guided Architectures:** Neural networks that respect physical constraints
+* **ERA5 Data Integration:** Robust loading of ERA5 reanalysis data from multiple sources
+* **Spherical Geometry:** Proper handling of Earth's spherical surface for global weather modeling
+* **Visualization Tools:** Comprehensive utilities for visualizing predictions and flow fields
 
 ## Installation
 
+```bash
+# Clone the repository
+git clone https://github.com/monksealseal/weatherflow.git
+cd weatherflow
 
-**Dependencies:**
+# Install in development mode
+pip install -e .
 
-*   Python >= 3.8
-*   torch >= 1.9
-*   xarray
-*   numpy
-*   matplotlib
-*   cartopy (for visualizations)
-*   fsspec (for Google Cloud Storage access)
-*   gcsfs (for Google Cloud Storage access)
-*   tqdm (for progress bars)
-*   wandb (optional, for experiment tracking)
-*   scipy
-*   netCDF4
-*   h5py
+# Install extra dependencies for development
+pip install -r requirements-dev.txt
+```
 
 ## Quick Start
 
-Here's a quick example of how to load data, train a model, and visualize predictions:
+Here's a minimal example to get started:
 
+```python
+from weatherflow.data import ERA5Dataset, create_data_loaders
+from weatherflow.models import WeatherFlowMatch
+from weatherflow.utils import WeatherVisualizer
+import torch
 
-## API Reference
+# Load data
+train_loader, val_loader = create_data_loaders(
+    variables=['z', 't'],             # Geopotential and temperature
+    pressure_levels=[500],            # Single pressure level
+    train_slice=('2015', '2016'),     # Training years
+    val_slice=('2017', '2017'),       # Validation year
+    batch_size=32
+)
 
-### `weatherflow.data`
+# Create model
+model = WeatherFlowMatch(
+    input_channels=2,                 # Number of variables
+    hidden_dim=128,                   # Hidden dimension
+    n_layers=4,                       # Number of layers
+    physics_informed=True             # Use physics constraints
+)
 
-*   **`WeatherDataset(data_path, variables, years, input_length=1, lead_time=1)`:**
-    *   `data_path`: Path to the directory containing ERA5 netCDF files (one per year).
-    *   `variables`: List of variable names (e.g., `['z', 't']` for geopotential and temperature).  Use the short names.
-    *   `years`: A list of years (integers) to include in the dataset, or the string 'all' to include all available .nc files.
-    *   `input_length`: The number of timesteps to include in the input sequence (default: 1).
-    *   `lead_time`: The number of timesteps between the last input timestep and the target timestep (default: 1, meaning a 6-hour forecast).
+# Train model (simple example)
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+model = model.to(device)
 
-*   **`create_data_loaders(variables, pressure_levels, data_dir, train_years, val_years, batch_size, num_workers)`:**  A convenience function to create PyTorch `DataLoader` instances for training and validation.  It handles splitting the data by year.
+# Train for one epoch
+model.train()
+for batch in train_loader:
+    x0, x1 = batch['input'].to(device), batch['target'].to(device)
+    t = torch.rand(x0.size(0), device=device)
+    loss = model.compute_flow_loss(x0, x1, t)['total_loss']
+    optimizer.zero_grad()
+    loss.backward()
+    optimizer.step()
 
-### `weatherflow.models`
+# Generate predictions
+from weatherflow.models import WeatherFlowODE
 
-*   **`WeatherFlowMatch(input_dim, hidden_dim)`:**
-    *   `input_dim`: The flattened dimension of a single input timestep (e.g., 64 * 32 = 2048 for a 64x32 grid).
-    *   `hidden_dim`: The hidden dimension of the internal layers of the model.
-    *   `forward(self, x, t)`: Performs a forward pass.  `x` is the input tensor (shape: `[batch, channels, height, width]`), and `t` is the time tensor (shape: `[batch]`).  Returns the predicted velocity field.
-    *   `compute_loss`: Includes a magnitude loss in addition to the direction loss.
+ode_model = WeatherFlowODE(model)
+x0 = next(iter(val_loader))['input'].to(device)
+times = torch.linspace(0, 1, 5, device=device)  # 5 time steps
+with torch.no_grad():
+    predictions = ode_model(x0, times)
 
-### `weatherflow.utils`
-* **`plot_prediction_comparison`**: Plots the difference between the true and predicted values.
-* **`create_prediction_animation`**: Creates an animation of predictions.
-* **`plot_raw_fields`**: Plots the data before any transformation.
-* **`calculate_metrics`**: Calculates root mean squared error and anomaly correlation coefficient.
-* **`generate_wb2_predictions`**: Prepares model output to be in the correct weatherbench2 format.
-* **`evaluate_saved_predictions`**: Performs weatherbench2 evaluation.
+# Visualize results
+visualizer = WeatherVisualizer()
+vis_var = 'z'  # Geopotential
+var_idx = 0
+visualizer.plot_comparison(
+    true_data={vis_var: x0[0, var_idx].cpu()},
+    pred_data={vis_var: predictions[-1, 0, var_idx].cpu()},
+    var_name=vis_var,
+    title="Prediction vs Truth"
+)
+```
+
+## Comprehensive Example
+
+For a more comprehensive example, see the `examples/weather_prediction.py` script, which demonstrates:
+
+1. Loading ERA5 data
+2. Training a flow matching model with physics constraints
+3. Generating predictions for different lead times
+4. Visualizing results
+
+Run the example script:
+
+```bash
+python examples/weather_prediction.py --variables z t --pressure-levels 500 \
+    --train-years 2015 2016 --val-years 2017 --epochs 20 \
+    --use-attention --physics-informed --save-model --save-results
+```
+
+## Key Components
+
+### Data Loading
+
+```python
+from weatherflow.data import ERA5Dataset
+
+# Load data directly from WeatherBench2
+dataset = ERA5Dataset(
+    variables=['z', 't', 'u', 'v'],        # Variables to load
+    pressure_levels=[850, 500, 250],       # Pressure levels (hPa)
+    time_slice=('2015', '2016'),           # Time period
+    normalize=True                         # Apply normalization
+)
+
+# Load from local netCDF file
+local_dataset = ERA5Dataset(
+    data_path='/path/to/era5_data.nc',
+    variables=['z', 't'],
+    pressure_levels=[500]
+)
+```
+
+### Flow Matching Models
+
+```python
+from weatherflow.models import WeatherFlowMatch
+
+# Simple model
+model = WeatherFlowMatch(
+    input_channels=4,                  # Number of variables
+    hidden_dim=256,                    # Hidden dimension
+    n_layers=4                         # Number of layers
+)
+
+# Advanced model with physics constraints
+advanced_model = WeatherFlowMatch(
+    input_channels=4,
+    hidden_dim=256,
+    n_layers=6,
+    use_attention=True,                # Use attention mechanism
+    physics_informed=True,             # Apply physics constraints
+    grid_size=(32, 64)                 # Latitude/longitude grid size
+)
+```
+
+### ODE Solver for Prediction
+
+```python
+from weatherflow.models import WeatherFlowODE
+
+# Create ODE solver with the trained flow model
+ode_model = WeatherFlowODE(
+    flow_model=model,
+    solver_method='dopri5',           # ODE solver method
+    rtol=1e-4,                        # Relative tolerance
+    atol=1e-4                         # Absolute tolerance
+)
+
+# Generate predictions
+x0 = initial_weather_state            # Initial state
+times = torch.linspace(0, 1, 5)       # 5 time steps
+predictions = ode_model(x0, times)    # Shape: [time, batch, channels, lat, lon]
+```
+
+### Visualization
+
+```python
+from weatherflow.utils import WeatherVisualizer
+
+visualizer = WeatherVisualizer()
+
+# Compare prediction with ground truth
+visualizer.plot_comparison(
+    true_data={'temperature': true_temp},
+    pred_data={'temperature': pred_temp},
+    var_name='temperature'
+)
+
+# Visualize flow field
+visualizer.plot_flow_vectors(
+    u=u_wind,                           # U-component of wind
+    v=v_wind,                           # V-component of wind
+    background=geopotential,            # Background field
+    var_name='geopotential'
+)
+
+# Create animation
+visualizer.create_prediction_animation(
+    predictions=predictions[:, 0, 0],   # Time evolution of first variable
+    var_name='temperature',
+    interval=200,                       # Animation speed (ms)
+    save_path='animation.gif'
+)
+```
 
 ## Advanced Usage
 
-*   **Custom Models:** You can create your own models by subclassing `nn.Module` and implementing the `forward` method.  You'll likely want to modify the `train_model` function to work with your custom model.
+### Custom Flow Matching Models
 
-*   **Custom Loss Functions:**  You can define custom loss functions beyond the standard MSE loss.
+You can create custom flow matching models by extending the base classes:
 
-*   **Data Augmentation:**  Add data augmentation to the `WeatherDataset` (e.g., random rotations, flips) to improve model robustness.
+```python
+import torch.nn as nn
+from weatherflow.models import WeatherFlowMatch
 
-*   **Distributed Training:**  Adapt the training loop to use PyTorch's distributed training capabilities for larger datasets and models.
+class MyFlowModel(WeatherFlowMatch):
+    def __init__(self, input_channels, hidden_dim=256):
+        super().__init__(input_channels, hidden_dim)
+        # Add custom layers
+        self.extra_layer = nn.Linear(hidden_dim, hidden_dim)
+    
+    def forward(self, x, t):
+        # Override forward method
+        h = super().forward(x, t)
+        # Add custom processing
+        h = self.extra_layer(h)
+        return h
+```
 
-*   **More Sophisticated Visualization:** Use the `WeatherVisualizer` class as a starting point to create more advanced visualizations, such as animations of weather patterns over time, or plots that highlight specific regions or features.
+### Physics-Informed Constraints
 
-This documentation gives you a solid foundation for using and extending the `weatherflow` package.  Remember to refer to the docstrings within the code for more detailed information on specific functions and classes.  Good luck with your weather prediction projects!
+You can add custom physics constraints:
+
+```python
+def custom_physics_constraint(v, x):
+    """Apply custom physics constraint to velocity field."""
+    # Implement your physics constraint
+    return v_constrained
+
+# Use in model
+model = WeatherFlowMatch(physics_informed=True)
+model._apply_physics_constraints = custom_physics_constraint
+```
+
+## Contributing
+
+We welcome contributions to WeatherFlow! To contribute:
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/your-feature`
+3. Make your changes
+4. Run tests: `pytest tests/`
+5. Submit a pull request
+
+See `CONTRIBUTING.md` for more details.
+
+## License
+
+WeatherFlow is released under the MIT License. See `LICENSE` for details.
+
+## Citation
+
+If you use WeatherFlow in your research, please cite:
+
+```
+@software{weatherflow2023,
+  author = {Siman, Eduardo},
+  title = {WeatherFlow: Flow Matching for Weather Prediction},
+  url = {https://github.com/monksealseal/weatherflow},
+  year = {2023}
+}
+```
+
+## Acknowledgments
+
+This project builds upon flow matching techniques introduced by Meta AI and is inspired by approaches from the weather and climate modeling community.
