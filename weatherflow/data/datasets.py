@@ -1,36 +1,42 @@
-import logging
-logger = logging.getLogger(__name__)
-
 import torch
-from torch.utils.data import Dataset
-import xarray as xr
-import fsspec
-import gcsfs
 import numpy as np
 import h5py
 from pathlib import Path
-from typing import List, Optional, Tuple, Union, Dict
+from typing import List, Dict
 
 class WeatherDataset:
     """Dataset class for loading weather data from HDF5 files."""
 
     def __init__(self, data_path: str, variables: List[str]):
+        """Initialize the dataset.
+        
+        Args:
+            data_path: Path to the data directory
+            variables: List of variable names to load
+        """
         self.data_path = Path(data_path)
         self.variables = variables
         self._load_data()
 
     def _load_data(self):
+        """Load data from HDF5 files."""
         self.data = {}
         for var in self.variables:
             file_path = self.data_path / f"{var}_train.h5"
             if file_path.exists():
                 with h5py.File(file_path, "r") as f:
                     self.data[var] = np.array(f[var])
+            else:
+                print(f"Warning: File {file_path} not found.")
 
-    def __len__(self):
+    def __len__(self) -> int:
+        """Return the number of samples."""
+        if not self.data:
+            return 0
         return len(next(iter(self.data.values())))
 
     def __getitem__(self, idx: int) -> Dict[str, np.ndarray]:
+        """Get a sample from the dataset."""
         return {var: data[idx] for var, data in self.data.items()}
 
 class ERA5Dataset(Dataset):
