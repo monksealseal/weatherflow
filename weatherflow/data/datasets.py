@@ -1,8 +1,14 @@
 import torch
+from torch.utils.data import Dataset  # This line imports Dataset from PyTorch
+import xarray as xr
 import numpy as np
 import h5py
+import fsspec
+import gcsfs
+import os
+import logging
 from pathlib import Path
-from typing import List, Dict
+from typing import List, Dict, Tuple, Union, Optional
 
 class WeatherDataset:
     """Dataset class for loading weather data from HDF5 files."""
