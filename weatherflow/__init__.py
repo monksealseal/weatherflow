@@ -4,7 +4,8 @@
 from .version import __version__, get_version
 
 # Data loading
-from .data.era5 import ERA5Dataset, create_data_loaders, WeatherDataset
+from .data.era5 import ERA5Dataset, create_data_loaders
+from .data import WeatherDataset  # Import from the data package directly
 
 # Models
 from .models.base import BaseWeatherModel

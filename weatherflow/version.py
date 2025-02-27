@@ -1,7 +1,7 @@
 # weatherflow/version.py
 """Version information for the WeatherFlow package."""
 
-__version__ = "0.3.1"
+__version__ = "0.3.2"
 
 # Function to get version
 def get_version():

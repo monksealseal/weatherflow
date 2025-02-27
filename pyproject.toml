@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "weatherflow"
-version = "0.3.1"  # Updated version
+version = "0.3.2"  # Updated version
 description = "Physics-guided flow models for weather prediction with flow matching"
 requires-python = ">=3.8"
 readme = "README.md"
