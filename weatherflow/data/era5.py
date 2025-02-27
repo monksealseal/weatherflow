@@ -11,11 +11,6 @@ from typing import List, Dict, Tuple, Union, Optional
 
 logger = logging.getLogger(__name__)
 
-# In era5.py, WeatherDataset should be added:
-class WeatherDataset(ERA5Dataset):
-    """Alias for ERA5Dataset for backward compatibility."""
-    pass
-
 class ERA5Dataset(Dataset):
     """Enhanced ERA5 dataset with robust data loading from multiple sources.
     
