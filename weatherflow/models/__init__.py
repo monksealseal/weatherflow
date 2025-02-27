@@ -8,6 +8,5 @@ __all__ = [
     'WeatherFlowMatch',
     'PhysicsGuidedAttention',
     'StochasticFlowModel',
-    'ConvNextBlock',
-    'Swish'
+    'ConvNextBlock'
 ]
