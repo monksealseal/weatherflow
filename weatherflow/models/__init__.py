@@ -10,3 +10,12 @@ __all__ = [
     'StochasticFlowModel',
     'ConvNextBlock'
 ]
+
+from .score_matching import ScoreMatchingModel
+from .conversion import vector_field_to_score, score_to_vector_field
+
+__all__.extend([
+    'ScoreMatchingModel',
+    'vector_field_to_score',
+    'score_to_vector_field'
+])
