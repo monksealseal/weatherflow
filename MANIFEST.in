@@ -5,3 +5,6 @@ include requirements-dev.txt
 recursive-include weatherflow *.py
 recursive-include tests *.py
 recursive-include docs *.md
+
+# Exclude test environment
+prune test_env/

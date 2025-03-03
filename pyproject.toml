@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "weatherflow"
-version = "0.3.5"  # Updated version
+version = "0.4.0"  # Updated version
 description = "Physics-guided flow models for weather prediction with flow matching"
 requires-python = ">=3.8"
 readme = "README.md"
@@ -68,3 +68,7 @@ warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
+[tool.hatch.build.targets.sdist]
+exclude = [
+    "test_env/",
+]
