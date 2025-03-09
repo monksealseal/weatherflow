@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "weatherflow"
-version = "0.4.0"  # Updated version
+version = "0.4.1"  # Updated version
 description = "Physics-guided flow models for weather prediction with flow matching"
 requires-python = ">=3.8"
 readme = "README.md"
@@ -63,7 +63,7 @@ profile = "black"
 line_length = 88
 
 [tool.mypy]
-python_version = "3.8"
+python_version = "0.4.1"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
