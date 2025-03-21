@@ -131,7 +131,7 @@ class ERA5Dataset(Dataset):
         for method_factory in methods:
             try:
                 method_info = method_factory()
-                logger.info(f"Attempting to open dataset with method: {method_info}")
+                logging.info(f"Attempting to open dataset with method: {method_info}")
                 self.ds = method_info['method'](
                     *method_info['args'],
                     **method_info['kwargs']
@@ -144,7 +144,7 @@ class ERA5Dataset(Dataset):
                 
             except Exception as e:
                 last_exception = e
-                logger.warning(f"Method failed with error: {str(e)}")
+                logging.warning(f"Method failed with error: {str(e)}")
                 continue
         
         # If we get here, all methods failed

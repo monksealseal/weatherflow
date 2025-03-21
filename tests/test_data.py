@@ -20,8 +20,8 @@ def test_era5_dataset():
         dataset = ERA5Dataset(variables=['z', 't'])
         assert len(dataset) > 0
         
-        # Test with specific years
-        dataset = ERA5Dataset(years=[2020])
+        # Test with specific time slice
+        dataset = ERA5Dataset(time_slice=('2020', '2021'))
         assert len(dataset) > 0
         
     except Exception as e:

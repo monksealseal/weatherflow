@@ -246,6 +246,46 @@ model = WeatherFlowMatch(physics_informed=True)
 model._apply_physics_constraints = custom_physics_constraint
 ```
 
+## Running Jupyter Notebooks
+
+We provide several Jupyter notebooks to help you learn and work with WeatherFlow. 
+
+### Setup Notebook Environment
+
+For the easiest experience running the notebooks, use our setup script:
+
+```bash
+# Create a dedicated environment and fix notebook imports
+python setup_notebook_env.py
+```
+
+This script:
+1. Creates a virtual environment with all required dependencies
+2. Installs the WeatherFlow package in development mode
+3. Registers a Jupyter kernel
+4. Fixes import paths in notebooks
+
+### Alternative Manual Setup
+
+If you prefer to set up manually:
+
+1. Install notebook dependencies:
+   ```bash
+   pip install -r notebooks/notebook_requirements.txt
+   ```
+
+2. Fix notebook imports:
+   ```bash
+   python notebooks/fix_notebook_imports.py
+   ```
+
+3. Run Jupyter Lab or Notebook:
+   ```bash
+   jupyter lab
+   ```
+
+See [notebooks/README.md](notebooks/README.md) for more details.
+
 ## Contributing
 
 We welcome contributions to WeatherFlow! To contribute:

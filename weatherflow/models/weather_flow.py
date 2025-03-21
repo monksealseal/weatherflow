@@ -59,21 +59,3 @@ class WeatherFlowModel(nn.Module):
         v_out = v_out.reshape(batch_size, n_lat, n_lon, features)
         
         return v_out
-
-        """Compute velocity field at given points and times."""
-        batch_size, n_lat, n_lon, features = x.shape
-        
-        # Project features to hidden dimension
-        x_hidden = self.input_proj(x)  # [B, lat, lon, hidden_dim]
-        
-        # Add time dimension
-        t = t.view(-1, 1, 1, 1).expand(batch_size, n_lat, n_lon, 1)
-        h = torch.cat([x_hidden, t], dim=-1)  # [B, lat, lon, hidden_dim + 1]
-        
-        # Compute velocity
-        v = self.velocity_net(h)  # [B, lat, lon, hidden_dim]
-        
-        # Project back to feature dimension
-        v_out = self.output_proj(v)  # [B, lat, lon, features]
-        
-        return v_out
