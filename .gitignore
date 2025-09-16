@@ -34,3 +34,7 @@ ENV/
 .idea/
 .vscode/
 *.swp
+
+# Frontend artifacts
+frontend/node_modules/
+frontend/dist/
