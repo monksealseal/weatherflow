@@ -19,6 +19,13 @@ from .utils.visualization import WeatherVisualizer
 from .utils.flow_visualization import FlowVisualizer
 from .utils.evaluation import WeatherMetrics, WeatherEvaluator
 
+# Education
+from .education import (
+    GraduateAtmosphericDynamicsTool,
+    ProblemScenario,
+    SolutionStep,
+)
+
 # Training
 from .training.flow_trainer import FlowTrainer, compute_flow_loss
 
@@ -62,7 +69,12 @@ __all__ = [
     "FlowVisualizer",
     "WeatherMetrics",
     "WeatherEvaluator",
-    
+
+    # Education
+    "GraduateAtmosphericDynamicsTool",
+    "ProblemScenario",
+    "SolutionStep",
+
     # Training
     "FlowTrainer",
     "compute_flow_loss",
