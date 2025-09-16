@@ -1,29 +1,21 @@
 
-import importlib.util
-import math
-import os
 import sys
-import unittest
 from pathlib import Path
-from types import ModuleType
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+project_root = str(Path(__file__).resolve().parents[2])
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+import math
+import unittest
 
 import torch
 
-try:
-    from weatherflow.solvers.ode_solver import WeatherODESolver
-except ModuleNotFoundError:
-    module_path = Path(__file__).resolve().parents[1] / "weatherflow" / "solvers" / "ode_solver.py"
-    spec = importlib.util.spec_from_file_location("weatherflow.solvers.ode_solver", module_path)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules.setdefault("weatherflow.solvers", ModuleType("weatherflow.solvers"))
-    sys.modules["weatherflow.solvers.ode_solver"] = module
-    spec.loader.exec_module(module)
-    WeatherODESolver = module.WeatherODESolver
+from weatherflow.solvers.ode_solver import WeatherODESolver
 
 class TestODESolver(unittest.TestCase):
     def setUp(self):
+        torch.manual_seed(0)
         self.solver = WeatherODESolver()
         
     def test_solve_simple_system_2d(self):

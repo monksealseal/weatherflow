@@ -1,17 +1,20 @@
+import sys
+from pathlib import Path
+
+project_root = str(Path(__file__).resolve().parents[2])
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
 import torch
 import unittest
-import sys
-import os
 
-# Add the parent directory to the path so we can import weatherflow
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
-from weatherflow.path import GaussianProbPath, CondOTPath
+from weatherflow.path import CondOTPath, GaussianProbPath
 
 class TestGaussianPath(unittest.TestCase):
     # Rest of the code remains the same
     def setUp(self):
         # Define simple schedules for testing
+        torch.manual_seed(0)
         self.alpha_schedule = lambda t: t
         self.beta_schedule = lambda t: 1 - t
         self.gaussian_path = GaussianProbPath(self.alpha_schedule, self.beta_schedule)
@@ -58,6 +61,3 @@ class TestGaussianPath(unittest.TestCase):
         epsilon = (x - self.t.view(-1, 1, 1, 1) * self.z) / (1 - self.t.view(-1, 1, 1, 1) + 1e-8)
         expected_v = self.z - epsilon
         self.assertTrue(torch.allclose(v_condot, expected_v, rtol=1e-5, atol=1e-5))
-
-if __name__ == '__main__':
-    unittest.main()

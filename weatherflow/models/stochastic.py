@@ -38,14 +38,20 @@ class StochasticFlowModel(BaseWeatherModel):
         self.encoder = ProbabilisticEncoder(input_channels, latent_dim)
         self.flow = NormalizingFlow(latent_dim)
         self.decoder = nn.Linear(latent_dim, input_channels)
-    
+
     def forward(self, x, num_samples=10):
         z_mu, z_var = self.encoder(x)
         predictions = []
-        
+
         for _ in range(num_samples):
             z = self.flow(z_mu, z_var)
             pred = self.decoder(z)
             predictions.append(pred)
-            
+
         return torch.stack(predictions)
+
+    def mass_conservation_constraint(self, x: torch.Tensor) -> torch.Tensor:
+        return torch.tensor(0.0, device=x.device)
+
+    def energy_conservation_constraint(self, x: torch.Tensor) -> torch.Tensor:
+        return torch.tensor(0.0, device=x.device)

@@ -292,8 +292,8 @@ class ERA5Dataset(Dataset):
             'input': input_data.float(),
             'target': target_data.float(),
             'metadata': {
-                't0': t0,
-                't1': t1,
+                't0': str(t0),
+                't1': str(t1),
                 'variables': self.variables,
                 'pressure_levels': self.pressure_levels
             }
