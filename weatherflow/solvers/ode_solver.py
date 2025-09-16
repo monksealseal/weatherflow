@@ -107,7 +107,7 @@ class WeatherODESolver:
                 if 'energy' in self.constraint_types:
                     current_energy = self._compute_total_energy(x)
                     energy_change = torch.abs(current_energy - initial_energy) / (initial_energy + 1e-8)
-                    self.stats['energy_conservation'].append(energy_change.item())
+                    self.stats['energy_conservation'].append(energy_change.mean().item())
             
             return v
         
@@ -132,11 +132,22 @@ class WeatherODESolver:
             message = str(e)
         
         # Prepare statistics
+        constraint_violation = (
+            float(np.mean(self.stats['constraint_violations']))
+            if self.stats['constraint_violations']
+            else 0.0
+        )
+        energy_conservation = (
+            float(np.mean(self.stats['energy_conservation']))
+            if self.stats['energy_conservation']
+            else 1.0
+        )
+
         stats = {
             "success": success,
             "message": message,
-            "constraint_violations": np.mean(self.stats['constraint_violations']) if self.stats['constraint_violations'] else 0.0,
-            "energy_conservation": np.mean(self.stats['energy_conservation']) if self.stats['energy_conservation'] else 1.0
+            "constraint_violations": constraint_violation,
+            "energy_conservation": energy_conservation
         }
         
         return solution, stats
@@ -151,8 +162,10 @@ class WeatherODESolver:
             Divergence field
         """
         # Assume first two channels are u,v components (east-west, north-south)
-        if v.dim() <= 3 or v.shape[1] < 2:
-            return torch.zeros(v.shape[0], 1, device=v.device)
+        if v.dim() < 4 or v.shape[1] < 2:
+            spatial_shape = tuple(v.shape[2:]) if v.dim() > 2 else ()
+            output_shape = (v.shape[0],) + spatial_shape
+            return torch.zeros(output_shape, device=v.device, dtype=v.dtype)
         
         # Compute spatial derivatives
         du_dx = torch.gradient(v[:, 0], dim=2)[0]  # Longitude gradient of u
@@ -176,8 +189,10 @@ class WeatherODESolver:
             Vorticity field
         """
         # Assume first two channels are u,v components
-        if v.dim() <= 3 or v.shape[1] < 2:
-            return torch.zeros(v.shape[0], 1, device=v.device)
+        if v.dim() < 4 or v.shape[1] < 2:
+            spatial_shape = tuple(v.shape[2:]) if v.dim() > 2 else ()
+            output_shape = (v.shape[0],) + spatial_shape
+            return torch.zeros(output_shape, device=v.device, dtype=v.dtype)
         
         # Compute spatial derivatives
         du_dy = torch.gradient(v[:, 0], dim=1)[0]  # Latitude gradient of u
@@ -202,7 +217,11 @@ class WeatherODESolver:
         """
         # Simple kinetic energy computation (sum of squared values)
         # In a real implementation, this would include potential energy terms
-        return torch.sum(x**2, dim=[1, 2, 3])
+        if x.dim() <= 1:
+            return torch.sum(x**2)
+
+        sum_dims = tuple(range(1, x.dim()))
+        return torch.sum(x**2, dim=sum_dims)
     
     def _apply_physics_constraints(self, v: Tensor, x: Tensor) -> Tensor:
         """Apply physics-based constraints to velocity field.
