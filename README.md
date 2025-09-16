@@ -16,6 +16,7 @@ WeatherFlow is a Python library built on PyTorch that provides a flexible and ex
 * **ERA5 Data Integration:** Robust loading of ERA5 reanalysis data from multiple sources
 * **Spherical Geometry:** Proper handling of Earth's spherical surface for global weather modeling
 * **Visualization Tools:** Comprehensive utilities for visualizing predictions and flow fields
+* **Graduate Learning Studio:** Interactive, physics-rich dashboards for atmospheric dynamics education
 
 ## Installation
 
@@ -318,3 +319,44 @@ If you use WeatherFlow in your research, please cite:
 ## Acknowledgments
 
 This project builds upon flow matching techniques introduced by Meta AI and is inspired by approaches from the weather and climate modeling community.
+## Graduate Learning Studio
+
+WeatherFlow now ships with an advanced educational toolkit tailored for graduate-level
+atmospheric dynamics and physics.  The `GraduateAtmosphericDynamicsTool`
+combines interactive Plotly dashboards with step-by-step problem solvers so students can
+experiment with balanced flows, Rossby-wave dispersion, and potential vorticity structures.
+
+```python
+from weatherflow.education import GraduateAtmosphericDynamicsTool
+import numpy as np
+
+tool = GraduateAtmosphericDynamicsTool(reference_latitude=45.0)
+
+# 1. Build a balanced flow visualization from a synthetic jet streak
+latitudes = np.linspace(35.0, 55.0, 30)
+longitudes = np.linspace(-30.0, 30.0, 40)
+y_metric = tool.R_EARTH * np.deg2rad(latitudes)
+x_metric = tool.R_EARTH * np.cos(np.deg2rad(latitudes.mean())) * np.deg2rad(longitudes)
+height = (
+    5600.0
+    + 5.0e-5 * (y_metric[:, None] - y_metric.mean())
+    + 2.5e-5 * (x_metric[None, :] - x_metric.mean())
+)
+balanced_fig = tool.create_balanced_flow_dashboard(height, latitudes, longitudes)
+balanced_fig.show()
+
+# 2. Explore Rossby-wave dispersion characteristics interactively
+rossby_fig = tool.create_rossby_wave_lab(mean_flow=18.0)
+rossby_fig.show()
+
+# 3. Generate curated practice problems with step-by-step solutions
+for scenario in tool.generate_problem_scenarios():
+    print(scenario.title)
+    for step in scenario.solution_steps:
+        print(f" - {step.description}: {step.value:.3f} {step.units}")
+    print(scenario.answer)
+```
+
+The toolkit produces volumetric potential vorticity renderings, Rossby-wave dispersion
+laboratories, and automated geostrophic/thermal-wind calculators that help students bridge
+conceptual understanding with concrete numerical problem solving.
