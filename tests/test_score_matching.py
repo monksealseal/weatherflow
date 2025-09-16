@@ -1,14 +1,16 @@
+import sys
+from pathlib import Path
+
+project_root = str(Path(__file__).resolve().parents[2])
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
 import torch
 import unittest
-import sys
-import os
 
-# Add the parent directory to the path so we can import weatherflow
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
-from weatherflow.path import GaussianProbPath, CondOTPath
+from weatherflow.models.conversion import score_to_vector_field, vector_field_to_score
 from weatherflow.models.score_matching import ScoreMatchingModel
-from weatherflow.models.conversion import vector_field_to_score, score_to_vector_field
+from weatherflow.path import CondOTPath, GaussianProbPath
 
 # Rest of the code remains the same
 class SimpleEncoder(torch.nn.Module):
@@ -31,6 +33,7 @@ class SimpleEncoder(torch.nn.Module):
 
 class TestScoreMatching(unittest.TestCase):
     def setUp(self):
+        torch.manual_seed(0)
         # Create path
         self.path = CondOTPath()
         
@@ -81,6 +84,3 @@ class TestScoreMatching(unittest.TestCase):
         
         # Check shape
         self.assertEqual(v.shape, x.shape)
-
-if __name__ == '__main__':
-    unittest.main()

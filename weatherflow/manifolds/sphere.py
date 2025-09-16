@@ -82,10 +82,10 @@ class Sphere:
         )
         
         result = cos_theta * x + self.radius * sin_theta * normalized_v
-        
-        # Normalize to ensure result stays on the sphere
+
+        # Normalize to ensure result stays on the sphere while preserving radius
         result_norm = torch.norm(result, dim=-1, keepdim=True)
-        return result / (result_norm + eps)
+        return self.radius * result / (result_norm + eps)
     
     def log_map(self, x: Tensor, y: Tensor) -> Tensor:
         """Logarithmic map from sphere to tangent space.
@@ -120,7 +120,11 @@ class Sphere:
         )
         
         # Compute the logarithmic map
-        return self.radius * theta * (y - dot_prod * x) * safe_factor
+        v = self.radius * theta * (y - dot_prod * x) * safe_factor
+
+        # Project onto tangent space to remove numerical drift
+        projection = torch.sum(v * x, dim=-1, keepdim=True) / (torch.sum(x * x, dim=-1, keepdim=True) + eps)
+        return v - projection * x
     
     def parallel_transport(self, x: Tensor, y: Tensor, v: Tensor) -> Tensor:
         """Parallel transport of tangent vector along geodesic.
