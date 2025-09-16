@@ -28,6 +28,8 @@ dependencies = [
     "scipy>=1.7.0",
     "torchdiffeq>=0.2.3",  # Added for ODE solvers
     "plotly>=5.18.0",
+    "fastapi>=0.110.0,<0.112.0",
+    "uvicorn>=0.23.0,<0.28.0",
 ]
 
 [[project.authors]]

@@ -111,6 +111,44 @@ python examples/weather_prediction.py --variables z t --pressure-levels 500 \
     --use-attention --physics-informed --save-model --save-results
 ```
 
+## Interactive Web Dashboard
+
+WeatherFlow now ships with a lightweight FastAPI service and React-based
+dashboard that let you explore the library without writing code. The dashboard
+walks you through dataset synthesis, model configuration, training, and flow
+visualisation using the core `WeatherFlowMatch` and `WeatherFlowODE`
+components.
+
+### 1. Start the API service
+
+```bash
+uvicorn weatherflow.server.app:app --reload --port 8000
+```
+
+The server exposes `/api/options` for configuration metadata and
+`/api/experiments` to launch a synthetic training run that exercises the
+weather flow models and ODE solver.
+
+### 2. Install and run the React app
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Open the printed URL (typically http://localhost:5173) in your browser to
+interact with the dashboard. Use the panels on the left to configure data,
+model, and training parameters, then run an experiment to inspect loss curves,
+channel statistics, and generated trajectories on the right-hand side.
+
+To produce a production build and run the component tests:
+
+```bash
+npm run build
+npm test
+```
+
 ## Key Components
 
 ### Data Loading

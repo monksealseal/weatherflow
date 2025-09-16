@@ -8,3 +8,6 @@ flake8-docstrings>=1.7.0
 mypy>=1.3.0
 pre-commit>=3.3.3
 nbstripout>=0.6.1
+fastapi>=0.110.0,<0.112.0
+uvicorn>=0.23.0,<0.28.0
+httpx>=0.24.0
