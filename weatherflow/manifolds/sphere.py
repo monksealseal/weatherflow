@@ -48,79 +48,74 @@ class Sphere:
         return self._eps_by_dtype.get(dtype, 1e-6)
     
     def exp_map(self, x: Tensor, v: Tensor) -> Tensor:
-        """Exponential map from tangent space to sphere.
-        
-        Maps tangent vectors v at points x on the sphere to
-        their corresponding points on the sphere.
-        
-        Args:
-            x: Points on sphere of shape [..., 3]
-            v: Tangent vectors of shape [..., 3]
-            
-        Returns:
-            Points on sphere resulting from following v from x
-        """
-        eps = self._get_eps(x.dtype)
-        
-        # Compute norm of tangent vectors
-        v_norm = torch.norm(v, dim=-1, keepdim=True)
-        
-        # Handle small norm case to avoid division by zero
-        safe_v_norm = torch.where(v_norm < eps, 
-                               torch.ones_like(v_norm), 
-                               v_norm)
-        
-        # Compute the exponential map
-        cos_theta = torch.cos(v_norm / self.radius)
-        sin_theta = torch.sin(v_norm / self.radius)
-        
-        # Use safe division and handle the case where v_norm is close to zero
+        """Exponential map from tangent space to sphere."""
+
+        dtype = x.dtype
+        eps = self._get_eps(dtype)
+        eps64 = torch.tensor(eps, dtype=torch.float64, device=x.device)
+        radius = torch.tensor(self.radius, dtype=torch.float64, device=x.device)
+
+        x64 = x.to(torch.float64)
+        v64 = v.to(torch.float64)
+
+        v_norm = torch.linalg.norm(v64, dim=-1, keepdim=True)
+        zero_mask = v_norm < eps64
+        safe_v_norm = torch.where(zero_mask, torch.ones_like(v_norm), v_norm)
+
         normalized_v = torch.where(
-            v_norm < eps,
-            torch.zeros_like(v),
-            v / safe_v_norm
+            zero_mask,
+            torch.zeros_like(v64),
+            v64 / safe_v_norm,
         )
-        
-        result = cos_theta * x + self.radius * sin_theta * normalized_v
-        
-        # Normalize to ensure result stays on the sphere
-        result_norm = torch.norm(result, dim=-1, keepdim=True)
-        return result / (result_norm + eps)
-    
+
+        cos_theta = torch.cos(v_norm / radius)
+        sin_theta = torch.sin(v_norm / radius)
+        result = cos_theta * x64 + radius * sin_theta * normalized_v
+
+        result_norm = torch.clamp(
+            torch.linalg.norm(result, dim=-1, keepdim=True), min=eps64
+        )
+        projected = result * (radius / result_norm)
+        return projected.to(dtype)
+
     def log_map(self, x: Tensor, y: Tensor) -> Tensor:
-        """Logarithmic map from sphere to tangent space.
-        
-        Maps points y on the sphere to tangent vectors at points x
-        that would reach y via the exponential map.
-        
-        Args:
-            x: Source points on sphere of shape [..., 3]
-            y: Target points on sphere of shape [..., 3]
-            
-        Returns:
-            Tangent vectors at x pointing toward y
-        """
-        eps = self._get_eps(x.dtype)
-        
-        # Compute the cosine of the angle between x and y
-        dot_prod = torch.sum(x * y, dim=-1, keepdim=True) / (self.radius**2)
-        
-        # Clamp to valid range to avoid numerical issues
-        dot_prod = torch.clamp(dot_prod, -1.0 + eps, 1.0 - eps)
-        
-        # Compute the angle between x and y
+        """Logarithmic map from sphere to tangent space."""
+
+        dtype = x.dtype
+        eps = self._get_eps(dtype)
+        eps64 = torch.tensor(eps, dtype=torch.float64, device=x.device)
+
+        x64 = x.to(torch.float64)
+        y64 = y.to(torch.float64)
+
+        radius_sq = torch.sum(x64 * x64, dim=-1, keepdim=True)
+        radius_sq = torch.clamp(radius_sq, min=eps64)
+
+        dot_prod = torch.sum(x64 * y64, dim=-1, keepdim=True) / radius_sq
+        dot_prod = torch.clamp(dot_prod, -1.0 + eps64, 1.0 - eps64)
+
         theta = torch.arccos(dot_prod)
         sin_theta = torch.sin(theta)
-        
-        # Handle small sin_theta case to avoid division by zero
-        safe_factor = torch.where(
-            sin_theta < eps,
-            torch.ones_like(sin_theta) / eps,  # Limit for small angles
-            1.0 / (sin_theta + eps)
+
+        scale = torch.where(
+            sin_theta.abs() < eps64,
+            torch.ones_like(sin_theta),
+            theta / (sin_theta + eps64),
         )
-        
-        # Compute the logarithmic map
-        return self.radius * theta * (y - dot_prod * x) * safe_factor
+
+        base = y64 - dot_prod * x64
+        tangent = base * scale
+
+        correction = torch.sum(tangent * x64, dim=-1, keepdim=True) / radius_sq
+        tangent = tangent - correction * x64
+
+        # Perform an additional projection step in double precision to reduce
+        # numerical drift before returning the vector.
+        for _ in range(2):
+            correction = torch.sum(tangent * x64, dim=-1, keepdim=True) / radius_sq
+            tangent = tangent - correction * x64
+
+        return tangent
     
     def parallel_transport(self, x: Tensor, y: Tensor, v: Tensor) -> Tensor:
         """Parallel transport of tangent vector along geodesic.

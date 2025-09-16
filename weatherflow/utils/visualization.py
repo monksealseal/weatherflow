@@ -56,7 +56,7 @@ class WeatherVisualizer:
     
     def __init__(
         self,
-        figsize: Tuple[int, int] = (12, 8),
+        figsize: Tuple[int, int] = (15, 10),
         projection: str = 'PlateCarree',
         save_dir: Optional[str] = None
     ):
@@ -279,6 +279,27 @@ class WeatherVisualizer:
             plt.savefig(save_path, bbox_inches='tight', dpi=200)
             
         return fig, [ax1, ax2, ax3]
+
+    def plot_prediction_comparison(
+        self,
+        true_data: Union[np.ndarray, torch.Tensor, Dict[str, Any]],
+        pred_data: Union[np.ndarray, torch.Tensor, Dict[str, Any]],
+        var_name: Optional[str] = None,
+        level_idx: int = 0,
+        title: str = "Prediction Comparison",
+        save_path: Optional[str] = None,
+    ) -> plt.Figure:
+        """Compare true and predicted fields using the default settings."""
+
+        fig, _ = self.plot_comparison(
+            true_data=true_data,
+            pred_data=pred_data,
+            var_name=var_name,
+            level_idx=level_idx,
+            title=title,
+            save_path=save_path,
+        )
+        return fig
     
     def plot_error_metrics(
         self,
@@ -370,7 +391,62 @@ class WeatherVisualizer:
             plt.savefig(save_path, bbox_inches='tight', dpi=200)
             
         return fig, axs.flatten()
+
+    def plot_error_distribution(
+        self,
+        true_data: Union[np.ndarray, torch.Tensor, Dict[str, Any]],
+        pred_data: Union[np.ndarray, torch.Tensor, Dict[str, Any]],
+        var_name: Optional[str] = None,
+        title: str = "Prediction Error Distribution",
+        save_path: Optional[str] = None,
+    ) -> plt.Figure:
+        """Wrapper returning the error analysis figure expected by the tests."""
+
+        if isinstance(true_data, dict) and var_name is None:
+            selected = None
+        else:
+            selected = [var_name] if var_name is not None else None
+
+        fig, _ = self.plot_error_metrics(
+            true_data=true_data,
+            pred_data=pred_data,
+            var_names=selected,
+            title=title,
+            save_path=save_path,
+        )
+        return fig
     
+    def plot_global_forecast(
+        self,
+        forecast_data: Union[np.ndarray, torch.Tensor, Dict[str, Any]],
+        var_name: Optional[str] = None,
+        time_index: int = 0,
+        title: str = "Global Forecast",
+        save_path: Optional[str] = None,
+    ) -> plt.Figure:
+        """Plot a single forecast map for the provided data."""
+
+        if isinstance(forecast_data, dict):
+            if var_name is None:
+                var_name = next(iter(forecast_data))
+            data = forecast_data[var_name]
+        else:
+            data = forecast_data
+
+        field = self._prep_data(data)
+        if field.ndim > 2:
+            field = field[time_index]
+
+        fig = plt.figure(figsize=self.figsize)
+        ax = fig.add_subplot(1, 1, 1, projection=self.projection)
+        self.plot_field(field, title=title, ax=ax, var_name=var_name)
+        plt.tight_layout()
+
+        if save_path:
+            fig.savefig(save_path, bbox_inches='tight', dpi=200)
+
+        return fig
+
     def create_prediction_animation(
         self,
         predictions: Union[np.ndarray, torch.Tensor, List],
