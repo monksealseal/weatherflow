@@ -13,19 +13,24 @@ theme:
     - search.highlight
 
 nav:
-  - Advanced Topics:
-    - Continuous Normalizing Flows: advanced_topics/continuous_normalizing_flows.md
-
   - Home: index.md
   - Installation: installation.md
+  - Getting Started: getting_started.md
   - Tutorials:
-    - Quick Start: tutorials/quickstart.md
-    - Working with ERA5: tutorials/era5.md
-    - Custom Physics: tutorials/physics.md
+      - Quick Start: tutorials/quickstart.md
+      - Working with ERA5: tutorials/era5.md
+      - Custom Physics Workflows: tutorials/physics.md
+  - Advanced Usage: advanced_usage.md
+  - Flow Matching Primer: flow_matching.md
+  - Advanced Topics:
+      - Continuous Normalizing Flows: advanced_topics/continuous_normalizing_flows.md
+      - Implementation Guide: advanced_topics/flow_matching_implementation.md
   - API Reference:
-    - Models: api/models.md
-    - Data Loading: api/data.md
-    - Visualization: api/visualization.md
+      - Data Loading: api/data.md
+      - Models: api/models.md
+      - Training: api/training.md
+      - Solvers and Paths: api/solvers.md
+      - Utilities and Visualization: api/visualization.md
   - Examples: examples.md
   - Release Notes: release_notes.md
 

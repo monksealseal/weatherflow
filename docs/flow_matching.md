@@ -1,28 +1,104 @@
 # Flow Matching and Diffusion Models
 
-This module implements flow matching and diffusion models based on MIT lecture notes on Flow Matching and Diffusion Models.
+WeatherFlow implements continuous flow matching as described in recent neural ODE
+and diffusion literature. This page summarises how the components in the
+repository map onto the theory so you know where to look when extending the
+library.
 
-## Components
+## Probability paths
 
-### Path Module
+Flow matching starts by defining a probability path \(p_t(x)\) that bridges a
+simple reference distribution to the data distribution. WeatherFlow provides a
+compact hierarchy of path classes in `weatherflow.path`:
 
-- `GaussianProbPath`: Implements Gaussian conditional probability paths with customizable schedules
-- `CondOTPath`: Implements Conditional Optimal Transport paths (a special case of Gaussian paths)
+- [`ProbPath`](../weatherflow/path/prob_path.py) – abstract base class defining
+  `sample_path(...)` and `get_flow_vector(...)`.
+- [`GaussianProbPath`](../weatherflow/path/gaussian_path.py) – implements the
+  conditional Gaussian path \(p_t(x \mid z) = \mathcal{N}(\alpha_t z, \beta_t^2 I)\)
+  with helper methods to compute the analytic score and vector field.
+- `CondOTPath` – a thin wrapper for conditional optimal transport schedules.
 
-### Models Module
+Use these classes when you need analytic reference paths or to convert between
+vector-field and score-based parameterisations.
 
-- `ScoreMatchingModel`: Implements score matching for diffusion models
-- Conversion utilities between vector fields and score functions
+## Vector-field models
 
-### Solvers Module
+The default flow-matching network is [`WeatherFlowMatch`](../weatherflow/models/flow_matching.py),
+a ConvNeXt-inspired architecture with sinusoidal time embeddings, optional
+multi-head attention, and an approximate divergence projection. It exposes
+`forward(x, t)` returning the velocity field \(u_t(x)\) and
+`compute_flow_loss(x0, x1, t)` for convenience.
 
-- `langevin_dynamics`: Implements Langevin dynamics sampling
-- Enhanced ODE solvers with Heun's method and ODE-to-SDE conversion
+Other models in `weatherflow.models` include:
 
-### Training Module
+- [`PhysicsGuidedAttention`](../weatherflow/models/physics_guided.py) – a compact
+  baseline with channel attention and energy normalisation.
+- [`StochasticFlowModel`](../weatherflow/models/stochastic.py) – a residual
+  architecture that approximates stochastic drift and provides explicit mass and
+  energy constraint terms.
+- [`ScoreMatchingModel`](../weatherflow/models/score_matching.py) – learns the
+  score \(\nabla_x \log p_t(x)\) for a supplied probability path.
+- Conversion utilities [`vector_field_to_score`](../weatherflow/models/conversion.py)
+  and [`score_to_vector_field`](../weatherflow/models/conversion.py) implement the
+  relationships described in the lecture notes (Eq. 54–55).
 
-- `FlowMatchTrainer`: Implements training for flow matching models
+## Training objective
 
-## Usage Examples
+The loss is the squared error between the predicted velocity and the straight
+line connecting the source and target samples:
 
-See the examples directory for usage examples.
+```python
+from weatherflow.training.flow_trainer import compute_flow_loss
+
+loss = compute_flow_loss(v_t, x0, x1, t, loss_type="mse")
+```
+
+`FlowTrainer` wraps this computation in a full training loop with optional
+physics regularisation (`model.compute_physics_loss`) and mixed precision. You
+can combine it with Weights & Biases logging, schedulers, or your own training
+scripts as shown in the [Getting Started guide](getting_started.md).
+
+## Integrating trajectories
+
+To turn the learned velocity field into forecasts, integrate the ODE using one
+of the solver utilities:
+
+- [`WeatherFlowODE`](../weatherflow/models/flow_matching.py) – minimal wrapper
+  that calls the flow model inside `torchdiffeq.odeint`.
+- [`WeatherODESolver`](../weatherflow/solvers/ode_solver.py) – richer solver with
+  constraint tracking, energy conservation monitoring, and configurable
+  integration schemes.
+
+Example:
+
+```python
+from weatherflow.models.flow_matching import WeatherFlowODE
+
+ode_model = WeatherFlowODE(flow_model, solver_method="dopri5")
+trajectory = ode_model(initial_state, torch.linspace(0.0, 1.0, 11))
+```
+
+## Putting it together
+
+A minimal training loop looks like:
+
+```python
+import torch
+
+for batch in train_loader:
+    x0, x1 = batch["input"].to(device), batch["target"].to(device)
+    t = torch.rand(x0.size(0), device=device)
+    v_t = model(x0, t)
+    losses = model.compute_flow_loss(x0, x1, t)
+    optimizer.zero_grad()
+    losses["total_loss"].backward()
+    optimizer.step()
+```
+
+For more elaborate workflows, study `examples/weather_prediction.py` and the API
+reference pages linked above. The
+[Continuous Normalizing Flows note](advanced_topics/continuous_normalizing_flows.md)
+contains additional theory, while the
+[Flow Matching Implementation guide](advanced_topics/flow_matching_implementation.md)
+explains how the spherical manifold and probability paths interact with the
+solvers.
