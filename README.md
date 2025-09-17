@@ -95,6 +95,19 @@ visualizer.plot_comparison(
 )
 ```
 
+## Documentation
+
+The `docs/` directory contains an extensive MkDocs site covering installation,
+data ingestion, model APIs, advanced usage patterns, and tutorials. Build it
+locally with:
+
+```bash
+pip install -e .[docs]
+mkdocs serve
+```
+
+Then open `http://localhost:8000` to browse the rendered documentation.
+
 ## Comprehensive Example
 
 For a more comprehensive example, see the `examples/weather_prediction.py` script, which demonstrates:
