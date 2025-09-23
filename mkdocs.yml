@@ -33,6 +33,9 @@ nav:
       - Utilities and Visualization: api/visualization.md
   - Examples: examples.md
   - Release Notes: release_notes.md
+  - Blog:
+      - ERA5 Flow Matching Pipeline: blog/era5-flow-pipeline.md
+      - Visualising Flow Matching Forecasts: blog/flow-matching-visualization.md
 
 markdown_extensions:
   - pymdownx.highlight
