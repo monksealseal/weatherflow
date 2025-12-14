@@ -1,14 +1,16 @@
-import torch
-from torch.utils.data import Dataset  # This line imports Dataset from PyTorch
-import xarray as xr
-import numpy as np
+import logging
+import os
+from pathlib import Path
+from typing import Callable, Dict, List, Optional, Tuple, Union
+
 import h5py
+import numpy as np
+import torch
+import xarray as xr
+from PIL import Image
+from torch.utils.data import Dataset  # This line imports Dataset from PyTorch
 import fsspec
 import gcsfs
-import os
-import logging
-from pathlib import Path
-from typing import List, Dict, Tuple, Union, Optional
 
 class WeatherDataset:
     """Dataset class for loading weather data from HDF5 files."""
@@ -44,6 +46,139 @@ class WeatherDataset:
     def __getitem__(self, idx: int) -> Dict[str, np.ndarray]:
         """Get a sample from the dataset."""
         return {var: data[idx] for var, data in self.data.items()}
+
+
+class StyleTransferDataset(Dataset):
+    """Dataset for paired or unpaired style transfer tasks.
+
+    This dataset is intentionally format-agnostic so the library can ingest
+    a wide range of data types (NumPy arrays, PIL images, PyTorch tensors,
+    or file paths). It enables replacing pix2pix/CycleGAN-style preprocessing
+    with flow matching by returning the content input, a target frame, and an
+    optional style reference in a unified dictionary structure.
+    """
+
+    def __init__(
+        self,
+        content_items: List[Union[str, np.ndarray, torch.Tensor, Image.Image]],
+        target_items: Optional[
+            List[Union[str, np.ndarray, torch.Tensor, Image.Image]]
+        ] = None,
+        style_items: Optional[
+            List[Union[str, np.ndarray, torch.Tensor, Image.Image]]
+        ] = None,
+        transform: Optional[Callable[[torch.Tensor], torch.Tensor]] = None,
+        style_transform: Optional[Callable[[torch.Tensor], torch.Tensor]] = None,
+        use_target_as_style: bool = True,
+    ):
+        """Create a style transfer dataset.
+
+        Args:
+            content_items: Items representing the source domain (paths, arrays,
+                tensors, or PIL images).
+            target_items: Items representing the target domain. If ``None`` the
+                content is reused as the target.
+            style_items: Optional explicit style references. If omitted and
+                ``use_target_as_style`` is True, the target will be used as the
+                style signal.
+            transform: Optional transform applied to both content and target
+                tensors after conversion.
+            style_transform: Optional transform applied only to the style
+                tensor after conversion.
+            use_target_as_style: When True, fall back to using the target frame
+                as the style reference when an explicit ``style_items`` list is
+                not provided.
+        """
+
+        if target_items is None:
+            target_items = content_items
+
+        if len(content_items) != len(target_items):
+            raise ValueError("content_items and target_items must be the same length")
+
+        if style_items is not None and len(style_items) != len(content_items):
+            raise ValueError("style_items must be None or match the content length")
+
+        self.content_items = content_items
+        self.target_items = target_items
+        self.style_items = style_items
+        self.transform = transform
+        self.style_transform = style_transform
+        self.use_target_as_style = use_target_as_style
+
+    def __len__(self) -> int:
+        return len(self.content_items)
+
+    def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
+        content = self._to_tensor(self.content_items[idx])
+        target = self._to_tensor(self.target_items[idx])
+
+        style_source = None
+        if self.style_items is not None:
+            style_source = self.style_items[idx]
+        elif self.use_target_as_style:
+            style_source = self.target_items[idx]
+
+        style = self._to_tensor(style_source) if style_source is not None else content
+
+        if self.transform:
+            content = self.transform(content)
+            target = self.transform(target)
+
+        if self.style_transform:
+            style = self.style_transform(style)
+        elif self.transform:
+            style = self.transform(style)
+
+        return {
+            "input": content,
+            "target": target,
+            "style": style,
+            "metadata": {
+                "index": idx,
+                "has_explicit_style": self.style_items is not None,
+            },
+        }
+
+    def _to_tensor(
+        self, item: Union[str, Path, np.ndarray, torch.Tensor, Image.Image, None]
+    ) -> torch.Tensor:
+        """Convert various item types to a float32 CHW tensor in [0, 1]."""
+
+        if item is None:
+            raise ValueError("Cannot convert None to tensor for StyleTransferDataset")
+
+        if isinstance(item, torch.Tensor):
+            tensor = item.float()
+        elif isinstance(item, np.ndarray):
+            tensor = torch.from_numpy(item).float()
+        elif isinstance(item, Image.Image):
+            tensor = torch.from_numpy(np.array(item)).float()
+        elif isinstance(item, (str, Path)):
+            with Image.open(str(item)) as img:
+                tensor = torch.from_numpy(np.array(img)).float()
+        else:
+            raise TypeError(f"Unsupported item type: {type(item)}")
+
+        if tensor.ndim == 2:
+            tensor = tensor.unsqueeze(0)
+        elif tensor.ndim == 3:
+            # Heuristically detect if data is already channel-first
+            if tensor.shape[0] in (1, 3, 4) and tensor.shape[0] <= tensor.shape[-1]:
+                pass
+            else:
+                tensor = tensor.permute(2, 0, 1)
+        else:
+            raise ValueError(f"Tensor has unsupported shape {tensor.shape}")
+
+        # Normalize if data looks like integer imagery
+        if tensor.dtype.is_floating_point:
+            if tensor.max() > 1.0:
+                tensor = tensor / 255.0
+        else:
+            tensor = tensor.float() / 255.0
+
+        return tensor
 
 class ERA5Dataset(Dataset):
     """Dataset class for loading ERA5 reanalysis data from WeatherBench 2."""

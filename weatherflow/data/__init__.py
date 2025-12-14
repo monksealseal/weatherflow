@@ -1,4 +1,4 @@
 from .era5 import ERA5Dataset, create_data_loaders
-from .datasets import WeatherDataset  # Import WeatherDataset from datasets.py
+from .datasets import StyleTransferDataset, WeatherDataset
 
-__all__ = ['ERA5Dataset', 'WeatherDataset', 'create_data_loaders']
+__all__ = ['ERA5Dataset', 'WeatherDataset', 'StyleTransferDataset', 'create_data_loaders']

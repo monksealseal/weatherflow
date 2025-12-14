@@ -263,6 +263,92 @@ class WeatherFlowMatch(nn.Module):
         return losses
 
 
+class StyleFlowMatch(WeatherFlowMatch):
+    """Style-conditioned flow matching for general style transfer tasks.
+
+    A lightweight style encoder produces FiLM parameters that modulate the
+    velocity field, enabling content/style translation without adversarial
+    objectives.
+    """
+
+    supports_style_conditioning: bool = True
+
+    def __init__(
+        self,
+        input_channels: int = 3,
+        style_channels: int = 3,
+        hidden_dim: int = 256,
+        n_layers: int = 4,
+        use_attention: bool = True,
+        grid_size: Tuple[int, int] = (32, 64),
+        physics_informed: bool = False,
+    ):
+        super().__init__(
+            input_channels=input_channels,
+            hidden_dim=hidden_dim,
+            n_layers=n_layers,
+            use_attention=use_attention,
+            grid_size=grid_size,
+            physics_informed=physics_informed,
+        )
+
+        self.style_encoder = nn.Sequential(
+            nn.Conv2d(style_channels, hidden_dim // 2, kernel_size=3, padding=1),
+            nn.GELU(),
+            nn.Conv2d(hidden_dim // 2, hidden_dim, kernel_size=3, padding=1),
+            nn.GELU(),
+            nn.AdaptiveAvgPool2d(1),
+            nn.Flatten(),
+            nn.Linear(hidden_dim, hidden_dim),
+        )
+        self.style_to_film = nn.Linear(hidden_dim, hidden_dim * 2)
+
+    def _condition_with_style(self, h: torch.Tensor, style: torch.Tensor) -> torch.Tensor:
+        """Apply FiLM conditioning derived from the style reference."""
+
+        style_features = self.style_encoder(style)
+        gamma, beta = self.style_to_film(style_features).chunk(2, dim=-1)
+        gamma = gamma.unsqueeze(-1).unsqueeze(-1)
+        beta = beta.unsqueeze(-1).unsqueeze(-1)
+        return (1 + gamma) * h + beta
+
+    def forward(
+        self, x: torch.Tensor, t: torch.Tensor, style: Optional[torch.Tensor] = None
+    ) -> torch.Tensor:
+        # Input projection
+        h = self.input_proj(x)
+
+        # Add time embedding
+        h = self._add_time_embedding(h, t)
+
+        # Inject style conditioning if provided
+        if style is not None:
+            h = self._condition_with_style(h, style)
+
+        # Process through main blocks
+        for block in self.blocks:
+            h = block(h)
+
+        # Apply attention if requested
+        if self.use_attention:
+            batch_size, c, height, width = h.shape
+            h_flat = h.flatten(2).permute(0, 2, 1)  # [B, H*W, C]
+
+            h_att, _ = self.attention(h_flat, h_flat, h_flat)
+            h_att = h_att.permute(0, 2, 1).view(batch_size, c, height, width)
+
+            h = h + h_att
+
+        # Output projection
+        v = self.output_proj(h)
+
+        # Style transfer typically does not enforce physical constraints
+        if self.physics_informed:
+            v = self._apply_physics_constraints(v, x)
+
+        return v
+
+
 class WeatherFlowODE(nn.Module):
     """ODE-based weather prediction using flow matching.
     
