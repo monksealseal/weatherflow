@@ -1,11 +1,12 @@
 from .base import BaseWeatherModel
-from .flow_matching import WeatherFlowMatch, ConvNextBlock
+from .flow_matching import StyleFlowMatch, WeatherFlowMatch, ConvNextBlock
 from .physics_guided import PhysicsGuidedAttention
 from .stochastic import StochasticFlowModel
 
 __all__ = [
     'BaseWeatherModel',
     'WeatherFlowMatch',
+    'StyleFlowMatch',
     'PhysicsGuidedAttention',
     'StochasticFlowModel',
     'ConvNextBlock'

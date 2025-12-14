@@ -98,9 +98,13 @@ class FlowTrainer:
             if isinstance(batch, (tuple, list)) and len(batch) == 2:
                 x0, x1 = batch
                 x0, x1 = x0.to(self.device), x1.to(self.device)
+                style = None
             elif isinstance(batch, dict):
                 x0 = batch['input'].to(self.device)
                 x1 = batch['target'].to(self.device)
+                style = batch.get('style')
+                if style is not None:
+                    style = style.to(self.device)
             else:
                 raise ValueError("Unsupported batch format")
             
@@ -110,7 +114,10 @@ class FlowTrainer:
             # Forward pass with AMP if enabled
             with torch.cuda.amp.autocast(enabled=self.use_amp):
                 # Compute model prediction
-                v_t = self.model(x0, t)
+                if getattr(self.model, 'supports_style_conditioning', False):
+                    v_t = self.model(x0, t, style=style)
+                else:
+                    v_t = self.model(x0, t)
                 
                 # Compute flow matching loss
                 batch_flow_loss = compute_flow_loss(
@@ -187,9 +194,13 @@ class FlowTrainer:
                 if isinstance(batch, (tuple, list)) and len(batch) == 2:
                     x0, x1 = batch
                     x0, x1 = x0.to(self.device), x1.to(self.device)
+                    style = None
                 elif isinstance(batch, dict):
                     x0 = batch['input'].to(self.device)
                     x1 = batch['target'].to(self.device)
+                    style = batch.get('style')
+                    if style is not None:
+                        style = style.to(self.device)
                 else:
                     raise ValueError("Unsupported batch format")
                 
@@ -197,7 +208,10 @@ class FlowTrainer:
                 t = torch.rand(x0.size(0), device=self.device)
                 
                 # Compute model prediction
-                v_t = self.model(x0, t)
+                if getattr(self.model, 'supports_style_conditioning', False):
+                    v_t = self.model(x0, t, style=style)
+                else:
+                    v_t = self.model(x0, t)
                 
                 # Compute flow matching loss
                 batch_flow_loss = compute_flow_loss(
