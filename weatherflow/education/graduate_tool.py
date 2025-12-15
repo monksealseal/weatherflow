@@ -323,10 +323,10 @@ class GraduateAtmosphericDynamicsTool:
                 yaxis_title="Meridional Wavenumber (m⁻¹)",
                 zaxis_title="Frequency (s⁻¹)",
             ),
+            xaxis_title="Zonal Wavenumber (m⁻¹)",
+            yaxis_title="Meridional Wavenumber (m⁻¹)",
             xaxis2_title="Zonal Wavenumber (m⁻¹)",
             yaxis2_title="Meridional Wavenumber (m⁻¹)",
-            xaxis3_title="Zonal Wavenumber (m⁻¹)",
-            yaxis3_title="Meridional Wavenumber (m⁻¹)",
             template="plotly_dark",
         )
         return fig
