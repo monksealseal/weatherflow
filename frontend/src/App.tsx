@@ -15,6 +15,7 @@ import TrainingConfigurator from './components/TrainingConfigurator';
 import ResultsPanel from './components/ResultsPanel';
 import LoadingOverlay from './components/LoadingOverlay';
 import ErrorNotice from './components/ErrorNotice';
+import VisualizationWorkbench from './components/VisualizationWorkbench';
 
 const defaultModelConfig: ModelConfig = {
   hiddenDim: 96,
@@ -149,6 +150,7 @@ function App(): JSX.Element {
             loading={loading}
             hasConfig={Boolean(canRunExperiment)}
           />
+          {result && <VisualizationWorkbench result={result} />}
         </section>
       </main>
 

@@ -11,25 +11,28 @@ function PredictionViewer({ prediction }: Props): JSX.Element {
   const [stepIndex, setStepIndex] = useState(0);
 
   const channels = prediction.channels;
-  if (channels.length === 0) {
-    return (
-      <section className="section-card">
-        <h2>Prediction explorer</h2>
-        <p>No prediction data available.</p>
-      </section>
-    );
-  }
-  const selectedChannel = channels[channelIndex];
+  const hasChannels = channels.length > 0;
+  const selectedChannel = hasChannels
+    ? channels[Math.min(channelIndex, channels.length - 1)]
+    : null;
 
   useEffect(() => {
+    if (!selectedChannel) {
+      return;
+    }
     setStepIndex((index) => Math.min(index, selectedChannel.trajectory.length - 1));
   }, [channelIndex, selectedChannel]);
 
-  const sliderMax = Math.max(selectedChannel.trajectory.length - 1, 0);
+  const sliderMax = selectedChannel ? Math.max(selectedChannel.trajectory.length - 1, 0) : 0;
   const safeStepIndex = Math.min(stepIndex, sliderMax);
 
   const activeStep = useMemo(
-    () => selectedChannel.trajectory[safeStepIndex],
+    () => {
+      if (!selectedChannel) {
+        return { time: 0, data: [[0]] };
+      }
+      return selectedChannel.trajectory[safeStepIndex] ?? { time: 0, data: [[0]] };
+    },
     [selectedChannel, safeStepIndex]
   );
 
@@ -47,6 +50,15 @@ function PredictionViewer({ prediction }: Props): JSX.Element {
     ],
     [activeStep]
   );
+
+  if (!selectedChannel) {
+    return (
+      <section className="section-card">
+        <h2>Prediction explorer</h2>
+        <p>No prediction data available.</p>
+      </section>
+    );
+  }
 
   return (
     <section className="section-card">

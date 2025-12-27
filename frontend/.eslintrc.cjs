@@ -19,11 +19,21 @@ module.exports = {
   plugins: ['react', '@typescript-eslint', 'jsx-a11y'],
   rules: {
     'react/react-in-jsx-scope': 'off',
-    'react/prop-types': 'off'
+    'react/prop-types': 'off',
+    'no-undef': 'off',
+    'no-unused-vars': 'off',
+    '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }]
   },
   settings: {
     react: {
       version: 'detect'
     }
+  },
+  globals: {
+    describe: 'readonly',
+    it: 'readonly',
+    expect: 'readonly',
+    beforeEach: 'readonly',
+    afterEach: 'readonly'
   }
 };
