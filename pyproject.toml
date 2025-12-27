@@ -12,7 +12,8 @@ license = {text = "MIT"}
 dependencies = [
     "torch>=2.0.0",
     "numpy>=1.24.0,<2.0.0",
-    "xarray>=2023.9.0",
+    # CI runners only resolve up to ~2023.1.0 right now; keep floor while avoiding the unavailable ceiling.
+    "xarray>=2023.1.0",
     "pandas>=1.5.0",
     "matplotlib>=3.7.0",
     "Pillow>=9.0.0",
