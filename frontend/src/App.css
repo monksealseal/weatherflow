@@ -393,6 +393,216 @@ tbody tr:hover {
   color: #0f172a;
 }
 
+.section-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.section-heading h2 {
+  margin-bottom: 0.35rem;
+}
+
+.experience-card {
+  gap: 1.1rem;
+}
+
+.accent-pill {
+  background: rgba(37, 99, 235, 0.1);
+  color: #1d4ed8;
+  padding: 0.45rem 0.9rem;
+  border-radius: 999px;
+  font-weight: 600;
+  align-self: center;
+}
+
+.playground-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+.experience-panel {
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.7), rgba(255, 255, 255, 0.9));
+}
+
+.panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.panel-heading h3 {
+  margin: 0;
+}
+
+.hint-text {
+  color: #64748b;
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.mode-toggle {
+  display: flex;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.mode-pill {
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  border-radius: 999px;
+  padding: 0.45rem 0.95rem;
+  cursor: pointer;
+  font-weight: 600;
+  color: #1e293b;
+  transition: all 0.15s ease;
+}
+
+.mode-pill.active {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  border-color: #1d4ed8;
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.25);
+}
+
+.control-slider {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+}
+
+.slider-stack {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  min-width: 160px;
+}
+
+.toggle-row {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+}
+
+.progress-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.progress-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.progress-track {
+  width: 100%;
+  height: 10px;
+  background: #e2e8f0;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progress-track.compact {
+  height: 8px;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(135deg, #2563eb, #22c55e);
+  border-radius: 999px;
+  transition: width 0.25s ease;
+}
+
+.progress-fill.accent {
+  background: linear-gradient(135deg, #f59e0b, #f97316);
+}
+
+.unlock-pill {
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.85rem;
+  color: #475569;
+}
+
+.unlock-pill.unlocked {
+  background: rgba(34, 197, 94, 0.12);
+  color: #047857;
+  border-color: #34d399;
+}
+
+.unlock-text {
+  margin: 0;
+  font-size: 0.88rem;
+  color: #1e293b;
+}
+
+.probe-grid {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.65rem;
+}
+
+.probe-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0.75rem 0.8rem;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.probe-card.active {
+  border-color: #1d4ed8;
+  box-shadow: 0 10px 18px rgba(37, 99, 235, 0.15);
+  background: linear-gradient(180deg, rgba(226, 232, 240, 0.4), #fff);
+}
+
+.probe-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  align-items: flex-start;
+}
+
+.probe-toggle {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.accent-badge {
+  background: rgba(15, 23, 42, 0.05);
+  color: #0f172a;
+  padding: 0.25rem 0.5rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  text-align: right;
+}
+
 @media (max-width: 1100px) {
   .app-main {
     grid-template-columns: 1fr;

@@ -10,6 +10,11 @@ vi.mock('./api/client', () => ({
   runExperiment: vi.fn()
 }));
 
+vi.mock('react-plotly.js', () => ({
+  __esModule: true,
+  default: () => null
+}));
+
 const mockOptions: ServerOptions = {
   variables: ['t', 'z', 'u', 'v'],
   pressureLevels: [500, 700],
@@ -135,6 +140,10 @@ describe('App', () => {
 
     expect(screen.getByLabelText(/Training samples/i)).toBeInTheDocument();
     expect(screen.getByText(/Model architecture/i)).toBeInTheDocument();
+    expect(screen.getByText(/Immersive mission prototyping/i)).toBeInTheDocument();
+    expect(screen.getByText(/Free-flight lab/i)).toBeInTheDocument();
+    expect(screen.getByText(/Narrative achievements/i)).toBeInTheDocument();
+    expect(screen.getByTestId('probe-sondes')).toBeInTheDocument();
   });
 
   it('runs an experiment and shows summary', async () => {
