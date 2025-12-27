@@ -10,6 +10,18 @@ vi.mock('./api/client', () => ({
   runExperiment: vi.fn()
 }));
 
+vi.mock('react-plotly.js', () => ({
+  __esModule: true,
+  default: (props: Record<string, unknown>) => <div data-testid="plotly-mock" {...props} />
+}));
+
+vi.mock('plotly.js-dist-min', () => ({
+  __esModule: true,
+  default: {
+    toImage: vi.fn(() => Promise.resolve('data:image/png;base64,stub'))
+  }
+}));
+
 const mockOptions: ServerOptions = {
   variables: ['t', 'z', 'u', 'v'],
   pressureLevels: [500, 700],
