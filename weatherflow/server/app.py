@@ -3,15 +3,16 @@ from __future__ import annotations
 
 import time
 import uuid
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 import torch
 import torch.nn.functional as F
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from torch.utils.data import DataLoader, TensorDataset
 
 from weatherflow.models.flow_matching import WeatherFlowMatch, WeatherFlowODE
+from weatherflow.simulation import SimulationOrchestrator
 
 # Limit CPU usage for deterministic behaviour when running inside tests
 TORCH_NUM_THREADS = 1
@@ -23,13 +24,13 @@ DEFAULT_PRESSURE_LEVELS = [1000, 850, 700, 500, 300, 200]
 DEFAULT_GRID_SIZES = [(16, 32), (32, 64)]
 DEFAULT_SOLVER_METHODS = ["dopri5", "rk4", "midpoint"]
 DEFAULT_LOSS_TYPES = ["mse", "huber", "smooth_l1"]
+SIMULATION_ORCHESTRATOR = SimulationOrchestrator()
 
 
 class CamelModel(BaseModel):
     """Base model enabling population by field name or alias."""
 
-    class Config:
-        allow_population_by_field_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class GridSize(CamelModel):
@@ -38,7 +39,8 @@ class GridSize(CamelModel):
     lat: int = Field(16, ge=4, le=128)
     lon: int = Field(32, ge=4, le=256)
 
-    @validator("lon")
+    @field_validator("lon")
+    @classmethod
     def lon_multiple_of_two(cls, value: int) -> int:  # noqa: D401
         """Ensure longitude dimension is even for nicer plots."""
         if value % 2 != 0:
@@ -46,16 +48,95 @@ class GridSize(CamelModel):
         return value
 
 
+class TimeControlConfig(CamelModel):
+    """Time-stepping and replay configuration."""
+
+    step_seconds: int = Field(300, ge=30, le=3600, alias="stepSeconds")
+    replay_length_seconds: int = Field(
+        1800, ge=60, le=86400, alias="replayLengthSeconds"
+    )
+    boundary_update_seconds: int = Field(
+        900, ge=60, le=86400, alias="boundaryUpdateSeconds"
+    )
+
+
+class MoistureConfig(CamelModel):
+    """Moisture and phase-change proxy settings."""
+
+    enable: bool = True
+    condensation_threshold: float = Field(
+        0.55, ge=0.0, le=1.0, alias="condensationThreshold"
+    )
+    condensation_rate: float = Field(0.12, ge=0.0, le=1.0, alias="condensationRate")
+    evaporation_rate: float = Field(0.05, ge=0.0, le=1.0, alias="evaporationRate")
+    cloud_entrainment: float = Field(0.1, ge=0.0, le=1.0, alias="cloudEntrainment")
+
+
+class SurfaceFluxConfig(CamelModel):
+    """Surface flux scheme optimized for real-time budgets."""
+
+    latent_coeff: float = Field(0.35, ge=0.0, le=2.0, alias="latentCoeff")
+    sensible_coeff: float = Field(0.2, ge=0.0, le=2.0, alias="sensibleCoeff")
+    drag_coeff: float = Field(0.05, ge=0.0, le=1.0, alias="dragCoeff")
+    optimized_for_real_time: bool = Field(True, alias="optimizedForRealTime")
+
+
+class LODConfig(CamelModel):
+    """Level-of-detail streaming configuration."""
+
+    min_chunk: int = Field(8, ge=1, le=128, alias="minChunk")
+    max_chunk: int = Field(48, ge=1, le=256, alias="maxChunk")
+    overlap: int = Field(2, ge=0, le=32)
+    max_zoom: int = Field(3, ge=0, le=6, alias="maxZoom")
+
+
+class SimulationConfig(CamelModel):
+    """Simulation core selection and grid tuning."""
+
+    core: str = Field("shallow-water")
+    resolution_tier: str = Field("custom", alias="resolutionTier")
+    initial_source: str = Field("reanalysis", alias="initialSource")
+    boundary_source: str = Field("reanalysis", alias="boundarySource")
+    seed: int = Field(0, ge=0, le=100000)
+    time_control: TimeControlConfig = Field(
+        default_factory=TimeControlConfig, alias="timeControl"
+    )
+    moisture: MoistureConfig = Field(default_factory=MoistureConfig)
+    surface_flux: SurfaceFluxConfig = Field(
+        default_factory=SurfaceFluxConfig, alias="surfaceFlux"
+    )
+    lod: LODConfig = Field(default_factory=LODConfig)
+
+    @field_validator("core")
+    @classmethod
+    def validate_core(cls, value: str) -> str:  # noqa: D401
+        """Ensure the requested simulation core is supported."""
+        if value not in SIMULATION_ORCHESTRATOR.cores:
+            raise ValueError(f"Unsupported core '{value}'")
+        return value
+
+    @field_validator("resolution_tier")
+    @classmethod
+    def validate_tier(cls, value: str) -> str:  # noqa: D401
+        """Ensure requested resolution tier exists."""
+        if value not in SIMULATION_ORCHESTRATOR.resolution_tiers:
+            raise ValueError(f"Unsupported resolution tier '{value}'")
+        return value
+
+
 class DatasetConfig(CamelModel):
     """Configuration options for generating synthetic datasets."""
 
     variables: List[str] = Field(default_factory=lambda: DEFAULT_VARIABLES[:2])
-    pressure_levels: List[int] = Field(default_factory=lambda: [500], alias="pressureLevels")
+    pressure_levels: List[int] = Field(
+        default_factory=lambda: [500], alias="pressureLevels"
+    )
     grid_size: GridSize = Field(default_factory=GridSize, alias="gridSize")
     train_samples: int = Field(48, ge=4, le=256, alias="trainSamples")
     val_samples: int = Field(16, ge=4, le=128, alias="valSamples")
 
-    @validator("variables")
+    @field_validator("variables")
+    @classmethod
     def validate_variables(cls, values: List[str]) -> List[str]:  # noqa: D401
         """Ensure at least one variable was selected."""
         if not values:
@@ -65,7 +146,8 @@ class DatasetConfig(CamelModel):
                 raise ValueError(f"Unsupported variable '{var}'")
         return values
 
-    @validator("pressure_levels")
+    @field_validator("pressure_levels")
+    @classmethod
     def validate_pressure_levels(cls, values: List[int]) -> List[int]:  # noqa: D401
         """Ensure at least one pressure level is available."""
         if not values:
@@ -94,14 +176,16 @@ class TrainingConfig(CamelModel):
     seed: int = Field(42, ge=0, le=10_000)
     dynamics_scale: float = Field(0.15, gt=0.01, le=0.5, alias="dynamicsScale")
 
-    @validator("solver_method")
+    @field_validator("solver_method")
+    @classmethod
     def solver_method_supported(cls, value: str) -> str:  # noqa: D401
         """Ensure the requested ODE solver is available."""
         if value not in DEFAULT_SOLVER_METHODS:
             raise ValueError(f"Unsupported solver '{value}'")
         return value
 
-    @validator("loss_type")
+    @field_validator("loss_type")
+    @classmethod
     def loss_type_supported(cls, value: str) -> str:  # noqa: D401
         """Ensure the loss type is compatible with the training loop."""
         if value not in DEFAULT_LOSS_TYPES:
@@ -115,6 +199,7 @@ class ExperimentConfig(CamelModel):
     dataset: DatasetConfig = Field(default_factory=DatasetConfig)
     model: ModelConfig = Field(default_factory=ModelConfig)
     training: TrainingConfig = Field(default_factory=TrainingConfig)
+    simulation: SimulationConfig = Field(default_factory=SimulationConfig)
 
 
 class ChannelStats(CamelModel):
@@ -161,6 +246,22 @@ class PredictionResult(CamelModel):
     channels: List[ChannelTrajectory]
 
 
+class LODTile(CamelModel):
+    level: int
+    tile: str
+    lat_start: int = Field(alias="latStart")
+    lat_end: int = Field(alias="latEnd")
+    lon_start: int = Field(alias="lonStart")
+    lon_end: int = Field(alias="lonEnd")
+    mean: float
+    std: float
+
+
+class LODPreview(CamelModel):
+    chunk_shape: List[int] = Field(alias="chunkShape")
+    tiles: List[LODTile]
+
+
 class ExecutionSummary(CamelModel):
     duration_seconds: float = Field(alias="durationSeconds")
 
@@ -168,6 +269,13 @@ class ExecutionSummary(CamelModel):
 class DatasetSummary(CamelModel):
     channel_stats: List[ChannelStats] = Field(alias="channelStats")
     sample_shape: List[int] = Field(alias="sampleShape")
+
+
+class SimulationSummary(CamelModel):
+    core: str
+    resolution_tier: str = Field(alias="resolutionTier")
+    grid: GridSize
+    time_step_seconds: int = Field(alias="timeStepSeconds")
 
 
 class ExperimentResult(CamelModel):
@@ -178,6 +286,8 @@ class ExperimentResult(CamelModel):
     validation: Dict[str, List[ValidationMetricEntry]]
     dataset_summary: DatasetSummary = Field(alias="datasetSummary")
     prediction: PredictionResult
+    lod_preview: LODPreview = Field(alias="lodPreview")
+    simulation_summary: SimulationSummary = Field(alias="simulationSummary")
     execution: ExecutionSummary
 
 
@@ -189,22 +299,56 @@ def _channel_names(dataset: DatasetConfig) -> List[str]:
     return names
 
 
-def _build_dataloaders(config: DatasetConfig, dynamics_scale: float) -> Dict[str, object]:
+def _build_dataloaders(
+    config: DatasetConfig,
+    dynamics_scale: float,
+    simulation: SimulationConfig,
+    orchestrator: SimulationOrchestrator,
+    device: torch.device,
+) -> Dict[str, object]:
     """Create lightweight synthetic datasets for demonstration purposes."""
     channel_names = _channel_names(config)
     channels = len(channel_names)
-    lat = config.grid_size.lat
-    lon = config.grid_size.lon
+    lat, lon, time_step_seconds = orchestrator.resolve_grid_size(
+        config.grid_size.lat, config.grid_size.lon, simulation.resolution_tier
+    )
 
-    def _synth_samples(num_samples: int) -> torch.Tensor:
-        base = torch.randn(num_samples, channels, lat, lon)
-        return base
+    base_state = orchestrator.seed_initial_state(
+        channels,
+        (lat, lon),
+        simulation.initial_source,
+        simulation.boundary_source,
+        seed=simulation.seed,
+        device=device,
+    )
 
-    train_x0 = _synth_samples(config.train_samples)
-    train_x1 = train_x0 + dynamics_scale * torch.randn_like(train_x0)
+    def _synth_samples(
+        num_samples: int, start_idx: int
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        x0_list: List[torch.Tensor] = []
+        x1_list: List[torch.Tensor] = []
+        for sample_idx in range(num_samples):
+            noisy_state = base_state + torch.randn_like(base_state) * dynamics_scale
+            stepped = orchestrator.simulate_time_step(
+                noisy_state,
+                simulation.core,
+                simulation.time_control.step_seconds,
+                dynamics_scale,
+                simulation.time_control.replay_length_seconds,
+                simulation.boundary_source,
+                simulation.time_control.boundary_update_seconds,
+                step_idx=start_idx + sample_idx,
+            )
+            stepped = orchestrator.apply_moisture_and_surface_flux(
+                stepped, simulation.moisture, simulation.surface_flux
+            )
+            x0_list.append(noisy_state)
+            x1_list.append(stepped)
 
-    val_x0 = _synth_samples(config.val_samples)
-    val_x1 = val_x0 + dynamics_scale * torch.randn_like(val_x0)
+        return torch.stack(x0_list), torch.stack(x1_list)
+
+    train_x0, train_x1 = _synth_samples(config.train_samples, 0)
+    val_x0, val_x1 = _synth_samples(config.val_samples, config.train_samples)
 
     train_dataset = TensorDataset(train_x0, train_x1)
     val_dataset = TensorDataset(val_x0, val_x1)
@@ -212,10 +356,14 @@ def _build_dataloaders(config: DatasetConfig, dynamics_scale: float) -> Dict[str
         "train": train_dataset,
         "val": val_dataset,
         "channel_names": channel_names,
+        "grid": GridSize(lat=lat, lon=lon),
+        "time_step_seconds": time_step_seconds,
     }
 
 
-def _aggregate_channel_stats(data: torch.Tensor, names: List[str]) -> List[ChannelStats]:
+def _aggregate_channel_stats(
+    data: torch.Tensor, names: List[str]
+) -> List[ChannelStats]:
     """Compute simple summary statistics per channel."""
     stats: List[ChannelStats] = []
     reshaped = data.reshape(data.shape[0], data.shape[1], -1)
@@ -289,12 +437,18 @@ def _prepare_trajectory(
         channel_initial = initial[0, channel_idx].detach().cpu()
         channel_target = target[0, channel_idx].detach().cpu()
 
-        rmse = torch.sqrt(torch.mean((channel_predictions[-1] - channel_target) ** 2)).item()
+        rmse = torch.sqrt(
+            torch.mean((channel_predictions[-1] - channel_target) ** 2)
+        ).item()
         mae = torch.mean(torch.abs(channel_predictions[-1] - channel_target)).item()
-        baseline_rmse = torch.sqrt(torch.mean((channel_initial - channel_target) ** 2)).item()
+        baseline_rmse = torch.sqrt(
+            torch.mean((channel_initial - channel_target) ** 2)
+        ).item()
 
         trajectory = [
-            TrajectoryStep(time=float(times[i].item()), data=channel_predictions[i].tolist())
+            TrajectoryStep(
+                time=float(times[i].item()), data=channel_predictions[i].tolist()
+            )
             for i in range(len(times))
         ]
 
@@ -324,6 +478,7 @@ def _train_model(
     channel_names: List[str] = datasets["channel_names"]
     train_dataset: TensorDataset = datasets["train"]
     val_dataset: TensorDataset = datasets["val"]
+    resolved_grid: GridSize = datasets.get("grid", config.dataset.grid_size)
 
     train_loader = DataLoader(
         train_dataset,
@@ -341,7 +496,7 @@ def _train_model(
         hidden_dim=config.model.hidden_dim,
         n_layers=config.model.n_layers,
         use_attention=config.model.use_attention,
-        grid_size=(config.dataset.grid_size.lat, config.dataset.grid_size.lon),
+        grid_size=(resolved_grid.lat, resolved_grid.lon),
         physics_informed=config.model.physics_informed,
     ).to(device)
 
@@ -372,7 +527,9 @@ def _train_model(
             train_loss.append(float(total_loss.item()))
             train_flow.append(float(losses["flow_loss"].item()))
             train_div.append(float(losses.get("div_loss", torch.tensor(0.0)).item()))
-            train_energy.append(float(losses.get("energy_diff", torch.tensor(0.0)).item()))
+            train_energy.append(
+                float(losses.get("energy_diff", torch.tensor(0.0)).item())
+            )
 
         if not train_loss:
             raise RuntimeError("Training dataset is empty")
@@ -405,7 +562,9 @@ def _train_model(
                 val_loss.append(float(total_loss.item()))
                 val_flow.append(float(losses["flow_loss"].item()))
                 val_div.append(float(losses.get("div_loss", torch.tensor(0.0)).item()))
-                val_energy.append(float(losses.get("energy_diff", torch.tensor(0.0)).item()))
+                val_energy.append(
+                    float(losses.get("energy_diff", torch.tensor(0.0)).item())
+                )
 
         val_metrics.append(
             ValidationMetricEntry(
@@ -430,7 +589,7 @@ def _run_prediction(
     dataset: TensorDataset,
     channel_names: List[str],
     device: torch.device,
-) -> PredictionResult:
+) -> Tuple[PredictionResult, torch.Tensor]:
     model.eval()
     ode_model = WeatherFlowODE(
         model,
@@ -438,21 +597,48 @@ def _run_prediction(
     ).to(device)
     times = torch.linspace(0.0, 1.0, config.training.time_steps, device=device)
 
-    initial, target = dataset.tensors[0][:1].to(device), dataset.tensors[1][:1].to(device)
+    initial = dataset.tensors[0][:1].to(device)
+    target = dataset.tensors[1][:1].to(device)
 
     with torch.no_grad():
         predictions = ode_model(initial, times)
 
-    return _prepare_trajectory(predictions, initial, target, times, channel_names)
+    trajectory = _prepare_trajectory(predictions, initial, target, times, channel_names)
+    return trajectory, predictions[-1, 0]
 
 
-def _build_dataset_summary(dataset: TensorDataset, channel_names: List[str]) -> DatasetSummary:
+def _build_dataset_summary(
+    dataset: TensorDataset, channel_names: List[str]
+) -> DatasetSummary:
     x0 = dataset.tensors[0]
     stats = _aggregate_channel_stats(x0, channel_names)
     return DatasetSummary(
         channel_stats=stats,
         sample_shape=list(x0.shape[1:]),
     )
+
+
+def _build_lod_preview(
+    field: torch.Tensor,
+    simulation: SimulationConfig,
+    orchestrator: SimulationOrchestrator,
+) -> LODPreview:
+    """Summarize level-of-detail tiles for the latest field."""
+    description = orchestrator.stream_level_of_detail(field, simulation.lod)
+    tiles = [
+        LODTile(
+            level=int(tile["level"]),
+            tile=str(tile["tile"]),
+            latStart=int(tile["latStart"]),
+            latEnd=int(tile["latEnd"]),
+            lonStart=int(tile["lonStart"]),
+            lonEnd=int(tile["lonEnd"]),
+            mean=float(tile["mean"]),
+            std=float(tile["std"]),
+        )
+        for tile in description["tiles"]
+    ]
+    return LODPreview(chunkShape=description["chunkShape"], tiles=tiles)
 
 
 def create_app() -> FastAPI:
@@ -470,6 +656,20 @@ def create_app() -> FastAPI:
             ],
             "solverMethods": DEFAULT_SOLVER_METHODS,
             "lossTypes": DEFAULT_LOSS_TYPES,
+            "simulationCores": [
+                spec.name for spec in SIMULATION_ORCHESTRATOR.available_cores()
+            ],
+            "resolutionTiers": [
+                {
+                    "name": tier.name,
+                    "lat": tier.lat,
+                    "lon": tier.lon,
+                    "verticalLevels": tier.vertical_levels,
+                    "timeStepSeconds": tier.time_step_seconds,
+                    "description": tier.description,
+                }
+                for tier in SIMULATION_ORCHESTRATOR.available_resolution_tiers()
+            ],
             "maxEpochs": 6,
         }
 
@@ -484,16 +684,33 @@ def create_app() -> FastAPI:
 
         try:
             torch.manual_seed(config.training.seed)
-            datasets = _build_dataloaders(config.dataset, config.training.dynamics_scale)
+            datasets = _build_dataloaders(
+                config.dataset,
+                config.training.dynamics_scale,
+                config.simulation,
+                SIMULATION_ORCHESTRATOR,
+                device,
+            )
             training_outcome = _train_model(config, device, datasets)
-            prediction = _run_prediction(
+            prediction, latest_field = _run_prediction(
                 training_outcome["model"],
                 config,
                 datasets["val"],
                 datasets["channel_names"],
                 device,
             )
-            summary = _build_dataset_summary(datasets["train"], datasets["channel_names"])
+            summary = _build_dataset_summary(
+                datasets["train"], datasets["channel_names"]
+            )
+            lod_preview = _build_lod_preview(
+                latest_field, config.simulation, SIMULATION_ORCHESTRATOR
+            )
+            simulation_summary = SimulationSummary(
+                core=config.simulation.core,
+                resolution_tier=config.simulation.resolution_tier,
+                grid=datasets["grid"],
+                time_step_seconds=datasets["time_step_seconds"],
+            )
         except Exception as exc:  # pragma: no cover - surfaced to API response
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -507,6 +724,8 @@ def create_app() -> FastAPI:
             validation={"metrics": training_outcome["val_metrics"]},
             dataset_summary=summary,
             prediction=prediction,
+            lod_preview=lod_preview,
+            simulation_summary=simulation_summary,
             execution=ExecutionSummary(duration_seconds=float(end - start)),
         )
 
