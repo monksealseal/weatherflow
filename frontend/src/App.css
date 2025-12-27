@@ -83,6 +83,32 @@
   overflow: hidden;
 }
 
+.game-viewer__controls {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.control-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+  color: #1e293b;
+}
+
+.control-field select {
+  padding: 0.45rem 0.65rem;
+  border-radius: 10px;
+  border: 1px solid #d4d4d8;
+  background: #fff;
+}
+
+.control-field.slider input[type='range'] {
+  width: 180px;
+}
+
 .section-card {
   background-color: rgba(255, 255, 255, 0.92);
   border-radius: 18px;
