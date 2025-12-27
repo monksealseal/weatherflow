@@ -32,5 +32,8 @@ module.exports = {
     react: {
       version: 'detect'
     }
+  },
+  globals: {
+    JSX: 'readonly'
   }
 };

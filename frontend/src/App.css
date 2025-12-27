@@ -55,6 +55,60 @@
   align-self: start;
 }
 
+.game-viewer {
+  margin-top: 0.5rem;
+}
+
+.game-viewer__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.game-viewer__actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.game-viewer__canvas {
+  position: relative;
+  width: 100%;
+  min-height: 320px;
+  height: 440px;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: radial-gradient(circle at 25% 25%, #0b1224, #050816 65%);
+  overflow: hidden;
+}
+
+.game-viewer__controls {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.control-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+  color: #1e293b;
+}
+
+.control-field select {
+  padding: 0.45rem 0.65rem;
+  border-radius: 10px;
+  border: 1px solid #d4d4d8;
+  background: #fff;
+}
+
+.control-field.slider input[type='range'] {
+  width: 180px;
+}
+
 .section-card {
   background-color: rgba(255, 255, 255, 0.92);
   border-radius: 18px;

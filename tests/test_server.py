@@ -13,6 +13,8 @@ def test_options_endpoint() -> None:
     assert "variables" in payload
     assert payload["variables"]
     assert "pressureLevels" in payload
+    assert "simulationCores" in payload
+    assert payload["resolutionTiers"]
 
 
 def test_experiment_endpoint() -> None:
@@ -39,6 +41,33 @@ def test_experiment_endpoint() -> None:
             "lossType": "mse",
             "seed": 7,
             "dynamicsScale": 0.1
+        },
+        "simulation": {
+            "core": "shallow-water",
+            "resolutionTier": "custom",
+            "initialSource": "reanalysis",
+            "boundarySource": "parametric",
+            "seed": 9,
+            "timeControl": {
+                "stepSeconds": 120,
+                "replayLengthSeconds": 600,
+                "boundaryUpdateSeconds": 300
+            },
+            "moisture": {
+                "enable": True,
+                "condensationThreshold": 0.5
+            },
+            "surfaceFlux": {
+                "latentCoeff": 0.45,
+                "sensibleCoeff": 0.25,
+                "dragCoeff": 0.05
+            },
+            "lod": {
+                "minChunk": 4,
+                "maxChunk": 12,
+                "overlap": 1,
+                "maxZoom": 2
+            }
         }
     }
 
@@ -50,4 +79,7 @@ def test_experiment_endpoint() -> None:
     assert data["metrics"]["train"][0]["epoch"] == 1
     assert data["prediction"]["channels"], "Channels should be returned"
     assert data["datasetSummary"]["channelStats"]
+    assert data["lodPreview"]["tiles"]
+    assert data["simulationSummary"]["core"] == payload["simulation"]["core"]
+    assert data["simulationSummary"]["resolutionTier"] == payload["simulation"]["resolutionTier"]
     assert data["execution"]["durationSeconds"] > 0

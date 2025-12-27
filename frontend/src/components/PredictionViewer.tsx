@@ -28,12 +28,15 @@ function PredictionViewer({ prediction }: Props): JSX.Element {
     [selectedChannel, safeStepIndex]
   );
 
-  const timeValue = prediction.times[Math.min(safeStepIndex, prediction.times.length - 1)];
+  const timeValue =
+    prediction.times.length > 0
+      ? prediction.times[Math.min(safeStepIndex, prediction.times.length - 1)]
+      : undefined;
 
   const heatmapData = useMemo(
     () => [
       {
-        z: activeStep.data,
+        z: activeStep?.data ?? [],
         type: 'heatmap',
         colorscale: 'RdBu',
         reversescale: true,

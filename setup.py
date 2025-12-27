@@ -28,7 +28,7 @@ setup(
     install_requires=[
         "torch>=2.0.0",
         "numpy>=1.24.0,<2.0.0",
-        "xarray>=0.19.0",
+        "xarray>=2023.1.0",
         "pandas>=1.5.0",
         "matplotlib>=3.7.0",
         "cartopy>=0.20.0",
