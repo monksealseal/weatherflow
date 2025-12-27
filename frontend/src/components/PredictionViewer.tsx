@@ -11,14 +11,10 @@ function PredictionViewer({ prediction }: Props): JSX.Element {
   const [stepIndex, setStepIndex] = useState(0);
 
   const channels = prediction.channels;
-  const selectedChannel = useMemo(
-    () => channels[Math.min(channelIndex, Math.max(channels.length - 1, 0))] ?? null,
-    [channelIndex, channels]
-  );
+  const selectedChannel = channels[channelIndex];
 
   useEffect(() => {
     if (!selectedChannel) {
-      setStepIndex(0);
       return;
     }
     setStepIndex((index) => Math.min(index, selectedChannel.trajectory.length - 1));
@@ -28,7 +24,7 @@ function PredictionViewer({ prediction }: Props): JSX.Element {
   const safeStepIndex = Math.min(stepIndex, sliderMax);
 
   const activeStep = useMemo(
-    () => (selectedChannel ? selectedChannel.trajectory[safeStepIndex] : null),
+    () => selectedChannel?.trajectory[safeStepIndex] ?? { data: [], time: 0 },
     [selectedChannel, safeStepIndex]
   );
 
@@ -50,7 +46,7 @@ function PredictionViewer({ prediction }: Props): JSX.Element {
     [activeStep]
   );
 
-  if (!selectedChannel || !activeStep) {
+  if (!selectedChannel) {
     return (
       <section className="section-card">
         <h2>Prediction explorer</h2>

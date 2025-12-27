@@ -12,14 +12,7 @@ vi.mock('./api/client', () => ({
 
 vi.mock('react-plotly.js', () => ({
   __esModule: true,
-  default: (props: Record<string, unknown>) => <div data-testid="plotly-mock" {...props} />
-}));
-
-vi.mock('plotly.js-dist-min', () => ({
-  __esModule: true,
-  default: {
-    toImage: vi.fn(() => Promise.resolve('data:image/png;base64,stub'))
-  }
+  default: () => null
 }));
 
 const mockOptions: ServerOptions = {
@@ -147,6 +140,10 @@ describe('App', () => {
 
     expect(screen.getByLabelText(/Training samples/i)).toBeInTheDocument();
     expect(screen.getByText(/Model architecture/i)).toBeInTheDocument();
+    expect(screen.getByText(/Immersive mission prototyping/i)).toBeInTheDocument();
+    expect(screen.getByText(/Free-flight lab/i)).toBeInTheDocument();
+    expect(screen.getByText(/Narrative achievements/i)).toBeInTheDocument();
+    expect(screen.getByTestId('probe-sondes')).toBeInTheDocument();
   });
 
   it('runs an experiment and shows summary', async () => {
