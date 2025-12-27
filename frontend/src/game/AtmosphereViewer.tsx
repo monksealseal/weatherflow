@@ -19,7 +19,7 @@ import {
   SphereGeometry,
   Vector3,
   WebGLRenderer
-} from 'three';
+} from '../vendor/three-lite';
 
 type CameraMode = 'pilot' | 'orbital';
 type Overlay = 'none' | 'temperature' | 'moisture';
@@ -124,6 +124,7 @@ const AtmosphereViewer = (): JSX.Element => {
   const [mode, setMode] = useState<CameraMode>('orbital');
   const [overlay, setOverlay] = useState<Overlay>('temperature');
   const [sliceTilt, setSliceTilt] = useState(0);
+  const [fallbackMessage, setFallbackMessage] = useState<string | null>(null);
 
   const overlayTexture = useMemo(() => createNoiseTexture(256, overlay === 'temperature' ? 10 : 140), [overlay]);
 
@@ -137,12 +138,20 @@ const AtmosphereViewer = (): JSX.Element => {
     const height = container.clientHeight || 480;
 
     const scene = new Scene();
-    scene.background = new Color(0x020617);
+    scene.background = new Color(0x0b1224);
 
-    const renderer = new WebGLRenderer({ antialias: true });
-    renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
-    container.appendChild(renderer.domElement);
+    let renderer: WebGLRenderer | null = null;
+    try {
+      renderer = new WebGLRenderer({ antialias: true, alpha: false });
+      renderer.setSize(width, height);
+      renderer.setClearColor(new Color(0x0b1224));
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
+      container.appendChild(renderer.domElement);
+    } catch (err) {
+      console.warn('WebGL renderer could not be created', err);
+      setFallbackMessage('WebGL unavailable: showing fallback view.');
+      return;
+    }
 
     const pilotCamera = new PerspectiveCamera(60, width / height, 0.1, 200);
     pilotCamera.position.set(0, 5, PILOT_DISTANCE);
@@ -156,9 +165,9 @@ const AtmosphereViewer = (): JSX.Element => {
     sceneRef.current = scene;
     rendererRef.current = renderer;
 
-    const ambient = new AmbientLight(0xffffff, 0.45);
-    const dirLight = new DirectionalLight(0xffffff, 1.0);
-    dirLight.position.set(10, 20, 10);
+    const ambient = new AmbientLight(0xffffff, 0.65);
+    const dirLight = new DirectionalLight(0xffffff, 1.15);
+    dirLight.position.set(12, 22, 14);
     scene.add(ambient, dirLight);
 
     // Earth scaffold
@@ -211,6 +220,9 @@ const AtmosphereViewer = (): JSX.Element => {
     window.addEventListener('resize', handleResize);
 
     let animationFrame = 0;
+    // Render once immediately to avoid blank first frame in headless captures
+    renderer.render(scene, orbitalCamera);
+
     const animate = () => {
       animationFrame = requestAnimationFrame(animate);
       globe.rotation.y += 0.0015;
@@ -230,7 +242,9 @@ const AtmosphereViewer = (): JSX.Element => {
       cancelAnimationFrame(animationFrame);
       window.removeEventListener('resize', handleResize);
       renderer.dispose();
-      container.removeChild(renderer.domElement);
+      if (renderer.domElement && renderer.domElement.parentElement === container) {
+        container.removeChild(renderer.domElement);
+      }
       scene.clear();
     };
   }, [mode, overlayTexture, sliceTilt]);
@@ -280,7 +294,9 @@ const AtmosphereViewer = (): JSX.Element => {
           />
         </label>
       </div>
-      <div className="game-viewer__canvas" ref={containerRef} />
+      <div className="game-viewer__canvas" ref={containerRef}>
+        {fallbackMessage && <div className="game-viewer__fallback">{fallbackMessage}</div>}
+      </div>
     </section>
   );
 };

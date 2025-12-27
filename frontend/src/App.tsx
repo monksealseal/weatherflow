@@ -15,7 +15,7 @@ import TrainingConfigurator from './components/TrainingConfigurator';
 import ResultsPanel from './components/ResultsPanel';
 import LoadingOverlay from './components/LoadingOverlay';
 import ErrorNotice from './components/ErrorNotice';
-import ExplorationPlayground from './components/ExplorationPlayground';
+import AtmosphereViewer from './game/AtmosphereViewer';
 
 const defaultModelConfig: ModelConfig = {
   hiddenDim: 96,
@@ -150,7 +150,7 @@ function App(): JSX.Element {
             loading={loading}
             hasConfig={Boolean(canRunExperiment)}
           />
-          <ExplorationPlayground result={result} />
+          <AtmosphereViewer />
         </section>
       </main>
 
