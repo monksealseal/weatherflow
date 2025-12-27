@@ -1,12 +1,14 @@
 module.exports = {
   env: {
     browser: true,
-    es2021: true
+    es2021: true,
+    jest: true
   },
   extends: [
     'eslint:recommended',
     'plugin:react/recommended',
-    'plugin:react-hooks/recommended'
+    'plugin:react-hooks/recommended',
+    'plugin:@typescript-eslint/recommended'
   ],
   parser: '@typescript-eslint/parser',
   parserOptions: {
@@ -20,9 +22,8 @@ module.exports = {
   rules: {
     'react/react-in-jsx-scope': 'off',
     'react/prop-types': 'off',
-    'no-undef': 'off',
     'no-unused-vars': 'off',
-    '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }]
+    '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }]
   },
   settings: {
     react: {
@@ -30,10 +31,6 @@ module.exports = {
     }
   },
   globals: {
-    describe: 'readonly',
-    it: 'readonly',
-    expect: 'readonly',
-    beforeEach: 'readonly',
-    afterEach: 'readonly'
+    JSX: 'readonly'
   }
 };

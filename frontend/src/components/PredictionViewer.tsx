@@ -11,13 +11,14 @@ function PredictionViewer({ prediction }: Props): JSX.Element {
   const [stepIndex, setStepIndex] = useState(0);
 
   const channels = prediction.channels;
-  const hasChannels = channels.length > 0;
-  const selectedChannel = hasChannels
-    ? channels[Math.min(channelIndex, channels.length - 1)]
-    : null;
+  const selectedChannel = useMemo(
+    () => channels[Math.min(channelIndex, Math.max(channels.length - 1, 0))] ?? null,
+    [channelIndex, channels]
+  );
 
   useEffect(() => {
     if (!selectedChannel) {
+      setStepIndex(0);
       return;
     }
     setStepIndex((index) => Math.min(index, selectedChannel.trajectory.length - 1));
@@ -27,21 +28,19 @@ function PredictionViewer({ prediction }: Props): JSX.Element {
   const safeStepIndex = Math.min(stepIndex, sliderMax);
 
   const activeStep = useMemo(
-    () => {
-      if (!selectedChannel) {
-        return { time: 0, data: [[0]] };
-      }
-      return selectedChannel.trajectory[safeStepIndex] ?? { time: 0, data: [[0]] };
-    },
+    () => (selectedChannel ? selectedChannel.trajectory[safeStepIndex] : null),
     [selectedChannel, safeStepIndex]
   );
 
-  const timeValue = prediction.times[Math.min(safeStepIndex, prediction.times.length - 1)];
+  const timeValue =
+    prediction.times.length > 0
+      ? prediction.times[Math.min(safeStepIndex, prediction.times.length - 1)]
+      : undefined;
 
   const heatmapData = useMemo(
     () => [
       {
-        z: activeStep.data,
+        z: activeStep?.data ?? [],
         type: 'heatmap',
         colorscale: 'RdBu',
         reversescale: true,
@@ -51,7 +50,7 @@ function PredictionViewer({ prediction }: Props): JSX.Element {
     [activeStep]
   );
 
-  if (!selectedChannel) {
+  if (!selectedChannel || !activeStep) {
     return (
       <section className="section-card">
         <h2>Prediction explorer</h2>

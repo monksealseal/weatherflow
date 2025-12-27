@@ -119,6 +119,14 @@ variable relationships used in this game.
   and configurable marker sizes/line thickness for intersection and probes.
 - **Capture and share:** Built-in snapshot and clip capture for both slices and
   the 3D view to aid playtesting and regression tracking.
+- **End-to-end playtest harness:** A scripted scenario that loads canonical
+  Randall-aligned scenes (e.g., Hadley cell and jet streak cases), flies
+  through the atmosphere, toggles cross-sections, and records screenshots/GIFs
+  from both the pilot and satellite perspectives. Use these artifacts to
+  confirm expected structures and to provide user-visible evidence that the
+  experience is working as designed. A starter harness is scaffolded in
+  `scripts/playtest_harness.py`; it enumerates Randall-sourced scenarios and
+  builds CLI commands for capture once the game executable is available.
 
 This specification should be treated as the source of truth for building the
 immersive atmospheric circulation game layer on top of WeatherFlow. It centers
