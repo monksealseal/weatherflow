@@ -17,6 +17,7 @@ export interface ModelConfig {
   useAttention: boolean;
   physicsInformed: boolean;
   windowSize: number;
+  sphericalPadding: boolean;
 }
 
 export type LossType = 'mse' | 'huber' | 'smooth_l1';

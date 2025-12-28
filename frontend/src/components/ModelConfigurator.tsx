@@ -70,6 +70,15 @@ function ModelConfigurator({ value, onChange }: Props): JSX.Element {
           />
           Apply physics constraints
         </label>
+        <label className="checkbox-row">
+          <input
+            type="checkbox"
+            name="sphericalPadding"
+            checked={value.sphericalPadding}
+            onChange={handleToggle}
+          />
+          Use spherical padding (wrap longitude)
+        </label>
       </div>
     </section>
   );

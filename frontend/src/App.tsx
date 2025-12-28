@@ -24,7 +24,8 @@ const defaultModelConfig: ModelConfig = {
   nLayers: 3,
   useAttention: true,
   physicsInformed: true,
-  windowSize: 8
+  windowSize: 8,
+  sphericalPadding: true
 };
 
 const createDefaultDatasetConfig = (options: ServerOptions): DatasetConfig => ({

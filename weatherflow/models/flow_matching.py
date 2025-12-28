@@ -7,9 +7,11 @@ from ..manifolds.sphere import Sphere
 
 class ConvNextBlock(nn.Module):
     """ConvNext block for efficient spatial processing."""
-    def __init__(self, dim: int, layer_scale_init_value: float = 1e-6):
+    def __init__(self, dim: int, layer_scale_init_value: float = 1e-6, padding_mode: str = "zeros"):
         super().__init__()
-        self.dwconv = nn.Conv2d(dim, dim, kernel_size=7, padding=3, groups=dim)
+        self.dwconv = nn.Conv2d(
+            dim, dim, kernel_size=7, padding=3, groups=dim, padding_mode=padding_mode
+        )
         self.norm = nn.LayerNorm(dim, eps=1e-6)
         self.pwconv1 = nn.Linear(dim, 4 * dim)
         self.act = nn.GELU()
@@ -70,6 +72,7 @@ class WeatherFlowMatch(nn.Module):
         window_size: int = 8,
         static_channels: int = 0,
         forcing_dim: int = 0,
+        spherical_padding: bool = False,
     ):
         super().__init__()
         self.input_channels = input_channels
@@ -80,12 +83,25 @@ class WeatherFlowMatch(nn.Module):
         self.window_size = window_size
         self.static_channels = static_channels
         self.forcing_dim = forcing_dim
+        padding_mode = "circular" if spherical_padding else "zeros"
         
         # Input projection
         self.input_proj = nn.Sequential(
-            nn.Conv2d(input_channels, hidden_dim // 2, kernel_size=3, padding=1),
+            nn.Conv2d(
+                input_channels,
+                hidden_dim // 2,
+                kernel_size=3,
+                padding=1,
+                padding_mode=padding_mode,
+            ),
             nn.GELU(),
-            nn.Conv2d(hidden_dim // 2, hidden_dim, kernel_size=3, padding=1),
+            nn.Conv2d(
+                hidden_dim // 2,
+                hidden_dim,
+                kernel_size=3,
+                padding=1,
+                padding_mode=padding_mode,
+            ),
         )
 
         if static_channels > 0:
@@ -104,7 +120,7 @@ class WeatherFlowMatch(nn.Module):
         # Main processing blocks
         self.blocks = nn.ModuleList()
         for _ in range(n_layers):
-            self.blocks.append(ConvNextBlock(hidden_dim))
+            self.blocks.append(ConvNextBlock(hidden_dim, padding_mode=padding_mode))
             
         # Attention layer if requested
         self.use_attention = use_attention
@@ -117,9 +133,21 @@ class WeatherFlowMatch(nn.Module):
             
         # Output projection
         self.output_proj = nn.Sequential(
-            nn.Conv2d(hidden_dim, hidden_dim // 2, kernel_size=3, padding=1),
+            nn.Conv2d(
+                hidden_dim,
+                hidden_dim // 2,
+                kernel_size=3,
+                padding=1,
+                padding_mode=padding_mode,
+            ),
             nn.GELU(),
-            nn.Conv2d(hidden_dim // 2, input_channels, kernel_size=3, padding=1),
+            nn.Conv2d(
+                hidden_dim // 2,
+                input_channels,
+                kernel_size=3,
+                padding=1,
+                padding_mode=padding_mode,
+            ),
         )
         
         # Physics constraints (divergence regularization)
@@ -343,6 +371,7 @@ class StyleFlowMatch(WeatherFlowMatch):
         window_size: int = 8,
         static_channels: int = 0,
         forcing_dim: int = 0,
+        spherical_padding: bool = False,
     ):
         super().__init__(
             input_channels=input_channels,
@@ -354,6 +383,7 @@ class StyleFlowMatch(WeatherFlowMatch):
             window_size=window_size,
             static_channels=static_channels,
             forcing_dim=forcing_dim,
+            spherical_padding=spherical_padding,
         )
 
         self.style_encoder = nn.Sequential(

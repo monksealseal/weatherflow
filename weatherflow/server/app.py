@@ -163,6 +163,7 @@ class ModelConfig(CamelModel):
     use_attention: bool = Field(True, alias="useAttention")
     physics_informed: bool = Field(True, alias="physicsInformed")
     window_size: int = Field(8, ge=0, le=64, alias="windowSize")
+    spherical_padding: bool = Field(False, alias="sphericalPadding")
 
 
 class TrainingConfig(CamelModel):
@@ -543,6 +544,7 @@ def _train_model(
         window_size=config.model.window_size,
         static_channels=2,
         forcing_dim=1,
+        spherical_padding=config.model.spherical_padding,
     ).to(device)
     ode_model = WeatherFlowODE(
         model,
