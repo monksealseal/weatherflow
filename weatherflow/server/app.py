@@ -175,6 +175,8 @@ class TrainingConfig(CamelModel):
     loss_type: str = Field("mse", alias="lossType")
     seed: int = Field(42, ge=0, le=10_000)
     dynamics_scale: float = Field(0.15, gt=0.01, le=0.5, alias="dynamicsScale")
+    rollout_steps: int = Field(3, ge=2, le=12, alias="rolloutSteps")
+    rollout_weight: float = Field(0.3, ge=0.0, le=5.0, alias="rolloutWeight")
 
     @field_validator("solver_method")
     @classmethod
@@ -215,6 +217,7 @@ class MetricEntry(CamelModel):
     loss: float
     flow_loss: float = Field(alias="flowLoss")
     divergence_loss: float = Field(alias="divergenceLoss")
+    rollout_loss: float = Field(0.0, alias="rolloutLoss")
     energy_diff: float = Field(alias="energyDiff")
 
 
@@ -223,6 +226,7 @@ class ValidationMetricEntry(CamelModel):
     val_loss: float
     val_flow_loss: float = Field(alias="valFlowLoss")
     val_divergence_loss: float = Field(alias="valDivergenceLoss")
+    val_rollout_loss: float = Field(0.0, alias="valRolloutLoss")
     val_energy_diff: float = Field(alias="valEnergyDiff")
 
 
@@ -390,6 +394,9 @@ def _compute_losses(
     x1: torch.Tensor,
     t: torch.Tensor,
     loss_type: str,
+    rollout_steps: int = 0,
+    rollout_weight: float = 0.0,
+    ode_model: WeatherFlowODE | None = None,
 ) -> Dict[str, torch.Tensor]:
     """Compute flow matching loss with optional physics constraints."""
 
@@ -406,7 +413,16 @@ def _compute_losses(
     losses: Dict[str, torch.Tensor] = {
         "flow_loss": flow_loss,
         "total_loss": flow_loss,
+        "rollout_loss": torch.tensor(0.0, device=x0.device),
     }
+
+    if rollout_steps > 1 and rollout_weight > 0.0 and ode_model is not None:
+        times = torch.linspace(0.0, 1.0, rollout_steps, device=x0.device)
+        rollout = ode_model(x0, times)
+        rollout_pred = rollout[-1, 0]
+        rollout_loss = F.mse_loss(rollout_pred, x1)
+        losses["rollout_loss"] = rollout_loss
+        losses["total_loss"] = losses["total_loss"] + rollout_weight * rollout_loss
 
     if model.physics_informed:
         if v_pred.shape[1] >= 2:
@@ -506,6 +522,10 @@ def _train_model(
         grid_size=(resolved_grid.lat, resolved_grid.lon),
         physics_informed=config.model.physics_informed,
     ).to(device)
+    ode_model = WeatherFlowODE(
+        model,
+        solver_method=config.training.solver_method,
+    ).to(device)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=config.training.learning_rate)
 
@@ -517,6 +537,7 @@ def _train_model(
         train_loss = []
         train_flow = []
         train_div = []
+        train_rollout = []
         train_energy = []
 
         for x0, x1 in train_loader:
@@ -524,7 +545,16 @@ def _train_model(
             x1 = x1.to(device)
             t = torch.rand(x0.size(0), device=device, generator=generator)
 
-            losses = _compute_losses(model, x0, x1, t, config.training.loss_type)
+            losses = _compute_losses(
+                model,
+                x0,
+                x1,
+                t,
+                config.training.loss_type,
+                rollout_steps=config.training.rollout_steps,
+                rollout_weight=config.training.rollout_weight,
+                ode_model=ode_model,
+            )
             total_loss = losses["total_loss"]
 
             optimizer.zero_grad()
@@ -537,6 +567,7 @@ def _train_model(
             train_energy.append(
                 float(losses.get("energy_diff", torch.tensor(0.0)).item())
             )
+            train_rollout.append(float(losses.get("rollout_loss", torch.tensor(0.0)).item()))
 
         if not train_loss:
             raise RuntimeError("Training dataset is empty")
@@ -547,6 +578,7 @@ def _train_model(
                 loss=float(sum(train_loss) / len(train_loss)),
                 flow_loss=float(sum(train_flow) / len(train_flow)),
                 divergence_loss=float(sum(train_div) / len(train_div)),
+                rollout_loss=float(sum(train_rollout) / max(len(train_rollout), 1)),
                 energy_diff=float(sum(train_energy) / len(train_energy)),
             )
         )
@@ -555,6 +587,7 @@ def _train_model(
         val_loss = []
         val_flow = []
         val_div = []
+        val_rollout = []
         val_energy = []
 
         with torch.no_grad():
@@ -563,7 +596,16 @@ def _train_model(
                 x1 = x1.to(device)
                 t = torch.rand(x0.size(0), device=device, generator=generator)
 
-                losses = _compute_losses(model, x0, x1, t, config.training.loss_type)
+                losses = _compute_losses(
+                    model,
+                    x0,
+                    x1,
+                    t,
+                    config.training.loss_type,
+                    rollout_steps=config.training.rollout_steps,
+                    rollout_weight=config.training.rollout_weight,
+                    ode_model=ode_model,
+                )
                 total_loss = losses["total_loss"]
 
                 val_loss.append(float(total_loss.item()))
@@ -572,6 +614,7 @@ def _train_model(
                 val_energy.append(
                     float(losses.get("energy_diff", torch.tensor(0.0)).item())
                 )
+                val_rollout.append(float(losses.get("rollout_loss", torch.tensor(0.0)).item()))
 
         val_metrics.append(
             ValidationMetricEntry(
@@ -579,6 +622,7 @@ def _train_model(
                 val_loss=float(sum(val_loss) / len(val_loss)),
                 val_flow_loss=float(sum(val_flow) / len(val_flow)),
                 val_divergence_loss=float(sum(val_div) / len(val_div)),
+                val_rollout_loss=float(sum(val_rollout) / max(len(val_rollout), 1)),
                 val_energy_diff=float(sum(val_energy) / len(val_energy)),
             )
         )
