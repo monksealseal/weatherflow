@@ -13,6 +13,7 @@ from torch.utils.data import DataLoader, TensorDataset
 
 from weatherflow.models.flow_matching import WeatherFlowMatch, WeatherFlowODE
 from weatherflow.models.icosahedral import IcosahedralFlowMatch
+from weatherflow.data.webdataset_loader import create_webdataset_loader
 from weatherflow.simulation import SimulationOrchestrator
 
 # Limit CPU usage for deterministic behaviour when running inside tests
@@ -135,6 +136,7 @@ class DatasetConfig(CamelModel):
     grid_size: GridSize = Field(default_factory=GridSize, alias="gridSize")
     train_samples: int = Field(48, ge=4, le=256, alias="trainSamples")
     val_samples: int = Field(16, ge=4, le=128, alias="valSamples")
+    webdataset_pattern: str | None = Field(None, alias="webdatasetPattern")
 
     @field_validator("variables")
     @classmethod
@@ -333,6 +335,41 @@ def _build_dataloaders(
     generator: torch.Generator,
 ) -> Dict[str, object]:
     """Create lightweight synthetic datasets for demonstration purposes."""
+    if config.webdataset_pattern:
+        loader = create_webdataset_loader(
+            config.webdataset_pattern,
+            batch_size=config.train_samples,
+            num_workers=2,
+            shuffle=True,
+        )
+        batch = next(iter(loader))
+        train_x0, train_x1 = batch
+        val_loader = create_webdataset_loader(
+            config.webdataset_pattern,
+            batch_size=config.val_samples,
+            num_workers=2,
+            shuffle=True,
+            resampled=False,
+        )
+        val_x0, val_x1 = next(iter(val_loader))
+        # Dummy static/forcing placeholders (zeroed) matching shapes
+        b_train, _, lat, lon = train_x0.shape
+        static_features = torch.zeros(b_train, 2, lat, lon, device=device)
+        forcing = torch.zeros(b_train, 1, device=device)
+        b_val = val_x0.shape[0]
+        static_val = torch.zeros(b_val, 2, lat, lon, device=device)
+        forcing_val = torch.zeros(b_val, 1, device=device)
+
+        train_dataset = TensorDataset(train_x0, train_x1, static_features, forcing)
+        val_dataset = TensorDataset(val_x0, val_x1, static_val, forcing_val)
+        channel_names = _channel_names(config)
+        return {
+            "train": train_dataset,
+            "val": val_dataset,
+            "channel_names": channel_names,
+            "grid": GridSize(lat=lat, lon=lon),
+            "time_step_seconds": 300,
+        }
     channel_names = _channel_names(config)
     channels = len(channel_names)
     lat, lon, time_step_seconds = orchestrator.resolve_grid_size(
