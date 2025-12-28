@@ -313,7 +313,8 @@ class VolumetricCloudRenderer:
         occlusion_mask = densities > self.settings.transmittance_floor
         if occlusion_mask.any():
             first_hit = occlusion_mask.float().argmax(dim=-1)
-            depth = camera.near + first_hit.float() * step
+            hit_mask = occlusion_mask.any(dim=-1)
+            depth = torch.where(hit_mask, camera.near + first_hit.float() * step, depth)
 
         return color.clamp(0.0, 1.0), depth
 
@@ -435,4 +436,3 @@ class VerticalCrossSectionRenderer:
         }
 
         return {"rgba": result, "metadata": metadata}
-
