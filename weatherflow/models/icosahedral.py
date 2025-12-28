@@ -131,14 +131,16 @@ class IcosahedralFlowMatch(nn.Module):
         self.hidden_dim = hidden_dim
         self.n_layers = n_layers
         self.heads = heads
+        self.subdivisions = max(0, subdivisions)
 
         verts, faces = _icosahedron()
-        for _ in range(max(0, subdivisions)):
+        for _ in range(self.subdivisions):
             verts, faces = _subdivide(verts, faces)
         edges = _faces_to_edges(faces)
         self.register_buffer("verts", verts, persistent=False)
         self.register_buffer("faces", faces, persistent=False)
         self.register_buffer("edges", edges, persistent=False)
+        self.register_buffer("face_areas", self._compute_face_areas(verts, faces), persistent=False)
 
         self.input_proj = nn.Linear(input_channels, hidden_dim)
         self.layers = nn.ModuleList(
@@ -155,6 +157,25 @@ class IcosahedralFlowMatch(nn.Module):
         self.output_proj = nn.Linear(hidden_dim, input_channels)
         self.norm = nn.LayerNorm(hidden_dim)
         self.interp_cache: dict[Tuple[int, int, torch.device], Tuple[torch.Tensor, torch.Tensor]] = {}
+
+    def _compute_face_areas(self, verts: torch.Tensor, faces: torch.Tensor) -> torch.Tensor:
+        """Spherical triangle area using l'Huilier formula."""
+        tri = verts[faces]  # [F,3,3]
+        a = torch.acos((tri[:, 1] * tri[:, 2]).sum(dim=1).clamp(-1, 1))
+        b = torch.acos((tri[:, 0] * tri[:, 2]).sum(dim=1).clamp(-1, 1))
+        c = torch.acos((tri[:, 0] * tri[:, 1]).sum(dim=1).clamp(-1, 1))
+        s = 0.5 * (a + b + c)
+        tan_e4 = torch.sqrt(
+            torch.clamp(
+                torch.tan(s / 2)
+                * torch.tan((s - a) / 2)
+                * torch.tan((s - b) / 2)
+                * torch.tan((s - c) / 2),
+                min=0.0,
+            )
+        )
+        area = 4 * torch.atan(tan_e4)
+        return area.unsqueeze(-1)  # [F,1]
 
     def _grid_to_cartesian(self, lat: torch.Tensor, lon: torch.Tensor) -> torch.Tensor:
         x = torch.cos(lat) * torch.cos(lon)
@@ -245,11 +266,13 @@ class IcosahedralFlowMatch(nn.Module):
         face_indices = grid_face  # [G]
         tri_verts = self.faces.to(device)[face_indices]  # [G,3]
         weights = grid_weights  # [G,3]
-        # Aggregate grid cells to vertices via barycentric weights
+        # Aggregate grid cells to vertices via barycentric weights with face area weighting
+        face_area = self.face_areas.to(device)[face_indices]  # [G,1]
         node_feats = torch.zeros(b, self.verts.shape[0], c, device=device)
-        node_feats.index_add_(1, tri_verts[:, 0], nodes * weights[:, 0].view(1, -1, 1))
-        node_feats.index_add_(1, tri_verts[:, 1], nodes * weights[:, 1].view(1, -1, 1))
-        node_feats.index_add_(1, tri_verts[:, 2], nodes * weights[:, 2].view(1, -1, 1))
+        weighted_nodes = nodes * face_area
+        node_feats.index_add_(1, tri_verts[:, 0], weighted_nodes * weights[:, 0].view(1, -1, 1))
+        node_feats.index_add_(1, tri_verts[:, 1], weighted_nodes * weights[:, 1].view(1, -1, 1))
+        node_feats.index_add_(1, tri_verts[:, 2], weighted_nodes * weights[:, 2].view(1, -1, 1))
 
         h_nodes = self.input_proj(node_feats)
         edges = self.edges.to(device)
@@ -289,5 +312,7 @@ class IcosahedralFlowMatch(nn.Module):
         out_grid += out_nodes[:, tri_verts[:, 0], :] * weights[:, 0].view(1, -1, 1)
         out_grid += out_nodes[:, tri_verts[:, 1], :] * weights[:, 1].view(1, -1, 1)
         out_grid += out_nodes[:, tri_verts[:, 2], :] * weights[:, 2].view(1, -1, 1)
+        norm = (weights.sum(dim=1, keepdim=True)).clamp(min=1e-6)
+        out_grid = out_grid / norm
         out_grid = out_grid.view(b, h, w, c).permute(0, 3, 1, 2)
         return out_grid

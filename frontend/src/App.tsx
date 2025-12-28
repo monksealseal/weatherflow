@@ -27,6 +27,7 @@ const defaultModelConfig: ModelConfig = {
   windowSize: 8,
   sphericalPadding: true,
   useGraphMp: true,
+  subdivisions: 1,
   backbone: 'grid'
 };
 

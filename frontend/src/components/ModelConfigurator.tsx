@@ -36,6 +36,17 @@ function ModelConfigurator({ value, onChange }: Props): JSX.Element {
           </select>
         </label>
         <label>
+          Subdivisions (icosahedral)
+          <input
+            type="number"
+            min={0}
+            max={3}
+            name="subdivisions"
+            value={value.subdivisions}
+            onChange={handleNumberChange}
+          />
+        </label>
+        <label>
           Hidden dimension
           <input
             type="number"

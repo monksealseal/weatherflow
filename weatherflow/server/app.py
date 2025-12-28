@@ -169,6 +169,7 @@ class ModelConfig(CamelModel):
     window_size: int = Field(8, ge=0, le=64, alias="windowSize")
     spherical_padding: bool = Field(False, alias="sphericalPadding")
     use_graph_mp: bool = Field(False, alias="useGraphMp")
+    subdivisions: int = Field(1, ge=0, le=3, alias="subdivisions")
     @field_validator("backbone")
     @classmethod
     def validate_backbone(cls, value: str) -> str:  # noqa: D401
@@ -586,6 +587,7 @@ def _train_model(
             input_channels=len(channel_names),
             hidden_dim=config.model.hidden_dim,
             n_layers=config.model.n_layers,
+            subdivisions=config.model.subdivisions,
         ).to(device)
     else:
         model = WeatherFlowMatch(

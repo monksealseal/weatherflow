@@ -19,6 +19,7 @@ export interface ModelConfig {
   windowSize: number;
   sphericalPadding: boolean;
   useGraphMp: boolean;
+  subdivisions: number;
   backbone: 'grid' | 'icosahedral';
 }
 
