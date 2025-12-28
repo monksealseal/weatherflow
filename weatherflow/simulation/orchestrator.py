@@ -273,6 +273,25 @@ class SimulationOrchestrator:
         )
         return advected
 
+    def build_static_features(
+        self, lat: int, lon: int, device: Optional[torch.device] = None
+    ) -> torch.Tensor:
+        """Generate simple static features (orography + land/sea mask proxy)."""
+        lat_grid = torch.linspace(-1.0, 1.0, steps=lat, device=device)
+        lon_grid = torch.linspace(-1.0, 1.0, steps=lon, device=device)
+        lon_mesh, lat_mesh = torch.meshgrid(lon_grid, lat_grid, indexing="xy")
+        orography = torch.exp(-((lat_mesh**2 + lon_mesh**2) * 2.5))  # bump at center
+        land_sea = (lat_mesh > 0).float()  # crude hemisphere split
+        return torch.stack([orography, land_sea], dim=0)
+
+    def build_forcing(
+        self, batch_size: int, device: Optional[torch.device] = None
+    ) -> torch.Tensor:
+        """Generate a simple solar-like forcing value per sample."""
+        hours = torch.linspace(0, 24, steps=batch_size, device=device)
+        solar = torch.sin((hours / 24) * 2 * torch.pi).unsqueeze(-1)
+        return solar
+
     def apply_moisture_and_surface_flux(
         self, state: torch.Tensor, moisture_config: object, flux_config: object
     ) -> torch.Tensor:

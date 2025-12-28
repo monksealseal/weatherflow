@@ -68,6 +68,8 @@ class WeatherFlowMatch(nn.Module):
         grid_size: Tuple[int, int] = (32, 64),  # lat, lon
         physics_informed: bool = True,
         window_size: int = 8,
+        static_channels: int = 0,
+        forcing_dim: int = 0,
     ):
         super().__init__()
         self.input_channels = input_channels
@@ -76,6 +78,8 @@ class WeatherFlowMatch(nn.Module):
         self.grid_size = grid_size
         self.physics_informed = physics_informed
         self.window_size = window_size
+        self.static_channels = static_channels
+        self.forcing_dim = forcing_dim
         
         # Input projection
         self.input_proj = nn.Sequential(
@@ -83,6 +87,16 @@ class WeatherFlowMatch(nn.Module):
             nn.GELU(),
             nn.Conv2d(hidden_dim // 2, hidden_dim, kernel_size=3, padding=1),
         )
+
+        if static_channels > 0:
+            self.static_proj = nn.Conv2d(static_channels, hidden_dim, kernel_size=1)
+        else:
+            self.static_proj = None
+
+        if forcing_dim > 0:
+            self.forcing_proj = nn.Linear(forcing_dim, hidden_dim)
+        else:
+            self.forcing_proj = None
         
         # Time encoding
         self.time_encoder = TimeEncoder(hidden_dim)
@@ -165,26 +179,26 @@ class WeatherFlowMatch(nn.Module):
         radius = torch.tensor(self.sphere.radius, device=u.device, dtype=u.dtype)
         return (du_dlambda / (radius * cos_lat)) + (dvcos_dphi / radius)
     
-    def _add_time_embedding(self, x: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
-        """Add time embedding to feature maps.
-        
-        Args:
-            x: Feature maps, shape [batch_size, channels, height, width]
-            t: Time values, shape [batch_size]
-            
-        Returns:
-            Features with time embedding, same shape as x
-        """
-        # Encode time
+    def _add_time_embedding(
+        self, x: torch.Tensor, t: torch.Tensor, forcing: Optional[torch.Tensor] = None
+    ) -> torch.Tensor:
+        """Add time (and optional forcing) embedding to feature maps."""
         time_embed = self.time_encoder(t)  # [batch_size, hidden_dim]
-        
-        # Reshape for broadcasting
         time_embed = time_embed.unsqueeze(-1).unsqueeze(-1)
-        
-        # Add to all spatial locations
-        return x + time_embed
+        out = x + time_embed
+
+        if forcing is not None and self.forcing_proj is not None:
+            forcing_proj = self.forcing_proj(forcing).unsqueeze(-1).unsqueeze(-1)
+            out = out + forcing_proj
+        return out
     
-    def forward(self, x: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self,
+        x: torch.Tensor,
+        t: torch.Tensor,
+        static: Optional[torch.Tensor] = None,
+        forcing: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
         """Compute velocity field for flow matching.
         
         Args:
@@ -196,9 +210,12 @@ class WeatherFlowMatch(nn.Module):
         """
         # Input projection
         h = self.input_proj(x)
+
+        if static is not None and self.static_proj is not None:
+            h = h + self.static_proj(static)
         
         # Add time embedding
-        h = self._add_time_embedding(h, t)
+        h = self._add_time_embedding(h, t, forcing)
         
         # Process through main blocks
         for block in self.blocks:
@@ -251,10 +268,12 @@ class WeatherFlowMatch(nn.Module):
         return v
     
     def compute_flow_loss(
-        self, 
-        x0: torch.Tensor, 
-        x1: torch.Tensor, 
-        t: torch.Tensor
+        self,
+        x0: torch.Tensor,
+        x1: torch.Tensor,
+        t: torch.Tensor,
+        static: Optional[torch.Tensor] = None,
+        forcing: Optional[torch.Tensor] = None,
     ) -> Dict[str, torch.Tensor]:
         """Compute flow matching loss.
         
@@ -267,7 +286,7 @@ class WeatherFlowMatch(nn.Module):
             Dictionary of loss components
         """
         # Compute model's predicted velocity
-        v_pred = self(x0, t)
+        v_pred = self(x0, t, static=static, forcing=forcing)
         
         # Compute target velocity (straight-line path)
         # For spherical geometries, this should use geodesics
@@ -322,6 +341,8 @@ class StyleFlowMatch(WeatherFlowMatch):
         grid_size: Tuple[int, int] = (32, 64),
         physics_informed: bool = False,
         window_size: int = 8,
+        static_channels: int = 0,
+        forcing_dim: int = 0,
     ):
         super().__init__(
             input_channels=input_channels,
@@ -331,6 +352,8 @@ class StyleFlowMatch(WeatherFlowMatch):
             grid_size=grid_size,
             physics_informed=physics_informed,
             window_size=window_size,
+            static_channels=static_channels,
+            forcing_dim=forcing_dim,
         )
 
         self.style_encoder = nn.Sequential(
@@ -410,15 +433,19 @@ class WeatherFlowODE(nn.Module):
         self.atol = atol
         
     def forward(
-        self, 
-        x0: torch.Tensor, 
-        times: torch.Tensor
+        self,
+        x0: torch.Tensor,
+        times: torch.Tensor,
+        static: Optional[torch.Tensor] = None,
+        forcing: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         """Generate weather predictions by solving the ODE.
         
         Args:
             x0: Initial weather state, shape [batch_size, channels, lat, lon]
             times: Time points for prediction, shape [num_times]
+            static: Optional static conditioning features [batch_size, channels, lat, lon]
+            forcing: Optional per-sample forcing vector [batch_size, forcing_dim]
             
         Returns:
             Predicted weather states at requested times,
@@ -430,7 +457,7 @@ class WeatherFlowODE(nn.Module):
             """ODE function for the solver."""
             # Reshape t for the model
             t_batch = t.expand(x.shape[0])
-            return self.flow_model(x, t_batch)
+            return self.flow_model(x, t_batch, static=static, forcing=forcing)
         
         # Solve ODE
         predictions = odeint(

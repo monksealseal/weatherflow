@@ -336,6 +336,7 @@ def _build_dataloaders(
         seed=simulation.seed,
         device=device,
     )
+    static_features = orchestrator.build_static_features(lat, lon, device=device)
 
     def _synth_samples(
         num_samples: int, start_idx: int
@@ -367,8 +368,14 @@ def _build_dataloaders(
     train_x0, train_x1 = _synth_samples(config.train_samples, 0)
     val_x0, val_x1 = _synth_samples(config.val_samples, config.train_samples)
 
-    train_dataset = TensorDataset(train_x0, train_x1)
-    val_dataset = TensorDataset(val_x0, val_x1)
+    forcing_train = orchestrator.build_forcing(train_x0.shape[0], device=device)
+    forcing_val = orchestrator.build_forcing(val_x0.shape[0], device=device)
+
+    static_train = static_features.unsqueeze(0).repeat(train_x0.shape[0], 1, 1, 1)
+    static_val = static_features.unsqueeze(0).repeat(val_x0.shape[0], 1, 1, 1)
+
+    train_dataset = TensorDataset(train_x0, train_x1, static_train, forcing_train)
+    val_dataset = TensorDataset(val_x0, val_x1, static_val, forcing_val)
     return {
         "train": train_dataset,
         "val": val_dataset,
@@ -407,10 +414,12 @@ def _compute_losses(
     rollout_steps: int = 0,
     rollout_weight: float = 0.0,
     ode_model: WeatherFlowODE | None = None,
+    static: torch.Tensor | None = None,
+    forcing: torch.Tensor | None = None,
 ) -> Dict[str, torch.Tensor]:
     """Compute flow matching loss with optional physics constraints."""
 
-    v_pred = model(x0, t)
+    v_pred = model(x0, t, static=static, forcing=forcing)
     target_velocity = (x1 - x0) / (1 - t).view(-1, 1, 1, 1)
 
     if loss_type == "huber":
@@ -428,7 +437,7 @@ def _compute_losses(
 
     if rollout_steps > 1 and rollout_weight > 0.0 and ode_model is not None:
         times = torch.linspace(0.0, 1.0, rollout_steps, device=x0.device)
-        rollout = ode_model(x0, times)
+        rollout = ode_model(x0, times, static=static, forcing=forcing)
         rollout_pred = rollout[-1, 0]
         rollout_loss = F.mse_loss(rollout_pred, x1)
         losses["rollout_loss"] = rollout_loss
@@ -532,6 +541,8 @@ def _train_model(
         grid_size=(resolved_grid.lat, resolved_grid.lon),
         physics_informed=config.model.physics_informed,
         window_size=config.model.window_size,
+        static_channels=2,
+        forcing_dim=1,
     ).to(device)
     ode_model = WeatherFlowODE(
         model,
@@ -551,9 +562,11 @@ def _train_model(
         train_rollout = []
         train_energy = []
 
-        for x0, x1 in train_loader:
+        for x0, x1, static_batch, forcing_batch in train_loader:
             x0 = x0.to(device)
             x1 = x1.to(device)
+            static_batch = static_batch.to(device)
+            forcing_batch = forcing_batch.to(device)
             t = torch.rand(x0.size(0), device=device, generator=generator)
 
             losses = _compute_losses(
@@ -565,6 +578,8 @@ def _train_model(
                 rollout_steps=config.training.rollout_steps,
                 rollout_weight=config.training.rollout_weight,
                 ode_model=ode_model,
+                static=static_batch,
+                forcing=forcing_batch,
             )
             total_loss = losses["total_loss"]
 
@@ -602,9 +617,11 @@ def _train_model(
         val_energy = []
 
         with torch.no_grad():
-            for x0, x1 in val_loader:
+            for x0, x1, static_batch, forcing_batch in val_loader:
                 x0 = x0.to(device)
                 x1 = x1.to(device)
+                static_batch = static_batch.to(device)
+                forcing_batch = forcing_batch.to(device)
                 t = torch.rand(x0.size(0), device=device, generator=generator)
 
                 losses = _compute_losses(
@@ -616,6 +633,8 @@ def _train_model(
                     rollout_steps=config.training.rollout_steps,
                     rollout_weight=config.training.rollout_weight,
                     ode_model=ode_model,
+                    static=static_batch,
+                    forcing=forcing_batch,
                 )
                 total_loss = losses["total_loss"]
 
@@ -661,6 +680,8 @@ def _run_prediction(
 
     initial = dataset.tensors[0][:1].to(device)
     target = dataset.tensors[1][:1].to(device)
+    static = dataset.tensors[2][:1].to(device) if len(dataset.tensors) > 2 else None
+    forcing = dataset.tensors[3][:1].to(device) if len(dataset.tensors) > 3 else None
 
     def _tile_slices(lat: int, lon: int, tile_lat: int, tile_lon: int, overlap: int) -> List[Tuple[slice, slice]]:
         if tile_lat <= 0 or tile_lon <= 0:
@@ -682,7 +703,7 @@ def _run_prediction(
         overlap = config.inference.tile_overlap
         slices = _tile_slices(lat, lon, tile_lat, tile_lon, overlap)
         if len(slices) == 1:
-            return ode_model(x, times)
+            return ode_model(x, times, static=static, forcing=forcing)
 
         preds = torch.zeros(
             (times.shape[0], b, c, lat, lon),
@@ -692,7 +713,8 @@ def _run_prediction(
         weight = torch.zeros((lat, lon), device=device, dtype=x.dtype)
         for lat_slice, lon_slice in slices:
             tile_init = x[:, :, lat_slice, lon_slice]
-            tile_pred = ode_model(tile_init, times)  # [T, B, C, h, w]
+            tile_static = static[:, :, lat_slice, lon_slice] if static is not None else None
+            tile_pred = ode_model(tile_init, times, static=tile_static, forcing=forcing)  # [T, B, C, h, w]
             preds[:, :, :, lat_slice, lon_slice] += tile_pred
             weight[lat_slice, lon_slice] += 1.0
         weight = weight.clamp(min=1.0)
