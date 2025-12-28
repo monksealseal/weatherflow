@@ -173,13 +173,8 @@ class WeatherFlowMatch(nn.Module):
             return h
 
         batch_size, c, height, width = h.shape
-        if self.window_size is None or self.window_size <= 0:
-            # Fallback to global attention (legacy path)
-            h_flat = h.flatten(2).permute(0, 2, 1)  # [B, H*W, C]
-            h_att, _ = self.attention(h_flat, h_flat, h_flat)
-            return h + h_att.permute(0, 2, 1).view(batch_size, c, height, width)
-
-        win = self.window_size
+        # Enforce local attention; if unset, pick a safe default window
+        win = self.window_size if self.window_size and self.window_size > 0 else min(height, width, 16)
         pad_h = (win - height % win) % win
         pad_w = (win - width % win) % win
         if pad_h or pad_w:
