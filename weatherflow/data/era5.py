@@ -70,7 +70,7 @@ class ERA5Dataset(Dataset):
         
         self.variables = [self.VARIABLE_MAP.get(v, v) for v in variables]
         self.pressure_levels = pressure_levels
-        self.data_path = data_path or self.DEFAULT_URL
+        self.data_path = data_path or os.getenv("WEATHERFLOW_ERA5_PATH", self.DEFAULT_URL)
         self.normalize = normalize
         self.add_physics_features = add_physics_features
         self.cache_data = cache_data
@@ -98,18 +98,21 @@ class ERA5Dataset(Dataset):
     def _load_data(self):
         """Robust data loading with multiple fallback methods."""
         self._log(f"Loading data from: {self.data_path}")
-        
+
+        data_path_str = str(self.data_path)
+        storage_options = {"token": "anon"} if data_path_str.startswith("gs://") else {}
         methods = [
-            # Method 1: Simple anonymous access
+            # Method 1: Recommended open_dataset pathway for Zarr with explicit anonymous access
             lambda: {
-                'method': xr.open_zarr,
+                'method': xr.open_dataset,
                 'args': [self.data_path],
                 'kwargs': {
-                    'storage_options': {'anon': True},
-                    'consolidated': True
-                }
+                    'engine': 'zarr',
+                    'chunks': 'auto',
+                    'backend_kwargs': {'storage_options': storage_options},
+                },
             },
-            
+
             # Method 2: Direct HTTP access for GCS paths
             lambda: {
                 'method': xr.open_zarr,
@@ -119,7 +122,7 @@ class ERA5Dataset(Dataset):
                         'trust_env': False,
                         'timeout': 30
                     }
-                ).get_mapper(self.data_path.replace('gs://', 'https://storage.googleapis.com/'))],
+                ).get_mapper(data_path_str.replace('gs://', 'https://storage.googleapis.com/'))],
                 'kwargs': {'consolidated': True}
             },
             

@@ -109,6 +109,26 @@ class WeatherFlowMatch(nn.Module):
         # Physics constraints (divergence regularization)
         if physics_informed:
             self.sphere = Sphere()
+
+    def _spherical_divergence(
+        self, u: torch.Tensor, v_comp: torch.Tensor
+    ) -> torch.Tensor:
+        """Compute divergence on a sphere using latitude/longitude grids."""
+        _, _, lat_size, lon_size = u.shape
+        lat_grid = torch.linspace(
+            -torch.pi / 2, torch.pi / 2, steps=lat_size, device=u.device, dtype=u.dtype
+        )
+        cos_lat = torch.cos(lat_grid).clamp(min=self.sphere._get_eps(u.dtype))
+        cos_lat = cos_lat.view(1, 1, lat_size, 1)
+
+        dlon = (2 * torch.pi) / max(lon_size, 1)
+        dphi = torch.pi / max(lat_size - 1, 1)
+
+        du_dlambda = torch.gradient(u, spacing=(dlon,), dim=(3,))[0]
+        dvcos_dphi = torch.gradient(v_comp * cos_lat, spacing=(dphi,), dim=(2,))[0]
+
+        radius = torch.tensor(self.sphere.radius, device=u.device, dtype=u.dtype)
+        return (du_dlambda / (radius * cos_lat)) + (dvcos_dphi / radius)
     
     def _add_time_embedding(self, x: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
         """Add time embedding to feature maps.
@@ -186,14 +206,7 @@ class WeatherFlowMatch(nn.Module):
             # Simple divergence calculation
             u = v[:, 0:1]  # u component
             v_comp = v[:, 1:2]  # v component
-            
-            # Calculate approximate divergence
-            # (This is a simplified version - a proper implementation would 
-            # account for spherical geometry)
-            du_dx = torch.gradient(u, dim=3)[0]
-            dv_dy = torch.gradient(v_comp, dim=2)[0]
-            
-            div = du_dx + dv_dy
+            div = self._spherical_divergence(u, v_comp)
             
             # Create a correction field to make the flow more divergence-free
             u_corr = torch.gradient(-div, dim=3)[0]
@@ -244,9 +257,7 @@ class WeatherFlowMatch(nn.Module):
             v_comp = v_pred[:, 1:2] if v_pred.shape[1] >= 2 else None
             
             if u is not None and v_comp is not None:
-                du_dx = torch.gradient(u, dim=3)[0]
-                dv_dy = torch.gradient(v_comp, dim=2)[0]
-                div = du_dx + dv_dy
+                div = self._spherical_divergence(u, v_comp)
                 div_loss = torch.mean(div**2)
                 losses['div_loss'] = div_loss
                 

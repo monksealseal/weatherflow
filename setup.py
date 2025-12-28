@@ -42,5 +42,14 @@ setup(
         "h5py>=3.0.0",
         "torchdiffeq>=0.2.3",  # Added critical dependency for ODE solvers
         "bottleneck>=1.3.6",
-    ]
+        "fastapi>=0.110.0,<0.112.0",
+        "uvicorn>=0.23.0,<0.28.0",
+        "plotly>=5.18.0",
+        "Pillow>=9.0.0",
+    ],
+    entry_points={
+        "console_scripts": [
+            "weatherflow=weatherflow.cli:main",
+        ],
+    },
 )

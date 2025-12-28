@@ -305,6 +305,7 @@ def _build_dataloaders(
     simulation: SimulationConfig,
     orchestrator: SimulationOrchestrator,
     device: torch.device,
+    generator: torch.Generator,
 ) -> Dict[str, object]:
     """Create lightweight synthetic datasets for demonstration purposes."""
     channel_names = _channel_names(config)
@@ -328,7 +329,9 @@ def _build_dataloaders(
         x0_list: List[torch.Tensor] = []
         x1_list: List[torch.Tensor] = []
         for sample_idx in range(num_samples):
-            noisy_state = base_state + torch.randn_like(base_state) * dynamics_scale
+            noisy_state = base_state + torch.randn_like(
+                base_state, generator=generator
+            ) * dynamics_scale
             stepped = orchestrator.simulate_time_step(
                 noisy_state,
                 simulation.core,
@@ -474,6 +477,8 @@ def _train_model(
     config: ExperimentConfig,
     device: torch.device,
     datasets: Dict[str, object],
+    generator: torch.Generator,
+    loader_generator: torch.Generator,
 ) -> Dict[str, object]:
     channel_names: List[str] = datasets["channel_names"]
     train_dataset: TensorDataset = datasets["train"]
@@ -484,11 +489,13 @@ def _train_model(
         train_dataset,
         batch_size=min(config.training.batch_size, len(train_dataset)),
         shuffle=True,
+        generator=loader_generator,
     )
     val_loader = DataLoader(
         val_dataset,
         batch_size=min(config.training.batch_size, len(val_dataset)),
         shuffle=False,
+        generator=loader_generator,
     )
 
     model = WeatherFlowMatch(
@@ -515,7 +522,7 @@ def _train_model(
         for x0, x1 in train_loader:
             x0 = x0.to(device)
             x1 = x1.to(device)
-            t = torch.rand(x0.size(0), device=device)
+            t = torch.rand(x0.size(0), device=device, generator=generator)
 
             losses = _compute_losses(model, x0, x1, t, config.training.loss_type)
             total_loss = losses["total_loss"]
@@ -554,7 +561,7 @@ def _train_model(
             for x0, x1 in val_loader:
                 x0 = x0.to(device)
                 x1 = x1.to(device)
-                t = torch.rand(x0.size(0), device=device)
+                t = torch.rand(x0.size(0), device=device, generator=generator)
 
                 losses = _compute_losses(model, x0, x1, t, config.training.loss_type)
                 total_loss = losses["total_loss"]
@@ -681,17 +688,23 @@ def create_app() -> FastAPI:
     def run_experiment(config: ExperimentConfig) -> ExperimentResult:
         start = time.perf_counter()
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        generator = torch.Generator(device=device)
+        generator.manual_seed(config.training.seed)
+        loader_generator = torch.Generator(device="cpu")
+        loader_generator.manual_seed(config.training.seed)
 
         try:
-            torch.manual_seed(config.training.seed)
             datasets = _build_dataloaders(
                 config.dataset,
                 config.training.dynamics_scale,
                 config.simulation,
                 SIMULATION_ORCHESTRATOR,
                 device,
+                generator,
             )
-            training_outcome = _train_model(config, device, datasets)
+            training_outcome = _train_model(
+                config, device, datasets, generator, loader_generator
+            )
             prediction, latest_field = _run_prediction(
                 training_outcome["model"],
                 config,
