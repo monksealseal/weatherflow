@@ -20,6 +20,7 @@ export interface ModelConfig {
   sphericalPadding: boolean;
   useGraphMp: boolean;
   subdivisions: number;
+  interpCacheDir?: string | null;
   backbone: 'grid' | 'icosahedral';
 }
 

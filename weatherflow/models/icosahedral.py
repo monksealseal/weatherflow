@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import math
 from functools import lru_cache
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 
 import torch
 import torch.nn as nn
@@ -125,6 +125,7 @@ class IcosahedralFlowMatch(nn.Module):
         n_layers: int = 4,
         subdivisions: int = 1,
         heads: int = 4,
+        interp_cache_dir: Optional[str] = None,
     ) -> None:
         super().__init__()
         self.input_channels = input_channels
@@ -132,6 +133,7 @@ class IcosahedralFlowMatch(nn.Module):
         self.n_layers = n_layers
         self.heads = heads
         self.subdivisions = max(0, subdivisions)
+        self.interp_cache_dir = interp_cache_dir
 
         verts, faces = _icosahedron()
         for _ in range(self.subdivisions):
@@ -156,7 +158,7 @@ class IcosahedralFlowMatch(nn.Module):
         self.attn_proj_v = nn.Linear(hidden_dim, hidden_dim)
         self.output_proj = nn.Linear(hidden_dim, input_channels)
         self.norm = nn.LayerNorm(hidden_dim)
-        self.interp_cache: dict[Tuple[int, int, torch.device], Tuple[torch.Tensor, torch.Tensor]] = {}
+        self.interp_cache: dict[Tuple[int, int, torch.device], Tuple[torch.Tensor, torch.Tensor, torch.Tensor]] = {}
 
     def _compute_face_areas(self, verts: torch.Tensor, faces: torch.Tensor) -> torch.Tensor:
         """Spherical triangle area using l'Huilier formula."""
@@ -198,9 +200,28 @@ class IcosahedralFlowMatch(nn.Module):
         except Exception:
             return torch.tensor([1.0, 0.0, 0.0], device=point.device), torch.tensor(0.0)
 
-    @lru_cache(maxsize=32)
     def _grid_mapping(self, lat: int, lon: int, device: torch.device):
         """Precompute grid->mesh barycentric weights and mesh->grid scatter indices."""
+        cache_key = (lat, lon, device)
+        if cache_key in self.interp_cache:
+            return self.interp_cache[cache_key]
+
+        disk_loaded = False
+        if self.interp_cache_dir:
+            import os
+            from pathlib import Path
+
+            cache_dir = Path(self.interp_cache_dir)
+            cache_dir.mkdir(parents=True, exist_ok=True)
+            cache_path = cache_dir / f"s{self.subdivisions}_lat{lat}_lon{lon}.pt"
+            if cache_path.exists():
+                data = torch.load(cache_path, map_location=device)
+                grid_face = data["grid_face"]
+                weights = data["weights"]
+                vert_to_grid = data["vert_to_grid"]
+                self.interp_cache[cache_key] = (grid_face, weights, vert_to_grid)
+                return grid_face, weights, vert_to_grid
+
         lat_centers = torch.linspace(-math.pi / 2, math.pi / 2, steps=lat, device=device)
         lon_centers = torch.linspace(-math.pi, math.pi, steps=lon, device=device)
         lon_grid, lat_grid = torch.meshgrid(lon_centers, lat_centers, indexing="xy")
@@ -230,7 +251,18 @@ class IcosahedralFlowMatch(nn.Module):
         # scatter nearest centroid for reverse mapping (approximate)
         _, closest_face_per_vert = torch.cdist(verts, face_centers).min(dim=1)
         vert_to_grid = grid_face[closest_face_per_vert]
-        return (grid_face, weights), vert_to_grid
+        self.interp_cache[cache_key] = (grid_face, weights, vert_to_grid)
+        if self.interp_cache_dir:
+            cache_path = Path(self.interp_cache_dir) / f"s{self.subdivisions}_lat{lat}_lon{lon}.pt"
+            torch.save(
+                {
+                    "grid_face": grid_face.cpu(),
+                    "weights": weights.cpu(),
+                    "vert_to_grid": vert_to_grid.cpu(),
+                },
+                cache_path,
+            )
+        return grid_face, weights, vert_to_grid
 
     def _edge_geometry(self, device: torch.device) -> torch.Tensor:
         """Compute edge direction (2 angles) and length on the sphere."""
@@ -259,7 +291,7 @@ class IcosahedralFlowMatch(nn.Module):
         """
         b, c, h, w = x.shape
         device = x.device
-        (grid_face, grid_weights), vert_to_grid = self._grid_mapping(h, w, device)
+        grid_face, grid_weights, vert_to_grid = self._grid_mapping(h, w, device)
 
         # Grid -> vertex gather
         nodes = x.permute(0, 2, 3, 1).reshape(b, h * w, c)

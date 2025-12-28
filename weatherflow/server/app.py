@@ -170,6 +170,7 @@ class ModelConfig(CamelModel):
     spherical_padding: bool = Field(False, alias="sphericalPadding")
     use_graph_mp: bool = Field(False, alias="useGraphMp")
     subdivisions: int = Field(1, ge=0, le=3, alias="subdivisions")
+    interp_cache_dir: str | None = Field(None, alias="interpCacheDir")
     @field_validator("backbone")
     @classmethod
     def validate_backbone(cls, value: str) -> str:  # noqa: D401
@@ -591,6 +592,7 @@ def _train_model(
             hidden_dim=config.model.hidden_dim,
             n_layers=config.model.n_layers,
             subdivisions=config.model.subdivisions,
+            interp_cache_dir=config.model.interp_cache_dir,
         ).to(device)
     else:
         model = WeatherFlowMatch(

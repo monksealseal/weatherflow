@@ -47,6 +47,15 @@ function ModelConfigurator({ value, onChange }: Props): JSX.Element {
           />
         </label>
         <label>
+          Interp cache dir (optional)
+          <input
+            type="text"
+            name="interpCacheDir"
+            value={value.interpCacheDir ?? ''}
+            onChange={(e) => onChange({ ...value, interpCacheDir: e.target.value || null })}
+          />
+        </label>
+        <label>
           Hidden dimension
           <input
             type="number"

@@ -28,6 +28,7 @@ const defaultModelConfig: ModelConfig = {
   sphericalPadding: true,
   useGraphMp: true,
   subdivisions: 1,
+  interpCacheDir: null,
   backbone: 'grid'
 };
 
