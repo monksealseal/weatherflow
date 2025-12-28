@@ -8,10 +8,12 @@ class DummyModel(torch.nn.Module):
     def __init__(self, channels: int):
         super().__init__()
         self.channels = channels
+        # Simple learnable parameter to avoid empty param list issues
+        self.scale = torch.nn.Parameter(torch.ones(1))
 
     def forward(self, x, t, style=None):
         # Return a simple scaled version to keep shapes consistent
-        return x * 0.0 + t.view(-1, 1, 1, 1)
+        return (x * 0.0 + t.view(-1, 1, 1, 1)) * self.scale
 
 
 def build_loader(batch: int = 2, channels: int = 2):
