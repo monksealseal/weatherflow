@@ -6,12 +6,14 @@ import {
   ExperimentResult,
   ModelConfig,
   ServerOptions,
+  InferenceConfig,
   TrainingConfig
 } from './api/types';
 import { fetchOptions, runExperiment } from './api/client';
 import DatasetConfigurator from './components/DatasetConfigurator';
 import ModelConfigurator from './components/ModelConfigurator';
 import TrainingConfigurator from './components/TrainingConfigurator';
+import InferenceConfigurator from './components/InferenceConfigurator';
 import ResultsPanel from './components/ResultsPanel';
 import LoadingOverlay from './components/LoadingOverlay';
 import ErrorNotice from './components/ErrorNotice';
@@ -46,11 +48,18 @@ const createDefaultTrainingConfig = (options: ServerOptions): TrainingConfig => 
   rolloutWeight: 0.3
 });
 
+const defaultInferenceConfig: InferenceConfig = {
+  tileSizeLat: 0,
+  tileSizeLon: 0,
+  tileOverlap: 0
+};
+
 function App(): JSX.Element {
   const [options, setOptions] = useState<ServerOptions | null>(null);
   const [datasetConfig, setDatasetConfig] = useState<DatasetConfig | null>(null);
   const [modelConfig, setModelConfig] = useState<ModelConfig>(defaultModelConfig);
   const [trainingConfig, setTrainingConfig] = useState<TrainingConfig | null>(null);
+  const [inferenceConfig, setInferenceConfig] = useState<InferenceConfig>(defaultInferenceConfig);
   const [result, setResult] = useState<ExperimentResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -80,7 +89,8 @@ function App(): JSX.Element {
     const config: ExperimentConfig = {
       dataset: datasetConfig,
       model: modelConfig,
-      training: trainingConfig
+      training: trainingConfig,
+      inference: inferenceConfig
     };
 
     setLoading(true);
@@ -104,6 +114,7 @@ function App(): JSX.Element {
     setDatasetConfig(createDefaultDatasetConfig(options));
     setModelConfig(defaultModelConfig);
     setTrainingConfig(createDefaultTrainingConfig(options));
+    setInferenceConfig(defaultInferenceConfig);
     setResult(null);
   };
 
@@ -136,6 +147,7 @@ function App(): JSX.Element {
             value={trainingConfig}
             onChange={setTrainingConfig}
           />
+          <InferenceConfigurator value={inferenceConfig} onChange={setInferenceConfig} />
           <div className="actions">
             <button
               type="button"
