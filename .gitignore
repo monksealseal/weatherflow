@@ -38,3 +38,10 @@ ENV/
 # Frontend artifacts
 frontend/node_modules/
 frontend/dist/
+frontend/frontend.log
+frontend/frontend.pid
+frontend/vite.log
+frontend/vite.pid
+server.log
+server.pid
+
