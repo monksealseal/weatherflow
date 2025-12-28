@@ -230,7 +230,7 @@ class WeatherFlowMatch(nn.Module):
     def _spherical_divergence(
         self, u: torch.Tensor, v_comp: torch.Tensor
     ) -> torch.Tensor:
-        """Compute divergence on a sphere using latitude/longitude grids."""
+        """Compute divergence on a sphere using latitude/longitude grids (wrapped)."""
         _, _, lat_size, lon_size = u.shape
         lat_grid = torch.linspace(
             -torch.pi / 2, torch.pi / 2, steps=lat_size, device=u.device, dtype=u.dtype
@@ -318,25 +318,23 @@ class WeatherFlowMatch(nn.Module):
             Constrained velocity field, same shape as v
         """
         # We focus on the first two channels if they represent u,v components
-        if v.shape[1] >= 2:
-            # Simple divergence calculation
-            u = v[:, 0:1]  # u component
-            v_comp = v[:, 1:2]  # v component
-            div = self._spherical_divergence(u, v_comp)
-            
-            # Create a correction field to make the flow more divergence-free
-            u_corr = torch.gradient(-div, dim=3)[0]
-            v_corr = torch.gradient(-div, dim=2)[0]
-            
-            # Apply correction with a small weight
-            alpha = 0.1
-            v_new = v.clone()
-            v_new[:, 0:1] = u + alpha * u_corr
-            v_new[:, 1:2] = v_comp + alpha * v_corr
-            
-            return v_new
-        
-        return v
+        if v.shape[1] < 2:
+            return v
+
+        # Spherical divergence-based correction (wrap-aware)
+        u = v[:, 0:1]
+        v_comp = v[:, 1:2]
+        div = self._spherical_divergence(u, v_comp)
+
+        # Create a correction field to make the flow more divergence-free
+        u_corr = torch.gradient(-div, dim=3)[0]
+        v_corr = torch.gradient(-div, dim=2)[0]
+
+        alpha = 0.1
+        v_new = v.clone()
+        v_new[:, 0:1] = u + alpha * u_corr
+        v_new[:, 1:2] = v_comp + alpha * v_corr
+        return v_new
     
     def compute_flow_loss(
         self,
@@ -369,25 +367,17 @@ class WeatherFlowMatch(nn.Module):
         # Physics-based loss components
         losses = {'flow_loss': flow_loss}
         
-        if self.physics_informed:
-            # Add divergence penalty
-            u = v_pred[:, 0:1] if v_pred.shape[1] >= 2 else None
-            v_comp = v_pred[:, 1:2] if v_pred.shape[1] >= 2 else None
-            
-            if u is not None and v_comp is not None:
-                div = self._spherical_divergence(u, v_comp)
-                div_loss = torch.mean(div**2)
-                losses['div_loss'] = div_loss
-                
-                # Add to total loss
-                flow_loss = flow_loss + 0.1 * div_loss
-            
-            # Energy conservation - soft constraint
+        if self.physics_informed and v_pred.shape[1] >= 2:
+            div = self._spherical_divergence(v_pred[:, 0:1], v_pred[:, 1:2])
+            div_loss = torch.mean(div**2)
+            losses['div_loss'] = div_loss
+            flow_loss = flow_loss + 0.1 * div_loss
+
             energy_x0 = torch.sum(x0**2)
             energy_x1 = torch.sum(x1**2)
             energy_diff = (energy_x0 - energy_x1).abs() / (energy_x0 + 1e-6)
             losses['energy_diff'] = energy_diff
-        
+
         losses['total_loss'] = flow_loss
         return losses
 
