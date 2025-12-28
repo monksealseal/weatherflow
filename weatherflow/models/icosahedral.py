@@ -309,6 +309,31 @@ class IcosahedralFlowMatch(nn.Module):
             L[k, k] += c0 + c1
         return L
 
+    def _laplacian(self, device: torch.device) -> torch.Tensor:
+        if not hasattr(self, "_laplacian_cache"):
+            self._laplacian_cache = {}
+        if device not in self._laplacian_cache:
+            self._laplacian_cache[device] = self._cotangent_laplacian(device)
+        return self._laplacian_cache[device]
+
+    def compute_mesh_laplacian_loss(self, grid: torch.Tensor) -> torch.Tensor:
+        """Smoothness/physics proxy using cotangent Laplacian on the mesh."""
+        b, c, h, w = grid.shape
+        device = grid.device
+        grid_face, grid_weights, _ = self._grid_mapping(h, w, device)
+        tri_verts = self.faces.to(device)[grid_face]
+        weights = grid_weights
+        face_area = self.face_areas.to(device)[grid_face]
+        nodes = torch.zeros(b, self.verts.shape[0], c, device=device)
+        flat = grid.permute(0, 2, 3, 1).reshape(b, h * w, c)
+        weighted = flat * face_area
+        nodes.index_add_(1, tri_verts[:, 0], weighted * weights[:, 0].view(1, -1, 1))
+        nodes.index_add_(1, tri_verts[:, 1], weighted * weights[:, 1].view(1, -1, 1))
+        nodes.index_add_(1, tri_verts[:, 2], weighted * weights[:, 2].view(1, -1, 1))
+        L = self._laplacian(device)
+        lap = torch.einsum("vw,bwc->bvc", L, nodes)
+        return (lap ** 2).mean()
+
     def forward(self, x: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
         """
         Args:

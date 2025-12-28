@@ -163,7 +163,7 @@ class DatasetConfig(CamelModel):
 class ModelConfig(CamelModel):
     """Neural network hyperparameters."""
 
-    backbone: str = Field("grid")
+    backbone: str = Field("icosahedral")
     hidden_dim: int = Field(96, ge=32, le=512, alias="hiddenDim")
     n_layers: int = Field(3, ge=1, le=8, alias="nLayers")
     use_attention: bool = Field(True, alias="useAttention")
@@ -501,6 +501,7 @@ def _compute_losses(
         losses["total_loss"] = losses["total_loss"] + rollout_weight * rollout_loss
 
     if model.physics_informed:
+        div_loss = torch.tensor(0.0, device=x0.device)
         if v_pred.shape[1] >= 2:
             u = v_pred[:, 0:1]
             v_comp = v_pred[:, 1:2]
@@ -508,8 +509,13 @@ def _compute_losses(
             dv_dy = torch.gradient(v_comp, dim=2)[0]
             div = du_dx + dv_dy
             div_loss = torch.mean(div**2)
-            losses["div_loss"] = div_loss
-            losses["total_loss"] = losses["total_loss"] + 0.1 * div_loss
+
+        if hasattr(model, "compute_mesh_laplacian_loss"):
+            mesh_loss = model.compute_mesh_laplacian_loss(v_pred)
+            div_loss = div_loss + mesh_loss
+
+        losses["div_loss"] = div_loss
+        losses["total_loss"] = losses["total_loss"] + 0.1 * div_loss
 
         energy_x0 = torch.sum(x0**2)
         energy_x1 = torch.sum(x1**2)

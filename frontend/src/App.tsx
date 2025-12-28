@@ -29,7 +29,7 @@ const defaultModelConfig: ModelConfig = {
   useGraphMp: true,
   subdivisions: 1,
   interpCacheDir: null,
-  backbone: 'grid'
+  backbone: 'icosahedral'
 };
 
 const createDefaultDatasetConfig = (options: ServerOptions): DatasetConfig => ({
