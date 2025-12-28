@@ -74,6 +74,8 @@ class WeatherFlowMatch(nn.Module):
         forcing_dim: int = 0,
         spherical_padding: bool = False,
         use_graph_mp: bool = False,
+        use_spectral_mixer: bool = False,
+        spectral_modes: int = 12,
     ):
         super().__init__()
         self.input_channels = input_channels
@@ -85,6 +87,8 @@ class WeatherFlowMatch(nn.Module):
         self.static_channels = static_channels
         self.forcing_dim = forcing_dim
         self.use_graph_mp = use_graph_mp
+        self.use_spectral_mixer = use_spectral_mixer
+        self.spectral_modes = spectral_modes
         padding_mode = "circular" if spherical_padding else "zeros"
         
         # Input projection
@@ -166,6 +170,14 @@ class WeatherFlowMatch(nn.Module):
         # Physics constraints (divergence regularization)
         if physics_informed:
             self.sphere = Sphere()
+        else:
+            self.sphere = None
+
+        if self.use_spectral_mixer:
+            # Real-valued parameters applied in Fourier domain
+            self.freq_weight = nn.Parameter(
+                torch.randn(2, spectral_modes, spectral_modes)
+            )
     
     def _apply_attention(self, h: torch.Tensor) -> torch.Tensor:
         """Apply windowed attention to reduce quadratic blow-up on large grids."""
@@ -222,6 +234,29 @@ class WeatherFlowMatch(nn.Module):
         h_out = nodes.permute(0, 2, 1).view(batch_size, channels, height, width)
         return h_out
 
+    def _spectral_mix(self, h: torch.Tensor) -> torch.Tensor:
+        """Apply lightweight spectral mixing on lowest frequencies."""
+        if not self.use_spectral_mixer:
+            return h
+        batch, channels, height, width = h.shape
+        # rfft2 returns complex; operate on truncated modes
+        freq = torch.fft.rfft2(h, norm="ortho")
+        max_h = min(self.spectral_modes, freq.shape[-2])
+        max_w = min(self.spectral_modes, freq.shape[-1])
+        weight = self.freq_weight[:, :max_h, :max_w]
+        # Apply real/imag weights
+        freq_real = freq.real
+        freq_imag = freq.imag
+        freq_real[..., :max_h, :max_w] = (
+            freq_real[..., :max_h, :max_w] * weight[0]
+        )
+        freq_imag[..., :max_h, :max_w] = (
+            freq_imag[..., :max_h, :max_w] * weight[1]
+        )
+        mixed = torch.complex(freq_real, freq_imag)
+        out = torch.fft.irfft2(mixed, s=(height, width), norm="ortho")
+        return out
+
     def _spherical_divergence(
         self, u: torch.Tensor, v_comp: torch.Tensor
     ) -> torch.Tensor:
@@ -230,7 +265,8 @@ class WeatherFlowMatch(nn.Module):
         lat_grid = torch.linspace(
             -torch.pi / 2, torch.pi / 2, steps=lat_size, device=u.device, dtype=u.dtype
         )
-        cos_lat = torch.cos(lat_grid).clamp(min=self.sphere._get_eps(u.dtype))
+        eps = self.sphere._get_eps(u.dtype) if self.sphere is not None else torch.finfo(u.dtype).eps
+        cos_lat = torch.cos(lat_grid).clamp(min=eps)
         cos_lat = cos_lat.view(1, 1, lat_size, 1)
 
         dlon = (2 * torch.pi) / max(lon_size, 1)
@@ -284,6 +320,9 @@ class WeatherFlowMatch(nn.Module):
         for block in self.blocks:
             h = block(h)
         
+        # Optional spectral mixing of low-frequency components
+        h = self._spectral_mix(h)
+
         # Apply attention if requested
         h = self._apply_attention(h)
 
@@ -482,13 +521,15 @@ class WeatherFlowODE(nn.Module):
         flow_model: nn.Module,
         solver_method: str = 'dopri5',
         rtol: float = 1e-4,
-        atol: float = 1e-4
+        atol: float = 1e-4,
+        fast_mode: bool = False,
     ):
         super().__init__()
         self.flow_model = flow_model
         self.solver_method = solver_method
         self.rtol = rtol
         self.atol = atol
+        self.fast_mode = fast_mode
         
     def forward(
         self,
@@ -509,22 +550,52 @@ class WeatherFlowODE(nn.Module):
             Predicted weather states at requested times,
             shape [num_times, batch_size, channels, lat, lon]
         """
-        from torchdiffeq import odeint
-        
-        def ode_func(t, x):
-            """ODE function for the solver."""
-            # Reshape t for the model
-            t_batch = t.expand(x.shape[0])
-            return self.flow_model(x, t_batch, static=static, forcing=forcing)
-        
-        # Solve ODE
-        predictions = odeint(
-            ode_func,
-            x0,
-            times,
-            method=self.solver_method,
-            rtol=self.rtol,
-            atol=self.atol
-        )
-        
-        return predictions
+        if self.fast_mode:
+            # Fixed-step Heun integration for speed; assumes times sorted.
+            preds = [x0]
+            x = x0
+            for i in range(len(times) - 1):
+                dt = times[i + 1] - times[i]
+                t_mid = times[i] + 0.5 * dt
+                t_batch = times[i].expand(x.shape[0])
+                k1 = self.flow_model(x, t_batch, static=static, forcing=forcing)
+                x_mid = x + dt * 0.5 * k1
+                k2 = self.flow_model(x_mid, t_mid.expand(x.shape[0]), static=static, forcing=forcing)
+                x = x + dt * (k1 + k2) * 0.5
+                preds.append(x)
+            return torch.stack(preds, dim=0)
+        else:
+            from torchdiffeq import odeint
+            
+            def ode_func(t, x):
+                """ODE function for the solver."""
+                t_batch = t.expand(x.shape[0])
+                return self.flow_model(x, t_batch, static=static, forcing=forcing)
+            
+            predictions = odeint(
+                ode_func,
+                x0,
+                times,
+                method=self.solver_method,
+                rtol=self.rtol,
+                atol=self.atol
+            )
+            return predictions
+
+    def ensemble_forecast(
+        self,
+        x0: torch.Tensor,
+        times: torch.Tensor,
+        num_members: int = 4,
+        noise_std: float = 0.0,
+        static: Optional[torch.Tensor] = None,
+        forcing: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
+        """Generate an ensemble by perturbing the initial state."""
+        members = []
+        for _ in range(num_members):
+            x0_perturbed = x0
+            if noise_std > 0:
+                x0_perturbed = x0 + noise_std * torch.randn_like(x0)
+            members.append(self.forward(x0_perturbed, times, static=static, forcing=forcing))
+        return torch.stack(members, dim=0)
