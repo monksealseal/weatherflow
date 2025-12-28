@@ -335,11 +335,11 @@ function VisualizationWorkbench({ result }: Props): JSX.Element {
       layout={transectLayout}
       style={{ width: '100%', height: '100%' }}
       config={{ displayModeBar: false, responsive: true }}
-      onInitialized={(figure) => {
-        transectRef.current = figure as PlotlyHTMLElement;
+      onInitialized={(_, graphDiv) => {
+        transectRef.current = graphDiv;
       }}
-      onUpdate={(figure) => {
-        transectRef.current = figure as PlotlyHTMLElement;
+      onUpdate={(_, graphDiv) => {
+        transectRef.current = graphDiv;
       }}
     />
   );
