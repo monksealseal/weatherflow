@@ -46,6 +46,17 @@ function ModelConfigurator({ value, onChange }: Props): JSX.Element {
             onChange={handleNumberChange}
           />
         </label>
+        <label>
+          Attention window
+          <input
+            type="number"
+            min={0}
+            max={64}
+            name="windowSize"
+            value={value.windowSize}
+            onChange={handleNumberChange}
+          />
+        </label>
         <label className="checkbox-row">
           <input type="checkbox" name="useAttention" checked={value.useAttention} onChange={handleToggle} />
           Use multi-head attention

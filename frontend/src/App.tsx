@@ -21,7 +21,8 @@ const defaultModelConfig: ModelConfig = {
   hiddenDim: 96,
   nLayers: 3,
   useAttention: true,
-  physicsInformed: true
+  physicsInformed: true,
+  windowSize: 8
 };
 
 const createDefaultDatasetConfig = (options: ServerOptions): DatasetConfig => ({
@@ -40,7 +41,9 @@ const createDefaultTrainingConfig = (options: ServerOptions): TrainingConfig => 
   timeSteps: 5,
   lossType: options.lossTypes[0] ?? 'mse',
   seed: 42,
-  dynamicsScale: 0.15
+  dynamicsScale: 0.15,
+  rolloutSteps: 3,
+  rolloutWeight: 0.3
 });
 
 function App(): JSX.Element {

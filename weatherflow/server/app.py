@@ -162,6 +162,7 @@ class ModelConfig(CamelModel):
     n_layers: int = Field(3, ge=1, le=8, alias="nLayers")
     use_attention: bool = Field(True, alias="useAttention")
     physics_informed: bool = Field(True, alias="physicsInformed")
+    window_size: int = Field(8, ge=0, le=64, alias="windowSize")
 
 
 class TrainingConfig(CamelModel):
@@ -521,6 +522,7 @@ def _train_model(
         use_attention=config.model.use_attention,
         grid_size=(resolved_grid.lat, resolved_grid.lon),
         physics_informed=config.model.physics_informed,
+        window_size=config.model.window_size,
     ).to(device)
     ode_model = WeatherFlowODE(
         model,

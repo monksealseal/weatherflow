@@ -105,6 +105,29 @@ function TrainingConfigurator({ options, value, onChange }: Props): JSX.Element 
           />
         </label>
         <label>
+          Rollout steps
+          <input
+            type="number"
+            min={2}
+            max={12}
+            name="rolloutSteps"
+            value={value.rolloutSteps}
+            onChange={handleNumberChange}
+          />
+        </label>
+        <label>
+          Rollout weight
+          <input
+            type="number"
+            step="0.1"
+            min={0}
+            max={5}
+            name="rolloutWeight"
+            value={value.rolloutWeight}
+            onChange={handleNumberChange}
+          />
+        </label>
+        <label>
           Random seed
           <input type="number" min={0} max={10000} name="seed" value={value.seed} onChange={handleNumberChange} />
         </label>

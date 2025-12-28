@@ -16,6 +16,7 @@ export interface ModelConfig {
   nLayers: number;
   useAttention: boolean;
   physicsInformed: boolean;
+  windowSize: number;
 }
 
 export type LossType = 'mse' | 'huber' | 'smooth_l1';
@@ -29,6 +30,8 @@ export interface TrainingConfig {
   lossType: LossType;
   seed: number;
   dynamicsScale: number;
+  rolloutSteps: number;
+  rolloutWeight: number;
 }
 
 export interface ExperimentConfig {
@@ -59,6 +62,7 @@ export interface MetricEntry {
   loss: number;
   flowLoss: number;
   divergenceLoss: number;
+  rolloutLoss: number;
   energyDiff: number;
 }
 
@@ -67,6 +71,7 @@ export interface ValidationMetricEntry {
   valLoss: number;
   valFlowLoss: number;
   valDivergenceLoss: number;
+  valRolloutLoss: number;
   valEnergyDiff: number;
 }
 
