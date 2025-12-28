@@ -154,31 +154,62 @@ class IcosahedralFlowMatch(nn.Module):
         self.attn_proj_v = nn.Linear(hidden_dim, hidden_dim)
         self.output_proj = nn.Linear(hidden_dim, input_channels)
         self.norm = nn.LayerNorm(hidden_dim)
+        self.interp_cache: dict[Tuple[int, int, torch.device], Tuple[torch.Tensor, torch.Tensor]] = {}
+
+    def _grid_to_cartesian(self, lat: torch.Tensor, lon: torch.Tensor) -> torch.Tensor:
+        x = torch.cos(lat) * torch.cos(lon)
+        y = torch.cos(lat) * torch.sin(lon)
+        z = torch.sin(lat)
+        return torch.stack([x, y, z], dim=-1)
+
+    def _barycentric_weights(
+        self, point: torch.Tensor, tri: torch.Tensor
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Compute barycentric weights of point wrt triangle (on sphere approximated in 3D)."""
+        v0, v1, v2 = tri
+        mat = torch.stack([v0 - v2, v1 - v2], dim=1)  # [2,3]
+        try:
+            inv = torch.linalg.pinv(mat)
+            coords = inv @ (point - v2)
+            w0, w1 = coords[0], coords[1]
+            w2 = 1 - w0 - w1
+            return torch.stack([w0, w1, w2]), torch.tensor(1.0)
+        except Exception:
+            return torch.tensor([1.0, 0.0, 0.0], device=point.device), torch.tensor(0.0)
 
     @lru_cache(maxsize=32)
     def _grid_mapping(self, lat: int, lon: int, device: torch.device):
-        """Precompute nearest grid cell for each vertex and vertex for each grid cell."""
+        """Precompute grid->mesh barycentric weights and mesh->grid scatter indices."""
         lat_centers = torch.linspace(-math.pi / 2, math.pi / 2, steps=lat, device=device)
         lon_centers = torch.linspace(-math.pi, math.pi, steps=lon, device=device)
         lon_grid, lat_grid = torch.meshgrid(lon_centers, lat_centers, indexing="xy")
-        latlon_grid = torch.stack([lat_grid, lon_grid], dim=-1)  # [lon, lat, 2]
+        grid_xyz = self._grid_to_cartesian(lat_grid, lon_grid).view(-1, 3)  # [G,3]
 
         verts = self.verts.to(device)
-        vert_lat = torch.asin(verts[:, 2])
-        vert_lon = torch.atan2(verts[:, 1], verts[:, 0])
-        vert_latlon = torch.stack([vert_lat, vert_lon], dim=1)  # [V,2]
+        faces = self.faces.to(device)
 
-        flat_grid = latlon_grid.view(-1, 2)  # [lon*lat,2]
-        dlat = flat_grid[:, 0].unsqueeze(0) - vert_latlon[:, 0].unsqueeze(1)
-        dlon = torch.remainder(
-            flat_grid[:, 1].unsqueeze(0) - vert_latlon[:, 1].unsqueeze(1) + math.pi,
-            2 * math.pi,
-        ) - math.pi
-        dist2 = dlat**2 + dlon**2
+        # For each grid point, find nearest face centroid
+        face_centers = verts[faces].mean(dim=1)  # [F,3]
+        face_norm = face_centers / face_centers.norm(dim=1, keepdim=True)
 
-        grid_to_vert = dist2.argmin(dim=0)  # [grid_size]
-        vert_to_grid = dist2.argmin(dim=1)  # [V]
-        return vert_to_grid.view(-1), grid_to_vert.view(lon, lat).permute(1, 0)
+        grid_face = []
+        weights = []
+        for p in grid_xyz:
+            # nearest face
+            dist = (face_norm - p).pow(2).sum(dim=1)
+            face_idx = dist.argmin()
+            tri = verts[faces[face_idx]]
+            bary, _ = self._barycentric_weights(p, tri)
+            grid_face.append(face_idx)
+            weights.append(bary)
+        grid_face = torch.tensor(grid_face, device=device, dtype=torch.long)  # [G]
+        weights = torch.stack(weights, dim=0)  # [G,3]
+
+        vert_to_grid = torch.zeros(verts.shape[0], dtype=torch.long, device=device)
+        # scatter nearest centroid for reverse mapping (approximate)
+        _, closest_face_per_vert = torch.cdist(verts, face_centers).min(dim=1)
+        vert_to_grid = grid_face[closest_face_per_vert]
+        return (grid_face, weights), vert_to_grid
 
     def _edge_geometry(self, device: torch.device) -> torch.Tensor:
         """Compute edge direction (2 angles) and length on the sphere."""
@@ -207,11 +238,18 @@ class IcosahedralFlowMatch(nn.Module):
         """
         b, c, h, w = x.shape
         device = x.device
-        vert_to_grid, grid_to_vert = self._grid_mapping(h, w, device)
+        (grid_face, grid_weights), vert_to_grid = self._grid_mapping(h, w, device)
 
         # Grid -> vertex gather
         nodes = x.permute(0, 2, 3, 1).reshape(b, h * w, c)
-        node_feats = nodes[:, grid_to_vert.reshape(-1), :]  # [B, V, C]
+        face_indices = grid_face  # [G]
+        tri_verts = self.faces.to(device)[face_indices]  # [G,3]
+        weights = grid_weights  # [G,3]
+        # Aggregate grid cells to vertices via barycentric weights
+        node_feats = torch.zeros(b, self.verts.shape[0], c, device=device)
+        node_feats.index_add_(1, tri_verts[:, 0], nodes * weights[:, 0].view(1, -1, 1))
+        node_feats.index_add_(1, tri_verts[:, 1], nodes * weights[:, 1].view(1, -1, 1))
+        node_feats.index_add_(1, tri_verts[:, 2], nodes * weights[:, 2].view(1, -1, 1))
 
         h_nodes = self.input_proj(node_feats)
         edges = self.edges.to(device)
@@ -246,6 +284,10 @@ class IcosahedralFlowMatch(nn.Module):
 
         out_nodes = self.output_proj(h_nodes)  # [B, V, C]
 
-        # Vertex -> grid scatter (nearest)
-        out_grid = out_nodes[:, vert_to_grid, :].view(b, h, w, c).permute(0, 3, 1, 2)
+        # Vertex -> grid scatter using face weights
+        out_grid = torch.zeros(b, h * w, c, device=device)
+        out_grid += out_nodes[:, tri_verts[:, 0], :] * weights[:, 0].view(1, -1, 1)
+        out_grid += out_nodes[:, tri_verts[:, 1], :] * weights[:, 1].view(1, -1, 1)
+        out_grid += out_nodes[:, tri_verts[:, 2], :] * weights[:, 2].view(1, -1, 1)
+        out_grid = out_grid.view(b, h, w, c).permute(0, 3, 1, 2)
         return out_grid
