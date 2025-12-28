@@ -1,5 +1,6 @@
 from .base import BaseWeatherModel
 from .flow_matching import StyleFlowMatch, WeatherFlowMatch, ConvNextBlock
+from .icosahedral import IcosahedralFlowMatch
 from .physics_guided import PhysicsGuidedAttention
 from .stochastic import StochasticFlowModel
 
@@ -9,7 +10,8 @@ __all__ = [
     'StyleFlowMatch',
     'PhysicsGuidedAttention',
     'StochasticFlowModel',
-    'ConvNextBlock'
+    'ConvNextBlock',
+    'IcosahedralFlowMatch',
 ]
 
 from .score_matching import ScoreMatchingModel

@@ -19,6 +19,7 @@ export interface ModelConfig {
   windowSize: number;
   sphericalPadding: boolean;
   useGraphMp: boolean;
+  backbone: 'grid' | 'icosahedral';
 }
 
 export type LossType = 'mse' | 'huber' | 'smooth_l1';

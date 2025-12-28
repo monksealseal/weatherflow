@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from torch.utils.data import DataLoader, TensorDataset
 
 from weatherflow.models.flow_matching import WeatherFlowMatch, WeatherFlowODE
+from weatherflow.models.icosahedral import IcosahedralFlowMatch
 from weatherflow.simulation import SimulationOrchestrator
 
 # Limit CPU usage for deterministic behaviour when running inside tests
@@ -158,6 +159,7 @@ class DatasetConfig(CamelModel):
 class ModelConfig(CamelModel):
     """Neural network hyperparameters."""
 
+    backbone: str = Field("grid")
     hidden_dim: int = Field(96, ge=32, le=512, alias="hiddenDim")
     n_layers: int = Field(3, ge=1, le=8, alias="nLayers")
     use_attention: bool = Field(True, alias="useAttention")
@@ -165,6 +167,13 @@ class ModelConfig(CamelModel):
     window_size: int = Field(8, ge=0, le=64, alias="windowSize")
     spherical_padding: bool = Field(False, alias="sphericalPadding")
     use_graph_mp: bool = Field(False, alias="useGraphMp")
+    @field_validator("backbone")
+    @classmethod
+    def validate_backbone(cls, value: str) -> str:  # noqa: D401
+        """Ensure a supported backbone is selected."""
+        if value not in {"grid", "icosahedral"}:
+            raise ValueError("backbone must be one of ['grid', 'icosahedral']")
+        return value
 
 
 class TrainingConfig(CamelModel):
@@ -535,19 +544,26 @@ def _train_model(
         generator=loader_generator,
     )
 
-    model = WeatherFlowMatch(
-        input_channels=len(channel_names),
-        hidden_dim=config.model.hidden_dim,
-        n_layers=config.model.n_layers,
-        use_attention=config.model.use_attention,
-        grid_size=(resolved_grid.lat, resolved_grid.lon),
-        physics_informed=config.model.physics_informed,
-        window_size=config.model.window_size,
-        static_channels=2,
-        forcing_dim=1,
-        spherical_padding=config.model.spherical_padding,
-        use_graph_mp=config.model.use_graph_mp,
-    ).to(device)
+    if config.model.backbone == "icosahedral":
+        model = IcosahedralFlowMatch(
+            input_channels=len(channel_names),
+            hidden_dim=config.model.hidden_dim,
+            n_layers=config.model.n_layers,
+        ).to(device)
+    else:
+        model = WeatherFlowMatch(
+            input_channels=len(channel_names),
+            hidden_dim=config.model.hidden_dim,
+            n_layers=config.model.n_layers,
+            use_attention=config.model.use_attention,
+            grid_size=(resolved_grid.lat, resolved_grid.lon),
+            physics_informed=config.model.physics_informed,
+            window_size=config.model.window_size,
+            static_channels=2,
+            forcing_dim=1,
+            spherical_padding=config.model.spherical_padding,
+            use_graph_mp=config.model.use_graph_mp,
+        ).to(device)
     ode_model = WeatherFlowODE(
         model,
         solver_method=config.training.solver_method,

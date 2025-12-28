@@ -26,7 +26,8 @@ const defaultModelConfig: ModelConfig = {
   physicsInformed: true,
   windowSize: 8,
   sphericalPadding: true,
-  useGraphMp: true
+  useGraphMp: true,
+  backbone: 'grid'
 };
 
 const createDefaultDatasetConfig = (options: ServerOptions): DatasetConfig => ({

@@ -25,6 +25,17 @@ function ModelConfigurator({ value, onChange }: Props): JSX.Element {
       </div>
       <div className="form-grid">
         <label>
+          Backbone
+          <select
+            name="backbone"
+            value={value.backbone}
+            onChange={(e) => onChange({ ...value, backbone: e.target.value as ModelConfig['backbone'] })}
+          >
+            <option value="grid">Lat/Lon Grid</option>
+            <option value="icosahedral">Icosahedral Mesh</option>
+          </select>
+        </label>
+        <label>
           Hidden dimension
           <input
             type="number"
