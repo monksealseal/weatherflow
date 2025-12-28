@@ -25,7 +25,8 @@ const defaultModelConfig: ModelConfig = {
   useAttention: true,
   physicsInformed: true,
   windowSize: 8,
-  sphericalPadding: true
+  sphericalPadding: true,
+  useGraphMp: true
 };
 
 const createDefaultDatasetConfig = (options: ServerOptions): DatasetConfig => ({

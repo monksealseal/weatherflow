@@ -18,6 +18,7 @@ export interface ModelConfig {
   physicsInformed: boolean;
   windowSize: number;
   sphericalPadding: boolean;
+  useGraphMp: boolean;
 }
 
 export type LossType = 'mse' | 'huber' | 'smooth_l1';

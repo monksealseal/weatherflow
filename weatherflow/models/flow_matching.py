@@ -73,6 +73,7 @@ class WeatherFlowMatch(nn.Module):
         static_channels: int = 0,
         forcing_dim: int = 0,
         spherical_padding: bool = False,
+        use_graph_mp: bool = False,
     ):
         super().__init__()
         self.input_channels = input_channels
@@ -83,6 +84,7 @@ class WeatherFlowMatch(nn.Module):
         self.window_size = window_size
         self.static_channels = static_channels
         self.forcing_dim = forcing_dim
+        self.use_graph_mp = use_graph_mp
         padding_mode = "circular" if spherical_padding else "zeros"
         
         # Input projection
@@ -113,6 +115,17 @@ class WeatherFlowMatch(nn.Module):
             self.forcing_proj = nn.Linear(forcing_dim, hidden_dim)
         else:
             self.forcing_proj = None
+
+        if use_graph_mp:
+            self.register_buffer(
+                "graph_neighbors",
+                self._build_grid_adjacency(grid_size[0], grid_size[1]),
+                persistent=False,
+            )
+            self.graph_deg = (self.graph_neighbors >= 0).sum(dim=1).view(1, -1, 1)
+        else:
+            self.graph_neighbors = None
+            self.graph_deg = None
         
         # Time encoding
         self.time_encoder = TimeEncoder(hidden_dim)
@@ -187,6 +200,33 @@ class WeatherFlowMatch(nn.Module):
             attn_out = attn_out[:, :, :height, :width]
         return h[:, :, :height, :width] + attn_out
 
+    def _build_grid_adjacency(self, lat: int, lon: int) -> torch.Tensor:
+        """Build 4-neighbour adjacency with longitude wrap to reduce seam artefacts."""
+        neighbors: List[List[int]] = []
+        for i in range(lat):
+            for j in range(lon):
+                idx = i * lon + j
+                north = ((i - 1) % lat) * lon + j
+                south = ((i + 1) % lat) * lon + j
+                west = i * lon + ((j - 1) % lon)
+                east = i * lon + ((j + 1) % lon)
+                neighbors.append([north, south, west, east])
+        return torch.tensor(neighbors, dtype=torch.long)
+
+    def _graph_message_passing(self, h: torch.Tensor) -> torch.Tensor:
+        """Lightweight graph aggregation over a wrapped lat/lon grid."""
+        if self.graph_neighbors is None:
+            return h
+        batch_size, channels, height, width = h.shape
+        nodes = h.flatten(2).permute(0, 2, 1)  # [B, N, C]
+        neigh_idx = self.graph_neighbors  # [N, 4]
+        neigh_feat = nodes[:, neigh_idx, :]  # [B, N, 4, C]
+        deg = self.graph_deg.to(h.device).clamp(min=1)
+        aggregated = neigh_feat.sum(dim=2) / deg
+        nodes = nodes + aggregated  # residual
+        h_out = nodes.permute(0, 2, 1).view(batch_size, channels, height, width)
+        return h_out
+
     def _spherical_divergence(
         self, u: torch.Tensor, v_comp: torch.Tensor
     ) -> torch.Tensor:
@@ -251,6 +291,9 @@ class WeatherFlowMatch(nn.Module):
         
         # Apply attention if requested
         h = self._apply_attention(h)
+
+        if self.use_graph_mp:
+            h = self._graph_message_passing(h)
         
         # Output projection
         v = self.output_proj(h)

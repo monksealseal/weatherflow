@@ -79,6 +79,15 @@ function ModelConfigurator({ value, onChange }: Props): JSX.Element {
           />
           Use spherical padding (wrap longitude)
         </label>
+        <label className="checkbox-row">
+          <input
+            type="checkbox"
+            name="useGraphMp"
+            checked={value.useGraphMp}
+            onChange={handleToggle}
+          />
+          Enable graph message passing (wrapped grid)
+        </label>
       </div>
     </section>
   );
