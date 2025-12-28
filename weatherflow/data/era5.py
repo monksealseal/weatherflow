@@ -1,13 +1,15 @@
-import torch
-from torch.utils.data import Dataset, DataLoader
-import xarray as xr
-import numpy as np
+import json
+import logging
+import os
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple, Union
+
 import fsspec
 import gcsfs
-import os
-import logging
-from pathlib import Path
-from typing import List, Dict, Tuple, Union, Optional
+import numpy as np
+import torch
+import xarray as xr
+from torch.utils.data import DataLoader, Dataset
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +54,10 @@ class ERA5Dataset(Dataset):
         normalize: bool = True,
         add_physics_features: bool = False,
         cache_data: bool = False,
-        verbose: bool = True
+        verbose: bool = True,
+        stats_path: Optional[Union[str, Path]] = None,
+        auto_compute_stats: bool = False,
+        local_cache_dir: Optional[Union[str, Path]] = None,
     ):
         """Initialize ERA5Dataset with flexible data loading options.
         
@@ -65,6 +70,9 @@ class ERA5Dataset(Dataset):
             add_physics_features: Whether to add derived physics-based variables
             cache_data: Whether to cache loaded data in memory (faster but uses more RAM)
             verbose: Whether to print detailed information
+            stats_path: Optional path to JSON stats file; will be loaded or written.
+            auto_compute_stats: Compute stats from the selected time slice when needed.
+            local_cache_dir: Optional directory to cache remote chunks locally (simplecache).
         """
         super().__init__()
         
@@ -75,6 +83,10 @@ class ERA5Dataset(Dataset):
         self.add_physics_features = add_physics_features
         self.cache_data = cache_data
         self.verbose = verbose
+        self.stats_path = Path(stats_path) if stats_path else None
+        self.auto_compute_stats = auto_compute_stats
+        self.local_cache_dir = Path(local_cache_dir) if local_cache_dir else None
+        self.normalize_stats: Dict[str, Dict[str, float]] = dict(self.NORMALIZE_STATS)
         
         # Handle time slice formatting
         if isinstance(time_slice, tuple):
@@ -87,6 +99,7 @@ class ERA5Dataset(Dataset):
         
         # Load data
         self._load_data()
+        self._prepare_normalization_stats()
         
         # Cache for faster access
         self._cache = {} if self.cache_data else None
@@ -95,12 +108,52 @@ class ERA5Dataset(Dataset):
         if self.verbose:
             logger.info(message)
         
+    def _post_load(self):
+        """Standardize dims and apply common postprocessing."""
+        dim_map = {
+            'valid_time': 'time',
+            'pressure_level': 'level'
+        }
+        self.ds = self.ds.rename({old: new for old, new in dim_map.items()
+                                  if old in self.ds.dims})
+
+        # Select time period
+        self.times = self.ds.time.sel(time=self.time_slice)
+
+        self._log("Successfully loaded data.")
+        self._log(f"Time period: {self.times[0].values} to {self.times[-1].values}")
+        self._log(f"Variables: {self.variables}")
+        self._log(f"Pressure levels: {self.pressure_levels}")
+
+        # Add derived variables if requested
+        if self.add_physics_features:
+            self._add_derived_variables()
+
     def _load_data(self):
         """Robust data loading with multiple fallback methods."""
         self._log(f"Loading data from: {self.data_path}")
 
         data_path_str = str(self.data_path)
         storage_options = {"token": "anon"} if data_path_str.startswith("gs://") else {}
+        if self.local_cache_dir and data_path_str.startswith("gs://"):
+            self._log(f"Using local cache at: {self.local_cache_dir}")
+            cached_fs = fsspec.filesystem(
+                "simplecache",
+                target_protocol="gcs",
+                target_options=storage_options,
+                cache_storage=str(self.local_cache_dir),
+            )
+            try:
+                self.ds = xr.open_dataset(
+                    cached_fs.get_mapper(data_path_str),
+                    engine="zarr",
+                    chunks="auto",
+                )
+                self._post_load()
+                return
+            except Exception as e:  # pragma: no cover - fallback
+                self._log(f"simplecache load failed, falling back. Error: {e}")
+
         methods = [
             # Method 1: Recommended open_dataset pathway for Zarr with explicit anonymous access
             lambda: {
@@ -158,27 +211,7 @@ class ERA5Dataset(Dataset):
                     *method_info['args'],
                     **method_info['kwargs']
                 )
-                
-                # Standardize dimension names
-                dim_map = {
-                    'valid_time': 'time',
-                    'pressure_level': 'level'
-                }
-                self.ds = self.ds.rename({old: new for old, new in dim_map.items() 
-                                       if old in self.ds.dims})
-                
-                # Select time period
-                self.times = self.ds.time.sel(time=self.time_slice)
-                
-                self._log(f"Successfully loaded data.")
-                self._log(f"Time period: {self.times[0].values} to {self.times[-1].values}")
-                self._log(f"Variables: {self.variables}")
-                self._log(f"Pressure levels: {self.pressure_levels}")
-                
-                # Add derived variables if requested
-                if self.add_physics_features:
-                    self._add_derived_variables()
-                
+                self._post_load()
                 return  # Success!
                 
             except Exception as e:
@@ -219,6 +252,44 @@ class ERA5Dataset(Dataset):
                     self._log(f"Failed to compute vorticity: {str(e)}")
         
         # Add more derived variables as needed
+    
+    def _prepare_normalization_stats(self):
+        """Load or compute normalization statistics."""
+        if self.stats_path and self.stats_path.exists():
+            self._log(f"Loading normalization stats from {self.stats_path}")
+            try:
+                loaded = json.loads(self.stats_path.read_text())
+                self.normalize_stats.update(loaded)
+            except Exception as exc:  # pragma: no cover - defensive
+                self._log(f"Failed to load stats file, using defaults. Error: {exc}")
+        elif self.auto_compute_stats:
+            computed = self._compute_normalization_stats()
+            self.normalize_stats.update(computed)
+            if self.stats_path:
+                self.stats_path.parent.mkdir(parents=True, exist_ok=True)
+                self.stats_path.write_text(json.dumps(computed, indent=2))
+                self._log(f"Wrote normalization stats to {self.stats_path}")
+    
+    def _compute_normalization_stats(self) -> Dict[str, Dict[str, float]]:
+        """Compute mean/std for selected variables and time slice."""
+        self._log("Computing normalization statistics from dataset...")
+        stats: Dict[str, Dict[str, float]] = {}
+        for var in self.variables:
+            if var not in self.ds:
+                continue
+            try:
+                data = self.ds[var]
+                if 'time' in data.coords:
+                    data = data.sel(time=self.time_slice)
+                if 'level' in data.dims:
+                    data = data.sel(level=self.pressure_levels)
+                mean_val = float(data.mean().item())
+                std_val = float(data.std().item())
+                stats[var] = {'mean': mean_val, 'std': std_val}
+                self._log(f"Stats for {var}: mean={mean_val:.4f}, std={std_val:.4f}")
+            except Exception as exc:  # pragma: no cover - defensive
+                self._log(f"Failed to compute stats for {var}: {exc}")
+        return stats
     
     def __len__(self) -> int:
         """Return number of samples (time steps - 1 for input/target pairs)."""
@@ -273,8 +344,8 @@ class ERA5Dataset(Dataset):
                     data_t1[var] = np.zeros(shape)
                 
                 # Normalize if requested
-                if self.normalize and var in self.NORMALIZE_STATS:
-                    stats = self.NORMALIZE_STATS[var]
+                if self.normalize and var in self.normalize_stats:
+                    stats = self.normalize_stats[var]
                     data_t0[var] = (data_t0[var] - stats['mean']) / stats['std']
                     data_t1[var] = (data_t1[var] - stats['mean']) / stats['std']
                     
@@ -331,7 +402,10 @@ def create_data_loaders(
     val_slice: Union[slice, Tuple[str, str]] = ('2017', '2017'),
     batch_size: int = 32,
     num_workers: int = 4,
-    normalize: bool = True
+    normalize: bool = True,
+    stats_path: Optional[Union[str, Path]] = None,
+    auto_compute_stats: bool = False,
+    local_cache_dir: Optional[Union[str, Path]] = None,
 ) -> Tuple[DataLoader, DataLoader]:
     """Create training and validation data loaders.
     
@@ -344,6 +418,9 @@ def create_data_loaders(
         batch_size: Batch size for data loaders
         num_workers: Number of worker processes for data loading
         normalize: Whether to normalize data
+        stats_path: Optional path to persist/restore normalization statistics
+        auto_compute_stats: Compute stats from the training slice when missing
+        local_cache_dir: Directory for simplecache to store remote chunks locally
         
     Returns:
         Tuple of (train_loader, val_loader)
@@ -355,7 +432,10 @@ def create_data_loaders(
         pressure_levels=pressure_levels,
         data_path=data_path,
         time_slice=train_slice,
-        normalize=normalize
+        normalize=normalize,
+        stats_path=stats_path,
+        auto_compute_stats=auto_compute_stats,
+        local_cache_dir=local_cache_dir,
     )
     
     val_dataset = ERA5Dataset(
@@ -363,7 +443,10 @@ def create_data_loaders(
         pressure_levels=pressure_levels,
         data_path=data_path,
         time_slice=val_slice,
-        normalize=normalize
+        normalize=normalize,
+        stats_path=stats_path,
+        auto_compute_stats=False,
+        local_cache_dir=local_cache_dir,
     )
     
     # Create data loaders
