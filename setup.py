@@ -46,6 +46,7 @@ setup(
         "uvicorn>=0.23.0,<0.28.0",
         "plotly>=5.18.0",
         "Pillow>=9.0.0",
+        "webdataset>=0.2.86",
     ],
     entry_points={
         "console_scripts": [
