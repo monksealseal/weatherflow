@@ -4,6 +4,7 @@ import torch.nn.functional as F
 from typing import Optional, Tuple, Callable, Dict, List
 import numpy as np
 from ..manifolds.sphere import Sphere
+from ..physics.losses import PhysicsLossCalculator
 
 class ConvNextBlock(nn.Module):
     """ConvNext block for efficient spatial processing."""
@@ -62,7 +63,7 @@ class WeatherFlowMatch(nn.Module):
     to generate trajectories of weather states.
     """
     def __init__(
-        self, 
+        self,
         input_channels: int = 4,
         hidden_dim: int = 256,
         n_layers: int = 4,
@@ -76,6 +77,8 @@ class WeatherFlowMatch(nn.Module):
         use_graph_mp: bool = False,
         use_spectral_mixer: bool = False,
         spectral_modes: int = 12,
+        enhanced_physics_losses: bool = False,
+        physics_loss_weights: Optional[Dict[str, float]] = None,
     ):
         super().__init__()
         self.input_channels = input_channels
@@ -89,6 +92,8 @@ class WeatherFlowMatch(nn.Module):
         self.use_graph_mp = use_graph_mp
         self.use_spectral_mixer = use_spectral_mixer
         self.spectral_modes = spectral_modes
+        self.enhanced_physics_losses = enhanced_physics_losses
+        self.physics_loss_weights = physics_loss_weights
         padding_mode = "circular" if spherical_padding else "zeros"
         
         # Input projection
@@ -172,6 +177,19 @@ class WeatherFlowMatch(nn.Module):
             self.sphere = Sphere()
         else:
             self.sphere = None
+
+        # Enhanced physics losses calculator
+        if enhanced_physics_losses:
+            self.physics_calculator = PhysicsLossCalculator()
+            if physics_loss_weights is None:
+                self.physics_loss_weights = {
+                    'pv_conservation': 0.1,
+                    'energy_spectra': 0.01,
+                    'mass_divergence': 1.0,
+                    'geostrophic_balance': 0.1,
+                }
+        else:
+            self.physics_calculator = None
 
         if self.use_spectral_mixer:
             # Real-valued parameters applied in Fourier domain
@@ -377,30 +395,34 @@ class WeatherFlowMatch(nn.Module):
         t: torch.Tensor,
         static: Optional[torch.Tensor] = None,
         forcing: Optional[torch.Tensor] = None,
+        pressure_levels: Optional[torch.Tensor] = None,
     ) -> Dict[str, torch.Tensor]:
         """Compute flow matching loss.
-        
+
         Args:
             x0: Initial state, shape [batch_size, channels, lat, lon]
             x1: Target state, shape [batch_size, channels, lat, lon]
             t: Time values in [0, 1], shape [batch_size]
-            
+            static: Static features (optional)
+            forcing: Forcing vectors (optional)
+            pressure_levels: Pressure levels for multi-level data (optional)
+
         Returns:
             Dictionary of loss components
         """
         # Compute model's predicted velocity
         v_pred = self(x0, t, static=static, forcing=forcing)
-        
+
         # Compute target velocity (straight-line path)
         # For spherical geometries, this should use geodesics
         v_target = (x1 - x0) / (1 - t).view(-1, 1, 1, 1)
-        
+
         # Main flow matching loss
         flow_loss = F.mse_loss(v_pred, v_target)
-        
+
         # Physics-based loss components
         losses = {'flow_loss': flow_loss}
-        
+
         if self.physics_informed and v_pred.shape[1] >= 2:
             div = self._spherical_divergence(v_pred[:, 0:1], v_pred[:, 1:2])
             div_loss = torch.mean(div**2)
@@ -411,6 +433,51 @@ class WeatherFlowMatch(nn.Module):
             energy_x1 = torch.sum(x1**2)
             energy_diff = (energy_x0 - energy_x1).abs() / (energy_x0 + 1e-6)
             losses['energy_diff'] = energy_diff
+
+        # Enhanced physics losses if enabled
+        if self.enhanced_physics_losses and self.physics_calculator is not None:
+            # Reshape for multi-level processing if needed
+            # Assume channels are stacked as [u_500, v_500, u_850, v_850, ...] or similar
+            # For simplicity, treat as [batch, levels*vars, lat, lon]
+            # We need to extract u, v components
+
+            batch_size, n_channels, lat_dim, lon_dim = v_pred.shape
+
+            # Simple case: first 2 channels are u, v (single level or surface)
+            # For multi-level: channels might be [u_lev1, v_lev1, u_lev2, v_lev2, ...]
+            # Here we assume first 2 are u, v for demonstration
+            if n_channels >= 2:
+                # Extract u, v from predicted velocity
+                # Assuming channels 0,1 are u,v (can be extended for multi-level)
+                u_pred = v_pred[:, 0:1, :, :]  # [batch, 1, lat, lon]
+                v_pred_comp = v_pred[:, 1:2, :, :]
+
+                # If we have geopotential or temperature in channels
+                geopotential = None
+                if n_channels > 2:
+                    # Check if channel 2 could be geopotential
+                    # This is dataset-dependent
+                    geopotential = x0[:, 2:3, :, :]  # Use current state's geopotential
+
+                # Compute enhanced physics losses
+                # Note: For multi-level data, reshape appropriately
+                # For now, treat as single level
+                u_expanded = u_pred  # [batch, 1, lat, lon]
+                v_expanded = v_pred_comp
+
+                physics_losses = self.physics_calculator.compute_all_physics_losses(
+                    u=u_expanded,
+                    v=v_expanded,
+                    geopotential=geopotential,
+                    pressure_levels=pressure_levels,
+                    loss_weights=self.physics_loss_weights,
+                )
+
+                # Add physics losses to total
+                for key, value in physics_losses.items():
+                    losses[key] = value
+                    if key != 'physics_total':
+                        flow_loss = flow_loss + value * self.physics_loss_weights.get(key, 0.0)
 
         losses['total_loss'] = flow_loss
         return losses
