@@ -353,13 +353,16 @@ def _build_dataloaders(
             resampled=False,
         )
         val_x0, val_x1 = next(iter(val_loader))
-        # Dummy static/forcing placeholders (zeroed) matching shapes
         b_train, _, lat, lon = train_x0.shape
-        static_features = torch.zeros(b_train, 2, lat, lon, device=device)
-        forcing = torch.zeros(b_train, 1, device=device)
+        static_features = orchestrator.build_static_features(lat, lon, device=device).unsqueeze(0).repeat(
+            b_train, 1, 1, 1
+        )
+        forcing = orchestrator.build_forcing(b_train, device=device)
         b_val = val_x0.shape[0]
-        static_val = torch.zeros(b_val, 2, lat, lon, device=device)
-        forcing_val = torch.zeros(b_val, 1, device=device)
+        static_val = orchestrator.build_static_features(lat, lon, device=device).unsqueeze(0).repeat(
+            b_val, 1, 1, 1
+        )
+        forcing_val = orchestrator.build_forcing(b_val, device=device)
 
         train_dataset = TensorDataset(train_x0, train_x1, static_features, forcing)
         val_dataset = TensorDataset(val_x0, val_x1, static_val, forcing_val)
