@@ -137,6 +137,8 @@ class DatasetConfig(CamelModel):
     train_samples: int = Field(48, ge=4, le=256, alias="trainSamples")
     val_samples: int = Field(16, ge=4, le=128, alias="valSamples")
     webdataset_pattern: str | None = Field(None, alias="webdatasetPattern")
+    webdataset_cache: str | None = Field(None, alias="webdatasetCache")
+    webdataset_workers: int = Field(2, ge=0, le=16, alias="webdatasetWorkers")
 
     @field_validator("variables")
     @classmethod
@@ -341,17 +343,19 @@ def _build_dataloaders(
         loader = create_webdataset_loader(
             config.webdataset_pattern,
             batch_size=config.train_samples,
-            num_workers=2,
+            num_workers=config.webdataset_workers,
             shuffle=True,
+            cache_dir=config.webdataset_cache,
         )
         batch = next(iter(loader))
         train_x0, train_x1 = batch
         val_loader = create_webdataset_loader(
             config.webdataset_pattern,
             batch_size=config.val_samples,
-            num_workers=2,
+            num_workers=config.webdataset_workers,
             shuffle=True,
             resampled=False,
+            cache_dir=config.webdataset_cache,
         )
         val_x0, val_x1 = next(iter(val_loader))
         b_train, _, lat, lon = train_x0.shape

@@ -37,14 +37,11 @@ def create_webdataset_loader(
     if resampled:
         dataset = wds.ResampledShards(shards, deterministic=True)
     else:
-        dataset = wds.WebDataset(shards)
+        dataset = wds.WebDataset(shards, cache_dir=cache_dir)
 
     if cache_dir:
         Path(cache_dir).mkdir(parents=True, exist_ok=True)
-        dataset = dataset.to_tuple("__key__", "x.pth", "y.pth")
-    else:
-        dataset = dataset.to_tuple("x.pth", "y.pth")
-
+    dataset = dataset.to_tuple("x.pth", "y.pth")
     dataset = dataset.map_tuple(torch.load, torch.load)
     if shuffle:
         dataset = dataset.shuffle(1000)
