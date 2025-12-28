@@ -179,6 +179,14 @@ class TrainingConfig(CamelModel):
     rollout_steps: int = Field(3, ge=2, le=12, alias="rolloutSteps")
     rollout_weight: float = Field(0.3, ge=0.0, le=5.0, alias="rolloutWeight")
 
+
+class InferenceConfig(CamelModel):
+    """Inference configuration for tiling large grids."""
+
+    tile_size_lat: int = Field(0, ge=0, le=512, alias="tileSizeLat")
+    tile_size_lon: int = Field(0, ge=0, le=1024, alias="tileSizeLon")
+    tile_overlap: int = Field(0, ge=0, le=64, alias="tileOverlap")
+
     @field_validator("solver_method")
     @classmethod
     def solver_method_supported(cls, value: str) -> str:  # noqa: D401
@@ -203,6 +211,7 @@ class ExperimentConfig(CamelModel):
     model: ModelConfig = Field(default_factory=ModelConfig)
     training: TrainingConfig = Field(default_factory=TrainingConfig)
     simulation: SimulationConfig = Field(default_factory=SimulationConfig)
+    inference: InferenceConfig = Field(default_factory=InferenceConfig)
 
 
 class ChannelStats(CamelModel):
@@ -653,8 +662,45 @@ def _run_prediction(
     initial = dataset.tensors[0][:1].to(device)
     target = dataset.tensors[1][:1].to(device)
 
+    def _tile_slices(lat: int, lon: int, tile_lat: int, tile_lon: int, overlap: int) -> List[Tuple[slice, slice]]:
+        if tile_lat <= 0 or tile_lon <= 0:
+            return [(slice(0, lat), slice(0, lon))]
+        step_lat = max(1, tile_lat - overlap)
+        step_lon = max(1, tile_lon - overlap)
+        slices: List[Tuple[slice, slice]] = []
+        for lat_start in range(0, lat, step_lat):
+            lat_end = min(lat, lat_start + tile_lat)
+            for lon_start in range(0, lon, step_lon):
+                lon_end = min(lon, lon_start + tile_lon)
+                slices.append((slice(lat_start, lat_end), slice(lon_start, lon_end)))
+        return slices
+
+    def _run_tiled_prediction(x: torch.Tensor) -> torch.Tensor:
+        b, c, lat, lon = x.shape
+        tile_lat = config.inference.tile_size_lat
+        tile_lon = config.inference.tile_size_lon
+        overlap = config.inference.tile_overlap
+        slices = _tile_slices(lat, lon, tile_lat, tile_lon, overlap)
+        if len(slices) == 1:
+            return ode_model(x, times)
+
+        preds = torch.zeros(
+            (times.shape[0], b, c, lat, lon),
+            device=device,
+            dtype=x.dtype,
+        )
+        weight = torch.zeros((lat, lon), device=device, dtype=x.dtype)
+        for lat_slice, lon_slice in slices:
+            tile_init = x[:, :, lat_slice, lon_slice]
+            tile_pred = ode_model(tile_init, times)  # [T, B, C, h, w]
+            preds[:, :, :, lat_slice, lon_slice] += tile_pred
+            weight[lat_slice, lon_slice] += 1.0
+        weight = weight.clamp(min=1.0)
+        preds = preds / weight
+        return preds
+
     with torch.no_grad():
-        predictions = ode_model(initial, times)
+        predictions = _run_tiled_prediction(initial)
 
     trajectory = _prepare_trajectory(predictions, initial, target, times, channel_names)
     return trajectory, predictions[-1, 0]

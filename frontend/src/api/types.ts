@@ -38,6 +38,12 @@ export interface ExperimentConfig {
   dataset: DatasetConfig;
   model: ModelConfig;
   training: TrainingConfig;
+  // inference is optional; server provides defaults
+  inference?: {
+    tileSizeLat?: number;
+    tileSizeLon?: number;
+    tileOverlap?: number;
+  };
 }
 
 export interface ServerOptions {
