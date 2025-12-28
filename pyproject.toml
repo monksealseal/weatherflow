@@ -82,4 +82,7 @@ pythonpath = [
 [tool.hatch.build.targets.sdist]
 exclude = [
     "test_env/",
+    "weatherflow-notebooks/",
+    ".venv/",
+    "venv/",
 ]
