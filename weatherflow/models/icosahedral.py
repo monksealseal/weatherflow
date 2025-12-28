@@ -281,6 +281,34 @@ class IcosahedralFlowMatch(nn.Module):
         dlon = torch.remainder((lon1 - lon0).unsqueeze(-1) + math.pi, 2 * math.pi) - math.pi
         return torch.cat([dlat, dlon, length], dim=1)  # [E,3]
 
+    def _cotangent_laplacian(self, device: torch.device) -> torch.Tensor:
+        """Compute sparse cotangent Laplacian matrix (as dense tensor for simplicity)."""
+        verts = self.verts.to(device)
+        faces = self.faces.to(device)
+        v0 = verts[faces[:, 0]]
+        v1 = verts[faces[:, 1]]
+        v2 = verts[faces[:, 2]]
+        e0 = v1 - v2
+        e1 = v2 - v0
+        e2 = v0 - v1
+        cot0 = (e1 * e2).sum(dim=1) / torch.clamp(torch.cross(e1, e2).norm(dim=1), min=1e-6)
+        cot1 = (e2 * e0).sum(dim=1) / torch.clamp(torch.cross(e2, e0).norm(dim=1), min=1e-6)
+        cot2 = (e0 * e1).sum(dim=1) / torch.clamp(torch.cross(e0, e1).norm(dim=1), min=1e-6)
+        n = verts.shape[0]
+        L = torch.zeros(n, n, device=device)
+        for (f, c0, c1, c2) in zip(faces, cot0, cot1, cot2):
+            i, j, k = f
+            L[i, j] -= c2
+            L[j, i] -= c2
+            L[j, k] -= c0
+            L[k, j] -= c0
+            L[k, i] -= c1
+            L[i, k] -= c1
+            L[i, i] += c1 + c2
+            L[j, j] += c0 + c2
+            L[k, k] += c0 + c1
+        return L
+
     def forward(self, x: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
         """
         Args:
