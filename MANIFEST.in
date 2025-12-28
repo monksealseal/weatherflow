@@ -8,3 +8,6 @@ recursive-include docs *.md
 
 # Exclude test environment
 prune test_env/
+
+# Exclude bundled notebook venv to avoid absolute links in sdists
+prune weatherflow-notebooks/
