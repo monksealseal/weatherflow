@@ -66,7 +66,8 @@ class WeatherFlowMatch(nn.Module):
         n_layers: int = 4,
         use_attention: bool = True,
         grid_size: Tuple[int, int] = (32, 64),  # lat, lon
-        physics_informed: bool = True
+        physics_informed: bool = True,
+        window_size: int = 8,
     ):
         super().__init__()
         self.input_channels = input_channels
@@ -74,6 +75,7 @@ class WeatherFlowMatch(nn.Module):
         self.n_layers = n_layers
         self.grid_size = grid_size
         self.physics_informed = physics_informed
+        self.window_size = window_size
         
         # Input projection
         self.input_proj = nn.Sequential(
@@ -109,6 +111,39 @@ class WeatherFlowMatch(nn.Module):
         # Physics constraints (divergence regularization)
         if physics_informed:
             self.sphere = Sphere()
+    
+    def _apply_attention(self, h: torch.Tensor) -> torch.Tensor:
+        """Apply windowed attention to reduce quadratic blow-up on large grids."""
+        if not self.use_attention:
+            return h
+
+        batch_size, c, height, width = h.shape
+        if self.window_size is None or self.window_size <= 0:
+            # Fallback to global attention (legacy path)
+            h_flat = h.flatten(2).permute(0, 2, 1)  # [B, H*W, C]
+            h_att, _ = self.attention(h_flat, h_flat, h_flat)
+            return h + h_att.permute(0, 2, 1).view(batch_size, c, height, width)
+
+        win = self.window_size
+        pad_h = (win - height % win) % win
+        pad_w = (win - width % win) % win
+        if pad_h or pad_w:
+            h = F.pad(h, (0, pad_w, 0, pad_h))
+        _, _, padded_h, padded_w = h.shape
+
+        h_windows = h.view(batch_size, c, padded_h // win, win, padded_w // win, win)
+        h_windows = h_windows.permute(0, 2, 4, 3, 5, 1)  # [B, nh, nw, win, win, C]
+        tokens = h_windows.reshape(-1, win * win, c)  # [B*nh*nw, L, C]
+
+        attn_out, _ = self.attention(tokens, tokens, tokens)
+        attn_out = attn_out.view(batch_size, padded_h // win, padded_w // win, win, win, c)
+        attn_out = attn_out.permute(0, 5, 1, 3, 2, 4).reshape(
+            batch_size, c, padded_h, padded_w
+        )
+
+        if pad_h or pad_w:
+            attn_out = attn_out[:, :, :height, :width]
+        return h[:, :, :height, :width] + attn_out
 
     def _spherical_divergence(
         self, u: torch.Tensor, v_comp: torch.Tensor
@@ -170,14 +205,7 @@ class WeatherFlowMatch(nn.Module):
             h = block(h)
         
         # Apply attention if requested
-        if self.use_attention:
-            batch_size, c, height, width = h.shape
-            h_flat = h.flatten(2).permute(0, 2, 1)  # [B, H*W, C]
-            
-            h_att, _ = self.attention(h_flat, h_flat, h_flat)
-            h_att = h_att.permute(0, 2, 1).view(batch_size, c, height, width)
-            
-            h = h + h_att
+        h = self._apply_attention(h)
         
         # Output projection
         v = self.output_proj(h)
@@ -293,6 +321,7 @@ class StyleFlowMatch(WeatherFlowMatch):
         use_attention: bool = True,
         grid_size: Tuple[int, int] = (32, 64),
         physics_informed: bool = False,
+        window_size: int = 8,
     ):
         super().__init__(
             input_channels=input_channels,
@@ -301,6 +330,7 @@ class StyleFlowMatch(WeatherFlowMatch):
             use_attention=use_attention,
             grid_size=grid_size,
             physics_informed=physics_informed,
+            window_size=window_size,
         )
 
         self.style_encoder = nn.Sequential(
