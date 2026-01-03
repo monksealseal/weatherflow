@@ -103,9 +103,11 @@ for epoch in range(2):
     print(f"Epoch {epoch}: {metrics['loss']:.4f} | val {val_metrics['val_loss']:.4f}")
 ```
 
-Behind the scenes, each iteration draws random interpolation times `t`, calls
-`model(x0, t)` to obtain the predicted velocity, and compares it against the
-straight-line target `(x1 - x0)/(1 - t)` computed by `compute_flow_loss`.
+Behind the scenes, each iteration draws random interpolation times `t`,
+constructs an interpolated state `x_t = torch.lerp(x0, x1, t.view(-1, 1, 1, 1))`,
+and feeds it to `model(x_t, t)`. The prediction is compared against the constant
+displacement `(x1 - x0)` via `compute_flow_loss`, optionally re-weighted toward
+the middle of the trajectory where the flow field carries the richest signal.
 
 > **Tip:** You can enable Weights & Biases logging by instantiating the trainer
 > with `use_wandb=True` after configuring your `wandb` credentials.

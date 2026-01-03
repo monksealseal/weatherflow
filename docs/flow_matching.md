@@ -44,13 +44,18 @@ Other models in `weatherflow.models` include:
 
 ## Training objective
 
-The loss is the squared error between the predicted velocity and the straight
-line connecting the source and target samples:
+The loss follows the rectified flow formulation: evaluate the model on an
+interpolated state \(x_t = (1 - t)x_0 + t x_1\) and regress the time-independent
+displacement \(x_1 - x_0\). A lightly time-reweighted MSE emphasises the middle
+of the path, avoiding singular endpoints:
 
 ```python
 from weatherflow.training.flow_trainer import compute_flow_loss
 
-loss = compute_flow_loss(v_t, x0, x1, t, loss_type="mse")
+t = torch.rand(x0.size(0), device=x0.device)
+x_t = torch.lerp(x0, x1, t.view(-1, 1, 1, 1))
+v_t = model(x_t, t)
+loss = compute_flow_loss(v_t, x0, x1, t, loss_type="mse", weighting="time")
 ```
 
 `FlowTrainer` wraps this computation in a full training loop with optional
@@ -88,7 +93,8 @@ import torch
 for batch in train_loader:
     x0, x1 = batch["input"].to(device), batch["target"].to(device)
     t = torch.rand(x0.size(0), device=device)
-    v_t = model(x0, t)
+    x_t = torch.lerp(x0, x1, t.view(-1, 1, 1, 1))
+    v_t = model(x_t, t)
     losses = model.compute_flow_loss(x0, x1, t)
     optimizer.zero_grad()
     losses["total_loss"].backward()

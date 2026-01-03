@@ -396,6 +396,7 @@ class WeatherFlowMatch(nn.Module):
         static: Optional[torch.Tensor] = None,
         forcing: Optional[torch.Tensor] = None,
         pressure_levels: Optional[torch.Tensor] = None,
+        weighting: str = "time",
     ) -> Dict[str, torch.Tensor]:
         """Compute flow matching loss.
 
@@ -406,19 +407,26 @@ class WeatherFlowMatch(nn.Module):
             static: Static features (optional)
             forcing: Forcing vectors (optional)
             pressure_levels: Pressure levels for multi-level data (optional)
+            weighting: Temporal weighting strategy for flow loss (default: "time")
 
         Returns:
             Dictionary of loss components
         """
-        # Compute model's predicted velocity
-        v_pred = self(x0, t, static=static, forcing=forcing)
+        t_broadcast = t.view(-1, 1, 1, 1)
+        x_t = torch.lerp(x0, x1, t_broadcast)
 
-        # Compute target velocity (straight-line path)
-        # For spherical geometries, this should use geodesics
-        v_target = (x1 - x0) / (1 - t).view(-1, 1, 1, 1)
+        # Compute model's predicted velocity at interpolated states
+        v_pred = self(x_t, t, static=static, forcing=forcing)
 
-        # Main flow matching loss
-        flow_loss = F.mse_loss(v_pred, v_target)
+        # Rectified flow target velocity (time-independent displacement)
+        v_target = x1 - x0
+
+        # Main flow matching loss with optional time re-weighting
+        if weighting == "time":
+            weights = (t * (1 - t)).clamp(min=1e-3).view(-1, 1, 1, 1)
+            flow_loss = (F.mse_loss(v_pred, v_target, reduction="none") * weights).mean()
+        else:
+            flow_loss = F.mse_loss(v_pred, v_target)
 
         # Physics-based loss components
         losses = {'flow_loss': flow_loss}
@@ -429,9 +437,9 @@ class WeatherFlowMatch(nn.Module):
             losses['div_loss'] = div_loss
             flow_loss = flow_loss + 0.1 * div_loss
 
-            energy_x0 = torch.sum(x0**2)
-            energy_x1 = torch.sum(x1**2)
-            energy_diff = (energy_x0 - energy_x1).abs() / (energy_x0 + 1e-6)
+            energy_pred = torch.sum(v_pred**2)
+            energy_target = torch.sum(v_target**2) + 1e-6
+            energy_diff = (energy_pred - energy_target).abs() / energy_target
             losses['energy_diff'] = energy_diff
 
         # Enhanced physics losses if enabled
@@ -457,7 +465,7 @@ class WeatherFlowMatch(nn.Module):
                 if n_channels > 2:
                     # Check if channel 2 could be geopotential
                     # This is dataset-dependent
-                    geopotential = x0[:, 2:3, :, :]  # Use current state's geopotential
+                    geopotential = x_t[:, 2:3, :, :]  # Use interpolated state's geopotential
 
                 # Compute enhanced physics losses
                 # Note: For multi-level data, reshape appropriately
