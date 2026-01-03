@@ -1,6 +1,6 @@
-"""
-# test_install.py
-"""Lightweight install test for CI / local checks.
+"""test_install.py
+
+Lightweight install test for CI / local checks.
 
 This test verifies that the package imports and exposes version metadata without
 requiring heavy optional dependencies.
