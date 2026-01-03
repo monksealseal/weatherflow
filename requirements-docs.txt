@@ -1,3 +1,5 @@
+# Documentation build dependencies (includes core runtime requirements)
+-r requirements.txt
 mkdocs-material>=9.0.0
 mkdocstrings>=0.20.0
 mkdocstrings-python>=0.9.0

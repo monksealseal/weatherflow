@@ -84,6 +84,13 @@ pip install -e .
 pip install -r requirements-dev.txt
 ```
 
+For managed notebook platforms (e.g., Google Colab or Lambda Labs) where editable
+installs can be flaky, install the pinned runtime stack directly:
+
+```bash
+pip install -r requirements.txt
+```
+
 ## Quick Start
 
 Here's a minimal example to get started:
