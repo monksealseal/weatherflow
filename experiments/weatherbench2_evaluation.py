@@ -20,8 +20,8 @@ from typing import Dict, List, Tuple
 import warnings
 warnings.filterwarnings('ignore')
 
-# Set up paths
-EXPERIMENT_DIR = Path("/home/user/weatherflow/experiments")
+# Set up paths - use script location for portability
+EXPERIMENT_DIR = Path(__file__).parent.absolute()
 RESULTS_DIR = EXPERIMENT_DIR / "weatherbench2_results"
 RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 

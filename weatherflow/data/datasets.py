@@ -12,6 +12,9 @@ from torch.utils.data import Dataset  # This line imports Dataset from PyTorch
 import fsspec
 import gcsfs
 
+# Configure module logger
+logger = logging.getLogger(__name__)
+
 class WeatherDataset:
     """Dataset class for loading weather data from HDF5 files."""
 
@@ -35,7 +38,7 @@ class WeatherDataset:
                 with h5py.File(file_path, "r") as f:
                     self.data[var] = np.array(f[var])
             else:
-                print(f"Warning: File {file_path} not found.")
+                logger.warning(f"File {file_path} not found.")
 
     def __len__(self) -> int:
         """Return the number of samples."""
@@ -209,8 +212,8 @@ class ERA5Dataset(Dataset):
             
         self.variables = [self.VARIABLE_MAPPING[v] for v in variables]
         self.pressure_levels = pressure_levels
-        
-        print(f"Loading data from: {self.data_path}")
+
+        logger.info(f"Loading data from: {self.data_path}")
         self._load_data(time_slice)
         
     def _load_data(self, time_slice: slice):
@@ -272,9 +275,9 @@ class ERA5Dataset(Dataset):
                     **method_info['kwargs']
                 )
                 self.times = self.ds.time.sel(time=time_slice)
-                print(f"Selected time period: {self.times[0].values} to {self.times[-1].values}")
-                print(f"Variables: {self.variables}")
-                print(f"Pressure levels: {self.pressure_levels}")
+                logger.info(f"Selected time period: {self.times[0].values} to {self.times[-1].values}")
+                logger.info(f"Variables: {self.variables}")
+                logger.info(f"Pressure levels: {self.pressure_levels}")
                 return  # Success! Exit the method
                 
             except Exception as e:

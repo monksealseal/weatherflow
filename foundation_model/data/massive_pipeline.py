@@ -7,6 +7,7 @@ and Dask for distributed processing.
 """
 
 import os
+import tempfile
 from typing import List, Dict, Optional, Tuple, Iterator
 from pathlib import Path
 import numpy as np
@@ -34,7 +35,7 @@ class MassiveDataPipeline:
     def __init__(
         self,
         data_sources: List[str],
-        cache_dir: str = "/tmp/flowatm_cache",
+        cache_dir: Optional[str] = None,
         chunk_size: Tuple[int, int, int, int] = (1, 4, 128, 256),  # time, level, lat, lon
         num_workers: int = 8,
         prefetch_factor: int = 4,
@@ -42,12 +43,15 @@ class MassiveDataPipeline:
         """
         Args:
             data_sources: List of data source paths (local or cloud URLs)
-            cache_dir: Directory for local caching
+            cache_dir: Directory for local caching (default: system temp dir)
             chunk_size: Chunk size for Zarr arrays
             num_workers: Number of parallel data loading workers
             prefetch_factor: Number of batches to prefetch
         """
         self.data_sources = data_sources
+        # Use system temp directory if not specified (cross-platform)
+        if cache_dir is None:
+            cache_dir = os.path.join(tempfile.gettempdir(), "flowatm_cache")
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.chunk_size = chunk_size

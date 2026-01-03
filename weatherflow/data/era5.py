@@ -88,12 +88,15 @@ class ERA5Dataset(Dataset):
     def _download_data(self) -> None:
         """Downloads ERA5 data year-by-year using cdsapi."""
         import cdsapi
+        from pathlib import Path
 
         try:
             client = cdsapi.Client()
         except Exception as exc:
+            config_path = Path.home() / ".cdsapirc"
             raise RuntimeError(
-                "Could not initialize CDSAPI. Ensure ~/.cdsapirc is configured."
+                f"Could not initialize CDSAPI. Ensure {config_path} is configured with your API key. "
+                f"See: https://cds.climate.copernicus.eu/api-how-to"
             ) from exc
 
         os.makedirs(self.root_dir, exist_ok=True)

@@ -14,8 +14,8 @@ from pathlib import Path
 import json
 from datetime import datetime
 
-# Set up paths
-RESULTS_DIR = Path("/home/user/weatherflow/experiments/ablation_results")
+# Set up paths - use script location for portability
+RESULTS_DIR = Path(__file__).parent.absolute() / "ablation_results"
 RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
 # Set random seed for reproducibility

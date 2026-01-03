@@ -345,7 +345,16 @@ class SkewT3DVisualizer:
         profile: Dict[str, np.ndarray],
         title: str = "3D Atmospheric Structure from SKEW-T",
     ) -> "go.Figure":
-        """Return a configured Plotly figure visualising the sounding."""
+        """Return a configured Plotly figure visualising the sounding.
+
+        Raises:
+            ImportError: If plotly is not installed
+        """
+        if go is None:
+            raise ImportError(
+                "Plotly is required for 3D visualization. "
+                "Install it with: pip install plotly"
+            )
 
         altitude_km = np.asarray(profile["altitude_km"], dtype=float)
         temperature_c = np.asarray(profile["temperature_c"], dtype=float)

@@ -33,11 +33,13 @@ from .training.flow_trainer import FlowTrainer, compute_flow_loss
 from .manifolds.sphere import Sphere
 
 # Optional imports that may fail
+_HAS_ODE_SOLVER = False
 try:
     from .solvers.ode_solver import WeatherODESolver
+    _HAS_ODE_SOLVER = True
 except ImportError:
     # torchdiffeq might not be installed
-    pass
+    WeatherODESolver = None
 
 # Package metadata
 __author__ = "Eduardo Siman"
@@ -49,12 +51,12 @@ __all__ = [
     # Version
     "__version__",
     "get_version",
-    
+
     # Data
     "ERA5Dataset",
     "WeatherDataset",
     "create_data_loaders",
-    
+
     # Models
     "BaseWeatherModel",
     "WeatherFlowMatch",
@@ -63,7 +65,7 @@ __all__ = [
     "StochasticFlowModel",
     "WeatherFlowModel",
     "ConvNextBlock",
-    
+
     # Utilities
     "WeatherVisualizer",
     "FlowVisualizer",
@@ -78,10 +80,11 @@ __all__ = [
     # Training
     "FlowTrainer",
     "compute_flow_loss",
-    
+
     # Manifolds
     "Sphere",
-    
-    # Solvers
-    "WeatherODESolver"
 ]
+
+# Add optional modules to __all__ only if they're available
+if _HAS_ODE_SOLVER:
+    __all__.append("WeatherODESolver")

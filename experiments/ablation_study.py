@@ -28,8 +28,8 @@ from weatherflow.physics.losses import PhysicsLossCalculator
 from weatherflow.training.flow_trainer import FlowTrainer
 from weatherflow.training.metrics import rmse, mae
 
-# Set up paths
-EXPERIMENT_DIR = Path("/home/user/weatherflow/experiments")
+# Set up paths - use script location for portability
+EXPERIMENT_DIR = Path(__file__).parent.absolute()
 RESULTS_DIR = EXPERIMENT_DIR / "ablation_results"
 RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 

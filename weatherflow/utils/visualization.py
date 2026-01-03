@@ -1,6 +1,4 @@
 import matplotlib.pyplot as plt
-import cartopy.crs as ccrs
-import cartopy.feature as cfeature
 import numpy as np
 import torch
 from matplotlib.animation import FuncAnimation
@@ -9,6 +7,16 @@ import io
 from PIL import Image
 import base64
 import xarray as xr
+
+# Optional cartopy import - gracefully handle if not available
+try:
+    import cartopy.crs as ccrs
+    import cartopy.feature as cfeature
+    HAS_CARTOPY = True
+except ImportError:
+    ccrs = None
+    cfeature = None
+    HAS_CARTOPY = False
 
 class WeatherVisualizer:
     """Comprehensive visualization tools for weather prediction.
@@ -61,14 +69,23 @@ class WeatherVisualizer:
         save_dir: Optional[str] = None
     ):
         """Initialize the visualizer.
-        
+
         Args:
             figsize: Default figure size for plots
-            projection: Default cartopy projection
+            projection: Default cartopy projection (requires cartopy)
             save_dir: Directory to save plots
         """
         self.figsize = figsize
-        self.projection = getattr(ccrs, projection)()
+        if HAS_CARTOPY and ccrs is not None:
+            self.projection = getattr(ccrs, projection)()
+        else:
+            self.projection = None
+            import warnings
+            warnings.warn(
+                "Cartopy not available. Geographic projections will not be supported. "
+                "Install cartopy with: pip install cartopy",
+                UserWarning
+            )
         self.save_dir = save_dir
     
     def _get_latlons(

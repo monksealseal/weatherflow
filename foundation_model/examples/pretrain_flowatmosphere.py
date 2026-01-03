@@ -8,6 +8,7 @@ This script demonstrates how to:
 4. Train with distributed FSDP
 """
 
+import os
 import torch
 import torch.distributed as dist
 from pathlib import Path
@@ -37,15 +38,15 @@ def main():
         'learning_rate': 1e-4,
         'max_grad_norm': 1.0,
 
-        # Data
+        # Data - use environment variables or relative paths for portability
         'data_sources': [
-            '/data/era5_zarr',
-            '/data/cmip6_zarr',
+            os.getenv('ERA5_DATA_PATH', './data/era5_zarr'),
+            os.getenv('CMIP6_DATA_PATH', './data/cmip6_zarr'),
         ],
         'num_workers': 8,
 
-        # Checkpointing
-        'checkpoint_dir': './checkpoints/flowatm-10b',
+        # Checkpointing - relative to script location
+        'checkpoint_dir': Path(__file__).parent.parent / 'checkpoints' / 'flowatm-10b',
     }
 
     print("=" * 80)
@@ -56,7 +57,7 @@ def main():
     print("\n1. Initializing massive data pipeline...")
     data_pipeline = MassiveDataPipeline(
         data_sources=config['data_sources'],
-        cache_dir='/tmp/flowatm_cache',
+        cache_dir=None,  # Use system temp directory (cross-platform)
         num_workers=config['num_workers'],
     )
 

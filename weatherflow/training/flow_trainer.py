@@ -75,8 +75,9 @@ class FlowTrainer:
         self.model = model.to(device)
         self.optimizer = optimizer
         self.device = device
-        self.use_amp = use_amp and 'cuda' in device
-        self.scaler = torch.cuda.amp.GradScaler() if use_amp else None
+        # Only use AMP if CUDA is available and requested
+        self.use_amp = use_amp and torch.cuda.is_available() and 'cuda' in device
+        self.scaler = torch.cuda.amp.GradScaler() if self.use_amp else None
         self.use_wandb = use_wandb
         self.checkpoint_dir = Path(checkpoint_dir) if checkpoint_dir else None
         self.scheduler = scheduler
@@ -155,8 +156,8 @@ class FlowTrainer:
             # Sample time points
             t = torch.rand(x0.size(0), device=self.device)
             
-            # Forward pass with AMP if enabled
-            with torch.cuda.amp.autocast(enabled=self.use_amp):
+            # Forward pass with AMP if enabled (autocast works on CPU too with enabled=False)
+            with torch.cuda.amp.autocast(enabled=self.use_amp, device_type='cuda' if torch.cuda.is_available() else 'cpu'):
                 # Compute model prediction
                 if getattr(self.model, 'supports_style_conditioning', False):
                     v_t = self.model(x0_noisy, t, style=style)
