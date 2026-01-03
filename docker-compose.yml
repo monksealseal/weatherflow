@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  # GCM Demo - Run scenarios and generate plots
+  gcm-demo:
+    build: .
+    container_name: gcm-demo
+    volumes:
+      # Mount current directory to preserve plots
+      - ./output:/app/output
+      # Mount source code for development
+      - ./gcm:/app/gcm
+      - ./demo_scenarios.py:/app/demo_scenarios.py
+    environment:
+      - PYTHONUNBUFFERED=1
+      - MPLBACKEND=Agg
+    command: python demo_scenarios.py
+    profiles:
+      - demo
+
+  # GCM Web App - Interactive web interface
+  gcm-web:
+    build: .
+    container_name: gcm-web
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./output:/app/output
+      - ./gcm:/app/gcm
+      - ./app.py:/app/app.py
+      - ./templates:/app/templates
+      - ./static:/app/static
+    environment:
+      - PYTHONUNBUFFERED=1
+      - FLASK_APP=app.py
+      - FLASK_ENV=development
+    command: python app.py
+    profiles:
+      - web
+
+  # Python shell for interactive development
+  gcm-shell:
+    build: .
+    container_name: gcm-shell
+    volumes:
+      - .:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: /bin/bash
+    stdin_open: true
+    tty: true
+    profiles:
+      - shell

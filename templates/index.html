@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>General Circulation Model - Web Interface</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🌍 General Circulation Model</h1>
+            <p class="subtitle">Advanced Atmospheric Climate Simulation Platform</p>
+        </header>
+
+        <div class="main-content">
+            <!-- Configuration Panel -->
+            <div class="panel config-panel">
+                <h2>⚙️ Simulation Configuration</h2>
+
+                <div class="config-section">
+                    <h3>Resolution</h3>
+                    <div class="form-group">
+                        <label>Longitude Points:</label>
+                        <select id="nlon">
+                            <option value="32">32 (Fast)</option>
+                            <option value="48" selected>48 (Balanced)</option>
+                            <option value="64">64 (Standard)</option>
+                            <option value="96">96 (High)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Latitude Points:</label>
+                        <select id="nlat">
+                            <option value="16">16 (Fast)</option>
+                            <option value="24" selected>24 (Balanced)</option>
+                            <option value="32">32 (Standard)</option>
+                            <option value="48">48 (High)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Vertical Levels:</label>
+                        <select id="nlev">
+                            <option value="10">10 (Fast)</option>
+                            <option value="16" selected>16 (Balanced)</option>
+                            <option value="20">20 (Standard)</option>
+                            <option value="32">32 (High)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="config-section">
+                    <h3>Physics</h3>
+                    <div class="form-group">
+                        <label>Atmospheric Profile:</label>
+                        <select id="profile">
+                            <option value="tropical" selected>Tropical (Warm & Humid)</option>
+                            <option value="midlatitude">Midlatitude (Standard)</option>
+                            <option value="polar">Polar (Cold & Dry)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>CO₂ Concentration (ppmv):</label>
+                        <input type="number" id="co2_ppmv" value="400" min="200" max="1200" step="10">
+                        <div class="co2-presets">
+                            <button class="preset-btn" onclick="setCO2(280)">Pre-industrial (280)</button>
+                            <button class="preset-btn" onclick="setCO2(420)">Current (420)</button>
+                            <button class="preset-btn" onclick="setCO2(560)">2×CO₂ (560)</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="config-section">
+                    <h3>Simulation Settings</h3>
+                    <div class="form-group">
+                        <label>Duration (days):</label>
+                        <input type="number" id="duration_days" value="10" min="1" max="100" step="1">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Time Step (seconds):</label>
+                        <select id="dt">
+                            <option value="300">300 (5 min - Stable)</option>
+                            <option value="600" selected>600 (10 min - Balanced)</option>
+                            <option value="1200">1200 (20 min - Fast)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Integration Method:</label>
+                        <select id="integration_method">
+                            <option value="euler">Forward Euler (1st order)</option>
+                            <option value="rk3" selected>Runge-Kutta 3 (3rd order)</option>
+                            <option value="leapfrog">Leapfrog (2nd order)</option>
+                            <option value="ab2">Adams-Bashforth 2</option>
+                        </select>
+                    </div>
+                </div>
+
+                <button id="run-button" class="run-button" onclick="runSimulation()">
+                    🚀 Run Simulation
+                </button>
+
+                <div id="status-container" style="display: none;">
+                    <div class="status-box">
+                        <div id="status-text">Initializing...</div>
+                        <div class="progress-bar">
+                            <div id="progress-fill" class="progress-fill"></div>
+                        </div>
+                        <div id="progress-percent">0%</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results Panel -->
+            <div class="panel results-panel">
+                <h2>📊 Results</h2>
+
+                <div id="results-placeholder" class="placeholder">
+                    Configure and run a simulation to see results
+                </div>
+
+                <div id="results-content" style="display: none;">
+                    <!-- Summary Statistics -->
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-label">Global Mean Temp</div>
+                            <div class="stat-value" id="stat-temp">-</div>
+                            <div class="stat-unit">K</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Surface Temp</div>
+                            <div class="stat-value" id="stat-surface-temp">-</div>
+                            <div class="stat-unit">K</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Max Wind Speed</div>
+                            <div class="stat-value" id="stat-wind">-</div>
+                            <div class="stat-unit">m/s</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Mean Humidity</div>
+                            <div class="stat-value" id="stat-humidity">-</div>
+                            <div class="stat-unit">g/kg</div>
+                        </div>
+                    </div>
+
+                    <!-- Visualization Tabs -->
+                    <div class="tabs">
+                        <button class="tab-btn active" onclick="showPlot('surface_temp')">Surface Temperature</button>
+                        <button class="tab-btn" onclick="showPlot('zonal_wind')">Zonal Wind</button>
+                        <button class="tab-btn" onclick="showPlot('humidity')">Humidity</button>
+                        <button class="tab-btn" onclick="showPlot('diagnostics')">Diagnostics</button>
+                    </div>
+
+                    <div id="plot-container" class="plot-container">
+                        <img id="plot-image" src="" alt="Plot" style="width: 100%; max-width: 800px;">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Previous Simulations -->
+        <div class="panel simulations-panel">
+            <h2>📋 Simulation History</h2>
+            <div id="simulations-list"></div>
+        </div>
+
+        <footer>
+            <p>Sophisticated General Circulation Model v1.0 | Built with advanced physics parameterizations</p>
+        </footer>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
