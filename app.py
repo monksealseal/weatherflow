@@ -24,6 +24,9 @@ app = Flask(__name__)
 active_simulations = {}
 simulation_results = {}
 
+# Thread lock for synchronizing access to shared dictionaries
+simulations_lock = threading.Lock()
+
 
 class SimulationRunner:
     """Helper class to run simulations in background"""
@@ -81,13 +84,17 @@ class SimulationRunner:
             self.status = 'complete'
             self.progress = 100
 
-            # Store results
-            simulation_results[self.sim_id] = {
-                'model': self.model,
-                'config': self.config,
-                'duration': time.time() - self.start_time,
-                'timestamp': datetime.now().isoformat()
-            }
+            # Store results (thread-safe)
+            with simulations_lock:
+                simulation_results[self.sim_id] = {
+                    'model': self.model,
+                    'config': self.config,
+                    'duration': time.time() - self.start_time,
+                    'timestamp': datetime.now().isoformat()
+                }
+                # Remove from active simulations
+                if self.sim_id in active_simulations:
+                    del active_simulations[self.sim_id]
 
         except Exception as e:
             self.status = 'error'
@@ -108,14 +115,18 @@ def run_simulation():
     """Start a new simulation"""
     config = request.json
 
-    # Generate simulation ID
-    sim_id = f"sim_{int(time.time())}_{np.random.randint(1000)}"
+    # Generate simulation ID (thread-safe)
+    # Use threading-safe random and timestamp with higher precision
+    import secrets
+    sim_id = f"sim_{int(time.time() * 1000)}_{secrets.randbelow(10000)}"
 
     # Create runner
     runner = SimulationRunner(sim_id, config)
-    active_simulations[sim_id] = runner
 
     # Start simulation in background thread
+    with simulations_lock:
+        active_simulations[sim_id] = runner
+
     thread = threading.Thread(target=runner.run)
     thread.daemon = True
     thread.start()
@@ -128,23 +139,24 @@ def run_simulation():
 
 @app.route('/api/status/<sim_id>')
 def get_status(sim_id):
-    """Get simulation status"""
-    if sim_id in active_simulations:
-        runner = active_simulations[sim_id]
-        return jsonify({
-            'status': runner.status,
-            'progress': runner.progress,
-            'error': runner.error
-        })
-    elif sim_id in simulation_results:
-        return jsonify({
-            'status': 'complete',
-            'progress': 100
-        })
-    else:
-        return jsonify({
-            'status': 'not_found'
-        }), 404
+    """Get simulation status (thread-safe)"""
+    with simulations_lock:
+        if sim_id in active_simulations:
+            runner = active_simulations[sim_id]
+            return jsonify({
+                'status': runner.status,
+                'progress': runner.progress,
+                'error': runner.error
+            })
+        elif sim_id in simulation_results:
+            return jsonify({
+                'status': 'complete',
+                'progress': 100
+            })
+        else:
+            return jsonify({
+                'status': 'not_found'
+            }), 404
 
 
 @app.route('/api/results/<sim_id>')

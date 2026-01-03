@@ -1,5 +1,3 @@
-"""
-# weatherflow/__init__.py
 """WeatherFlow: A Deep Learning Library for Weather Prediction.
 
 This module is intentionally lightweight on import. Heavy submodules and optional

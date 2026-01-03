@@ -248,7 +248,11 @@ class FlowTrainer:
         # Optionally evaluate with EMA weights
         if self._ema_params is not None:
             eval_state = self.model.state_dict()
-            self.model.load_state_dict(self._ema_state_dict())  # type: ignore
+            ema_state = self._ema_state_dict()
+            if ema_state is not None:
+                self.model.load_state_dict(ema_state)
+            else:
+                logger.warning("EMA state dict is None, skipping EMA evaluation")
 
         with torch.no_grad():
             for batch in val_loader:

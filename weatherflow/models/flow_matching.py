@@ -37,6 +37,8 @@ class TimeEncoder(nn.Module):
     """Sinusoidal time encoding as used in transformers."""
     def __init__(self, dim: int = 256):
         super().__init__()
+        if dim < 4:
+            raise ValueError(f"TimeEncoder dim must be >= 4 to avoid division by zero, got {dim}")
         self.dim = dim
     
     def forward(self, t: torch.Tensor) -> torch.Tensor:
@@ -415,7 +417,8 @@ class WeatherFlowMatch(nn.Module):
 
         # Compute target velocity (straight-line path)
         # For spherical geometries, this should use geodesics
-        v_target = (x1 - x0) / (1 - t).view(-1, 1, 1, 1)
+        # Add epsilon to prevent division by zero when t approaches 1
+        v_target = (x1 - x0) / ((1 - t).view(-1, 1, 1, 1) + 1e-8)
 
         # Main flow matching loss
         flow_loss = F.mse_loss(v_pred, v_target)

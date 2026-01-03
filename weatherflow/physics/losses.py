@@ -96,6 +96,12 @@ class PhysicsLossCalculator(nn.Module):
         lon_grid = torch.linspace(0, 2*np.pi, lon_dim, device=device, dtype=u.dtype)
 
         # Spatial spacing
+        # Validate grid dimensions to prevent division by zero
+        if lat_dim < 2:
+            raise ValueError(f"lat_dim must be >= 2 for spatial derivatives, got {lat_dim}")
+        if lon_dim < 1:
+            raise ValueError(f"lon_dim must be >= 1 for spatial derivatives, got {lon_dim}")
+
         dlat = np.pi / (lat_dim - 1)
         dlon = 2 * np.pi / lon_dim
 
