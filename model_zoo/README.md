@@ -1,10 +1,12 @@
 # WeatherFlow Model Zoo
 
-A curated collection of pre-trained WeatherFlow models for weather prediction, climate analysis, and atmospheric dynamics research.
+Infrastructure and templates for hosting pre-trained WeatherFlow models for weather prediction, climate analysis, and atmospheric dynamics research.
 
 ## Overview
 
-The Model Zoo provides ready-to-use, validated models for common weather forecasting tasks. Each model includes comprehensive documentation, performance metrics, and example usage scripts.
+The Model Zoo provides the infrastructure to load and use pre-trained models for common weather forecasting tasks. The framework is ready to host models with comprehensive documentation, performance metrics, and example usage scripts.
+
+**Note:** Pre-trained model weights are not yet available. The infrastructure is in place and models can be trained using the provided scripts. See `train_model.py` for examples of how to train models that can be added to the zoo.
 
 ## Directory Structure
 
@@ -121,28 +123,30 @@ Larger models are hosted on cloud storage with automatic download scripts:
 python model_zoo/download_model.py wf_global_multivariable_v2
 ```
 
-## Available Models
+## Planned Model Categories
 
-### Global Forecasting
+The following are example model types that can be trained and added to the zoo:
 
-| Model ID | Description | Variables | Lead Time | ACC | Download |
-|----------|-------------|-----------|-----------|-----|----------|
-| `wf_z500_3day_v1` | 500 hPa geopotential 3-day | Z500 | 72 hours | 0.92 | 45 MB |
-| `wf_t850_weekly_v1` | 850 hPa temperature weekly | T850 | 7 days | 0.85 | 38 MB |
-| `wf_multivariable_v1` | Multi-variable comprehensive | Z500, T850, U/V850 | 5 days | 0.89 | 156 MB |
+### Global Forecasting (Planned)
 
-### Extreme Events
+| Model ID | Description | Variables | Lead Time | Target ACC |
+|----------|-------------|-----------|-----------|------------|
+| `wf_z500_3day_v1` | 500 hPa geopotential 3-day | Z500 | 72 hours | 0.92 |
+| `wf_t850_weekly_v1` | 850 hPa temperature weekly | T850 | 7 days | 0.85 |
+| `wf_multivariable_v1` | Multi-variable comprehensive | Z500, T850, U/V850 | 5 days | 0.89 |
 
-| Model ID | Description | Variables | Metric | Score | Download |
-|----------|-------------|-----------|--------|-------|----------|
-| `wf_tropical_cyclone_v1` | TC track prediction | Z, T, U, V | Track Error | 180 km (72h) | 67 MB |
-| `wf_atmospheric_river_v1` | AR detection/prediction | IVT, Z, T | F1 Score | 0.88 | 52 MB |
+### Extreme Events (Planned)
 
-### Climate Analysis
+| Model ID | Description | Variables | Target Metric |
+|----------|-------------|-----------|---------------|
+| `wf_tropical_cyclone_v1` | TC track prediction | Z, T, U, V | Track Error < 200 km (72h) |
+| `wf_atmospheric_river_v1` | AR detection/prediction | IVT, Z, T | F1 Score > 0.85 |
 
-| Model ID | Description | Variables | Lead Time | Skill | Download |
-|----------|-------------|-----------|-----------|-------|----------|
-| `wf_seasonal_v1` | Seasonal mean forecasting | T2m, Precip | 1-3 months | 0.65 | 78 MB |
+### Climate Analysis (Planned)
+
+| Model ID | Description | Variables | Lead Time | Target Skill |
+|----------|-------------|-----------|-----------|--------------|
+| `wf_seasonal_v1` | Seasonal mean forecasting | T2m, Precip | 1-3 months | 0.65 |
 
 ## Usage Examples
 

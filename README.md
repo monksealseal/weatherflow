@@ -2,9 +2,9 @@
 
 <div align="center">
 <img src="https://img.shields.io/badge/Python-3.8%2B-blue" alt="Python 3.8+"/>
-<img src="https://img.shields.io/badge/PyTorch-1.9%2B-orange" alt="PyTorch 1.9+"/>
+<img src="https://img.shields.io/badge/PyTorch-2.0%2B-orange" alt="PyTorch 2.0+"/>
 <img src="https://img.shields.io/badge/License-MIT-green" alt="License: MIT"/>
-<img src="https://img.shields.io/badge/Version-0.3.0-brightgreen" alt="Version 0.3.0"/>
+<img src="https://img.shields.io/badge/Version-0.4.2-brightgreen" alt="Version 0.4.2"/>
 </div>
 
 WeatherFlow is a Python library built on PyTorch that provides a flexible and extensible framework for developing weather prediction models using flow matching techniques. It integrates seamlessly with ERA5 reanalysis data and incorporates physics-guided neural network architectures.
@@ -20,27 +20,29 @@ WeatherFlow is a Python library built on PyTorch that provides a flexible and ex
 
 ## 🎯 New: Model Zoo & Applications Gallery
 
-WeatherFlow now includes a comprehensive collection of **pre-trained models** and **real-world applications**!
+WeatherFlow now includes **model zoo infrastructure** for hosting pre-trained models and **real-world applications**!
 
 ### 🏛️ Model Zoo
 
-Access ready-to-use, validated models for common forecasting tasks:
+Infrastructure ready for hosting validated models for common forecasting tasks:
 
 ```python
 from weatherflow.model_zoo import load_model
 
-# Load a pre-trained model
+# Load a pre-trained model (once available)
 model, metadata = load_model('wf_z500_3day_v1')
 print(metadata.summary())
 
-# Generate predictions immediately
+# Generate predictions
 prediction = model.predict(initial_conditions)
 ```
 
-**Available Models:**
-- **Global Forecasting**: Z500 3-day (ACC: 0.92), T850 weekly (ACC: 0.85), Multi-variable 5-day
+**Planned Model Categories:**
+- **Global Forecasting**: Z500 3-day, T850 weekly, Multi-variable 5-day
 - **Extreme Events**: Tropical cyclone tracking, Atmospheric river detection
 - **Climate**: Seasonal forecasting
+
+**Note:** Pre-trained weights not yet available. See [Model Zoo](model_zoo/README.md) for training scripts.
 
 [**→ Browse Model Zoo**](model_zoo/README.md) | [**→ View Gallery**](docs/gallery/index.md)
 

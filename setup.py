@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="weatherflow",
-    version="0.4.1",  # Updated to match pyproject.toml
+    version="0.4.2",  # Updated to match pyproject.toml
     author="Eduardo Siman",
     author_email="esiman@msn.com",
     description="A Deep Learning Library for Weather Prediction with Flow Matching",
