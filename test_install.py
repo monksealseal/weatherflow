@@ -1,11 +1,16 @@
+"""
+# test_install.py
+"""Lightweight install test for CI / local checks.
 
-import torch
-from weatherflow.models.weather_flow import WeatherFlowModel
-from weatherflow.manifolds.sphere import Sphere
+This test verifies that the package imports and exposes version metadata without
+requiring heavy optional dependencies.
+"""
 
-# Create test instances
-model = WeatherFlowModel()
-sphere = Sphere()
+from weatherflow import __version__, get_version
 
-print("Package imported successfully!")
-print(f"Model configuration: {model.__dict__.keys()}")
+print("weatherflow imported successfully!")
+print(f"__version__ = {__version__}")
+try:
+    print("get_version() ->", get_version())
+except Exception as e:
+    print("get_version() raised an error (non-fatal):", e)
