@@ -145,7 +145,8 @@ def test_flow_trainer():
     batch = next(iter(train_loader))
     x0, x1 = batch
     t = torch.rand(x0.size(0))
-    v_t = model(x0, t)
+    x_t = torch.lerp(x0, x1, t.view(-1, 1, 1, 1))
+    v_t = model(x_t, t)
     
     # Test different loss types
     mse_loss = compute_flow_loss(v_t, x0, x1, t, loss_type='mse')

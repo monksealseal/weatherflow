@@ -19,33 +19,38 @@ def compute_flow_loss(
     x0: torch.Tensor,
     x1: torch.Tensor,
     t: torch.Tensor,
-    alpha: float = 0.2,
-    min_velocity: float = 5.0,
-    loss_type: str = 'mse'
+    loss_type: str = 'mse',
+    weighting: str = 'time',
 ) -> torch.Tensor:
-    """Compute flow matching loss between predicted and target velocities."""
-    # Compute target velocity as straight-line path
-    # Avoid division by zero at t=1 with small epsilon
-    target_velocity = (x1 - x0) / (1.0 - t.view(-1, 1, 1, 1) + 1e-8)
-    
-    # Apply minimum velocity threshold for numerical stability
-    velocity_norm = torch.norm(target_velocity.reshape(target_velocity.shape[0], -1), 
-                              dim=1, keepdim=True)
-    velocity_norm = velocity_norm.reshape(-1, 1, 1, 1)
-    scale_factor = torch.where(
-        velocity_norm < min_velocity,
-        min_velocity / (velocity_norm + 1e-8),
-        torch.ones_like(velocity_norm)
-    )
-    target_velocity = target_velocity * scale_factor
-    
-    # Compute loss based on specified type
+    """Compute rectified flow matching loss between predicted and target velocities.
+
+    Contemporary rectified flow literature trains the vector field against the
+    constant displacement ``x1 - x0`` evaluated at a random interpolation point
+    :math:`x_t = (1 - t) x_0 + t x_1`. We additionally support optional temporal
+    weighting that emphasises mid-trajectory samples (where the flow field
+    carries the most information) and avoids singular behaviours near the
+    endpoints without resorting to arbitrary velocity floors.
+    """
+    target_velocity = x1 - x0
+    diff = v_t - target_velocity
+
+    # Optional temporal weighting following importance sampling used in rectified flows
+    weight: Optional[torch.Tensor]
+    if weighting == 'time':
+        weight = (t * (1 - t)).clamp(min=1e-3).view(-1, 1, 1, 1)
+    else:
+        weight = None
+
     if loss_type == 'huber':
-        return F.huber_loss(v_t, target_velocity, delta=1.0)
+        base_loss = F.huber_loss(v_t, target_velocity, delta=1.0, reduction='none')
     elif loss_type == 'smooth_l1':
-        return F.smooth_l1_loss(v_t, target_velocity)
+        base_loss = F.smooth_l1_loss(v_t, target_velocity, reduction='none')
     else:  # Default to MSE
-        return F.mse_loss(v_t, target_velocity)
+        base_loss = diff.pow(2)
+
+    if weight is not None:
+        return (base_loss * weight).mean()
+    return base_loss.mean()
 
 
 class FlowTrainer:
@@ -63,12 +68,15 @@ class FlowTrainer:
         physics_regularization: bool = False,
         physics_lambda: float = 0.1,
         loss_type: str = 'mse',
+        loss_weighting: str = 'time',
         grad_clip: Optional[float] = 1.0,
         ema_decay: Optional[float] = None,
         seed: Optional[int] = None,
         noise_std: Optional[Tuple[float, float]] = None,
     ):
         """Initialize the trainer."""
+        if loss_weighting not in ("time", "none"):
+            raise ValueError("loss_weighting must be either 'time' or 'none'.")
         if seed is not None:
             set_global_seed(seed, deterministic=False)
 
@@ -83,6 +91,7 @@ class FlowTrainer:
         self.physics_regularization = physics_regularization
         self.physics_lambda = physics_lambda
         self.loss_type = loss_type
+        self.loss_weighting = loss_weighting
         self.grad_clip = grad_clip
         self.ema_decay = ema_decay
         self.noise_std = noise_std
@@ -158,21 +167,25 @@ class FlowTrainer:
             # Forward pass with AMP if enabled
             with torch.cuda.amp.autocast(enabled=self.use_amp):
                 # Compute model prediction
+                t_broadcast = t.view(-1, 1, 1, 1)
+                x_t = torch.lerp(x0_noisy, x1_noisy, t_broadcast)
+
                 if getattr(self.model, 'supports_style_conditioning', False):
-                    v_t = self.model(x0_noisy, t, style=style)
+                    v_t = self.model(x_t, t, style=style)
                 else:
-                    v_t = self.model(x0_noisy, t)
+                    v_t = self.model(x_t, t)
                 
                 # Compute flow matching loss
                 batch_flow_loss = compute_flow_loss(
                     v_t, x0_noisy, x1_noisy, t, 
-                    loss_type=self.loss_type
+                    loss_type=self.loss_type,
+                    weighting=self.loss_weighting,
                 )
                 
                 # Add physics regularization if enabled
                 batch_physics_loss = torch.tensor(0.0, device=self.device)
                 if self.physics_regularization and hasattr(self.model, 'compute_physics_loss'):
-                    batch_physics_loss = self.model.compute_physics_loss(v_t, x0)
+                    batch_physics_loss = self.model.compute_physics_loss(v_t, x_t)
                     batch_loss = batch_flow_loss + self.physics_lambda * batch_physics_loss
                     physics_loss += batch_physics_loss.item()
                 else:
@@ -279,20 +292,24 @@ class FlowTrainer:
                 t = torch.rand(x0.size(0), device=self.device)
                 
                 # Compute model prediction
+                t_broadcast = t.view(-1, 1, 1, 1)
+                x_t = torch.lerp(x0_noisy, x1_noisy, t_broadcast)
+
                 if getattr(self.model, 'supports_style_conditioning', False):
-                    v_t = self.model(x0_noisy, t, style=style)
+                    v_t = self.model(x_t, t, style=style)
                 else:
-                    v_t = self.model(x0_noisy, t)
+                    v_t = self.model(x_t, t)
                 
                 # Compute flow matching loss
                 batch_flow_loss = compute_flow_loss(
                     v_t, x0_noisy, x1_noisy, t, 
-                    loss_type=self.loss_type
+                    loss_type=self.loss_type,
+                    weighting=self.loss_weighting,
                 )
                 
                 # Add physics regularization if enabled
                 if self.physics_regularization and hasattr(self.model, 'compute_physics_loss'):
-                    batch_physics_loss = self.model.compute_physics_loss(v_t, x0)
+                    batch_physics_loss = self.model.compute_physics_loss(v_t, x_t)
                     batch_loss = batch_flow_loss + self.physics_lambda * batch_physics_loss
                     physics_loss += batch_physics_loss.item()
                 else:
@@ -303,10 +320,13 @@ class FlowTrainer:
                 total_loss += batch_loss.item()
 
                 # Metrics
-                rmse_total += rmse(v_t, x1).item()
-                mae_total += mae(v_t, x1).item()
-                energy_total += energy_ratio(v_t, x1).item()
-                persistence_total += persistence_rmse(x0, x1).item()
+                target_velocity = x1_noisy - x0_noisy
+                rmse_total += rmse(v_t, target_velocity).item()
+                mae_total += mae(v_t, target_velocity).item()
+                energy_total += energy_ratio(v_t, target_velocity).item()
+                persistence_total += persistence_rmse(
+                    torch.zeros_like(target_velocity), target_velocity
+                ).item()
 
         # Restore original weights if EMA was used
         if eval_state is not None:

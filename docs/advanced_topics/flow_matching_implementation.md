@@ -59,9 +59,12 @@ and supports multiple integration methods (Dopri5, RK4, midpoint).
 `FlowTrainer` stitches everything together:
 
 1. Samples \(t \sim \mathcal{U}(0, 1)\) for each batch element.
-2. Calls the model to evaluate the velocity field \(u_t(x)\).
-3. Computes the straight-line target velocity and the loss via
-   `compute_flow_loss` (with optional Huber/Smooth-L1 variants).
+2. Interpolates the current state \(x_t = (1 - t)x_0 + t x_1\) and evaluates the
+   velocity field \(u_t(x_t)\) there (instead of anchoring to \(x_0\)), which is
+   the standard rectified-flow practice.
+3. Compares the prediction to the constant displacement \(x_1 - x_0\) using
+   `compute_flow_loss` with optional Huber/Smooth-L1 variants and mid-trajectory
+   time weighting.
 4. Applies physics regularisation by delegating to
    `model.compute_physics_loss(...)` when available.
 5. Steps the optimiser with optional AMP scaling and scheduler updates.
