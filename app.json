@@ -1,0 +1,26 @@
+{
+  "name": "General Circulation Model",
+  "description": "Advanced atmospheric climate simulation platform with sophisticated physics",
+  "repository": "https://github.com/yourusername/gcm",
+  "logo": "https://raw.githubusercontent.com/yourusername/gcm/main/static/logo.png",
+  "keywords": ["climate", "atmospheric-science", "modeling", "physics", "gcm"],
+  "stack": "heroku-22",
+  "buildpacks": [
+    {
+      "url": "heroku/python"
+    }
+  ],
+  "formation": {
+    "web": {
+      "quantity": 1,
+      "size": "basic"
+    }
+  },
+  "addons": [],
+  "env": {
+    "FLASK_ENV": {
+      "description": "Flask environment",
+      "value": "production"
+    }
+  }
+}

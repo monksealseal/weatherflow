@@ -1,0 +1,12 @@
+# Files to ignore during Heroku slug compilation
+*.md
+!README.md
+!WEB_README.md
+docs/
+examples/
+test_*.py
+.git
+.gitignore
+*.png
+*.nc
+*.npz
