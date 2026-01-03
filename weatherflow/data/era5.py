@@ -1,469 +1,227 @@
 import json
-import logging
 import os
-from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, Iterable, Sequence, Tuple
 
-import fsspec
-import gcsfs
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import xarray as xr
 from torch.utils.data import DataLoader, Dataset
 
-logger = logging.getLogger(__name__)
+
+def _coerce_years(years: Iterable[int]) -> Sequence[int]:
+    """Return a sorted, unique list of integer years."""
+    year_list = sorted({int(year) for year in years})
+    if not year_list:
+        raise ValueError("At least one year must be provided.")
+    return year_list
+
+
+def _coerce_levels(levels: Iterable[int]) -> Sequence[int]:
+    """Return a sorted, unique list of integer pressure levels."""
+    level_list = sorted({int(level) for level in levels})
+    if not level_list:
+        raise ValueError("At least one pressure level must be provided.")
+    return level_list
+
 
 class ERA5Dataset(Dataset):
-    """Enhanced ERA5 dataset with robust data loading from multiple sources.
-    
-    This dataset supports:
-    1. WeatherBench2 data from Google Cloud Storage
-    2. Local NetCDF files
-    3. Custom Zarr datasets
-    
-    It handles multiple access methods with robust fallbacks and provides
-    detailed error reporting.
     """
-    
-    VARIABLE_MAP = {
-        't': 'temperature',
-        'z': 'geopotential',
-        'u': 'u_component_of_wind',
-        'v': 'v_component_of_wind',
-        'q': 'specific_humidity',
-        'r': 'relative_humidity'
-    }
-    
-    NORMALIZE_STATS = {
-        'temperature': {'mean': 285.0, 'std': 15.0},
-        'geopotential': {'mean': 50000.0, 'std': 5000.0},
-        'u_component_of_wind': {'mean': 0.0, 'std': 10.0},
-        'v_component_of_wind': {'mean': 0.0, 'std': 10.0},
-        'specific_humidity': {'mean': 0.005, 'std': 0.005},
-        'relative_humidity': {'mean': 0.7, 'std': 0.3}
-    }
-    
-    DEFAULT_URL = "gs://weatherbench2/datasets/era5/1959-2023_01_10-6h-64x32_equiangular_conservative.zarr"
-    
+    A production-ready ERA5 data loader for Flow Matching models.
+    Handles auto-downloading (CDSAPI), lazy-loading (Xarray), and normalization.
+    """
+
     def __init__(
         self,
-        variables: List[str] = ['z'],
-        pressure_levels: List[int] = [500],
-        data_path: Optional[str] = None,
-        time_slice: Union[slice, str, Tuple[str, str]] = slice('2015', '2016'),
-        normalize: bool = True,
-        add_physics_features: bool = False,
-        cache_data: bool = False,
-        verbose: bool = True,
-        stats_path: Optional[Union[str, Path]] = None,
-        auto_compute_stats: bool = False,
-        local_cache_dir: Optional[Union[str, Path]] = None,
+        root_dir: str,
+        years: Iterable[int],
+        variables: Sequence[str],
+        levels: Iterable[int],
+        download: bool = False,
     ):
-        """Initialize ERA5Dataset with flexible data loading options.
-        
+        """
         Args:
-            variables: List of variables to load (using short names: 't', 'z', 'u', 'v')
-            pressure_levels: List of pressure levels in hPa to include
-            data_path: Path to dataset (GCS URL, local zarr, or netCDF)
-            time_slice: Time period to load (slice, string, or tuple of strings)
-            normalize: Whether to normalize data using predefined statistics
-            add_physics_features: Whether to add derived physics-based variables
-            cache_data: Whether to cache loaded data in memory (faster but uses more RAM)
-            verbose: Whether to print detailed information
-            stats_path: Optional path to JSON stats file; will be loaded or written.
-            auto_compute_stats: Compute stats from the selected time slice when needed.
-            local_cache_dir: Optional directory to cache remote chunks locally (simplecache).
+            root_dir: Local cache folder for .nc files.
+            years: Years to load (e.g. [2018, 2019]).
+            variables: ERA5 variable names (e.g. ['u_component_of_wind']).
+            levels: Pressure levels (e.g. [500, 850]).
+            download: If True, auto-fetch missing data via CDSAPI.
         """
-        super().__init__()
-        
-        self.variables = [self.VARIABLE_MAP.get(v, v) for v in variables]
-        self.pressure_levels = pressure_levels
-        self.data_path = data_path or os.getenv("WEATHERFLOW_ERA5_PATH", self.DEFAULT_URL)
-        self.normalize = normalize
-        self.add_physics_features = add_physics_features
-        self.cache_data = cache_data
-        self.verbose = verbose
-        self.stats_path = Path(stats_path) if stats_path else None
-        self.auto_compute_stats = auto_compute_stats
-        self.local_cache_dir = Path(local_cache_dir) if local_cache_dir else None
-        self.normalize_stats: Dict[str, Dict[str, float]] = dict(self.NORMALIZE_STATS)
-        
-        # Handle time slice formatting
-        if isinstance(time_slice, tuple):
-            time_slice = slice(*time_slice)
-        self.time_slice = time_slice
-        
-        # Configure logging
-        if self.verbose:
-            logger.setLevel(logging.INFO)
-        
-        # Load data
-        self._load_data()
-        self._prepare_normalization_stats()
-        
-        # Cache for faster access
-        self._cache = {} if self.cache_data else None
-        
-    def _log(self, message):
-        if self.verbose:
-            logger.info(message)
-        
-    def _post_load(self):
-        """Standardize dims and apply common postprocessing."""
-        dim_map = {
-            'valid_time': 'time',
-            'pressure_level': 'level'
-        }
-        self.ds = self.ds.rename({old: new for old, new in dim_map.items()
-                                  if old in self.ds.dims})
+        self.root_dir = os.fspath(root_dir)
+        self.variables = list(variables)
+        self.levels = _coerce_levels(levels)
+        self.years = _coerce_years(years)
 
-        # Select time period
-        self.times = self.ds.time.sel(time=self.time_slice)
+        if download:
+            self._download_data()
 
-        self._log("Successfully loaded data.")
-        self._log(f"Time period: {self.times[0].values} to {self.times[-1].values}")
-        self._log(f"Variables: {self.variables}")
-        self._log(f"Pressure levels: {self.pressure_levels}")
-
-        # Add derived variables if requested
-        if self.add_physics_features:
-            self._add_derived_variables()
-
-    def _load_data(self):
-        """Robust data loading with multiple fallback methods."""
-        self._log(f"Loading data from: {self.data_path}")
-
-        data_path_str = str(self.data_path)
-        storage_options = {"token": "anon"} if data_path_str.startswith("gs://") else {}
-        if self.local_cache_dir and data_path_str.startswith("gs://"):
-            self._log(f"Using local cache at: {self.local_cache_dir}")
-            cached_fs = fsspec.filesystem(
-                "simplecache",
-                target_protocol="gcs",
-                target_options=storage_options,
-                cache_storage=str(self.local_cache_dir),
+        try:
+            self.ds = xr.open_mfdataset(
+                os.path.join(self.root_dir, "era5_*.nc"),
+                combine="by_coords",
+                parallel=True,
             )
-            try:
-                self.ds = xr.open_dataset(
-                    cached_fs.get_mapper(data_path_str),
-                    engine="zarr",
-                    chunks="auto",
-                )
-                self._post_load()
-                return
-            except Exception as e:  # pragma: no cover - fallback
-                self._log(f"simplecache load failed, falling back. Error: {e}")
+        except OSError as exc:
+            raise FileNotFoundError(
+                f"No NetCDF files found in {self.root_dir}. Set download=True to fetch them."
+            ) from exc
 
-        methods = [
-            # Method 1: Recommended open_dataset pathway for Zarr with explicit anonymous access
-            lambda: {
-                'method': xr.open_dataset,
-                'args': [self.data_path],
-                'kwargs': {
-                    'engine': 'zarr',
-                    'chunks': 'auto',
-                    'backend_kwargs': {'storage_options': storage_options},
-                },
-            },
+        self.ds = self.ds[self.variables].sel(
+            level=self.levels,
+            time=slice(str(self.years[0]), str(self.years[-1])),
+        )
 
-            # Method 2: Direct HTTP access for GCS paths
-            lambda: {
-                'method': xr.open_zarr,
-                'args': [fsspec.filesystem(
-                    'http',
-                    client_kwargs={
-                        'trust_env': False,
-                        'timeout': 30
-                    }
-                ).get_mapper(data_path_str.replace('gs://', 'https://storage.googleapis.com/'))],
-                'kwargs': {'consolidated': True}
-            },
-            
-            # Method 3: GCS anonymous access
-            lambda: {
-                'method': xr.open_zarr,
-                'args': [gcsfs.GCSFileSystem(token='anon').get_mapper(self.data_path)],
-                'kwargs': {'consolidated': True}
-            },
-            
-            # Method 4: Local file system access for netCDF
-            lambda: {
-                'method': xr.open_dataset,
-                'args': [self.data_path],
-                'kwargs': {'engine': 'netcdf4'}
-            },
-            
-            # Method 5: Local zarr storage
-            lambda: {
-                'method': xr.open_zarr,
-                'args': [self.data_path],
-                'kwargs': {}
-            }
-        ]
+        self.stats = self._load_or_compute_stats()
 
-        last_exception = None
-        for i, method_factory in enumerate(methods):
-            try:
-                method_info = method_factory()
-                self._log(f"Trying method {i+1}: {method_info['method'].__name__}")
-                
-                self.ds = method_info['method'](
-                    *method_info['args'],
-                    **method_info['kwargs']
-                )
-                self._post_load()
-                return  # Success!
-                
-            except Exception as e:
-                last_exception = e
-                self._log(f"Method {i+1} failed with error: {str(e)}")
-                continue
-        
-        # If we get here, all methods failed
-        raise RuntimeError(f"All methods to load data failed. Last error: {str(last_exception)}")
-    
-    def _add_derived_variables(self):
-        """Add physics-based derived variables."""
-        self._log("Adding derived variables...")
-        
-        # Check if we have wind components
-        if all(v in self.ds for v in ['u_component_of_wind', 'v_component_of_wind']):
-            # Add wind speed
-            self._log("Adding wind_speed variable")
-            u = self.ds['u_component_of_wind']
-            v = self.ds['v_component_of_wind']
-            self.ds['wind_speed'] = np.sqrt(u**2 + v**2)
-            
-            # Add vorticity if possible
-            if 'latitude' in self.ds.dims and 'longitude' in self.ds.dims:
-                self._log("Adding vorticity variable")
-                try:
-                    # Get grid spacing
-                    lat_spacing = float(np.diff(self.ds.latitude)[0])
-                    lon_spacing = float(np.diff(self.ds.longitude)[0])
-                    
-                    # Compute gradients - simple approach for demonstration
-                    dvdx = u.differentiate('longitude') / lon_spacing
-                    dudy = v.differentiate('latitude') / lat_spacing
-                    
-                    # Relative vorticity
-                    self.ds['vorticity'] = dvdx - dudy
-                except Exception as e:
-                    self._log(f"Failed to compute vorticity: {str(e)}")
-        
-        # Add more derived variables as needed
-    
-    def _prepare_normalization_stats(self):
-        """Load or compute normalization statistics."""
-        if self.stats_path and self.stats_path.exists():
-            self._log(f"Loading normalization stats from {self.stats_path}")
-            try:
-                loaded = json.loads(self.stats_path.read_text())
-                self.normalize_stats.update(loaded)
-            except Exception as exc:  # pragma: no cover - defensive
-                self._log(f"Failed to load stats file, using defaults. Error: {exc}")
-        elif self.auto_compute_stats:
-            computed = self._compute_normalization_stats()
-            self.normalize_stats.update(computed)
-            if self.stats_path:
-                self.stats_path.parent.mkdir(parents=True, exist_ok=True)
-                self.stats_path.write_text(json.dumps(computed, indent=2))
-                self._log(f"Wrote normalization stats to {self.stats_path}")
-    
-    def _compute_normalization_stats(self) -> Dict[str, Dict[str, float]]:
-        """Compute mean/std for selected variables and time slice."""
-        self._log("Computing normalization statistics from dataset...")
-        stats: Dict[str, Dict[str, float]] = {}
-        for var in self.variables:
-            if var not in self.ds:
-                continue
-            try:
-                data = self.ds[var]
-                if 'time' in data.coords:
-                    data = data.sel(time=self.time_slice)
-                if 'level' in data.dims:
-                    data = data.sel(level=self.pressure_levels)
-                mean_val = float(data.mean().item())
-                std_val = float(data.std().item())
-                stats[var] = {'mean': mean_val, 'std': std_val}
-                self._log(f"Stats for {var}: mean={mean_val:.4f}, std={std_val:.4f}")
-            except Exception as exc:  # pragma: no cover - defensive
-                self._log(f"Failed to compute stats for {var}: {exc}")
-        return stats
-    
     def __len__(self) -> int:
-        """Return number of samples (time steps - 1 for input/target pairs)."""
-        return len(self.times) - 1
-    
-    def __getitem__(self, idx: int) -> Dict[str, Union[torch.Tensor, Dict]]:
-        """Get a single sample with current and next timestep.
-        
-        Returns:
-            Dictionary containing:
-                - 'input': Tensor of shape [n_vars, n_levels, lat, lon]
-                - 'target': Tensor of shape [n_vars, n_levels, lat, lon]
-                - 'metadata': Dictionary with sample metadata
-        """
-        # Check if we have this item cached
-        if self.cache_data and idx in self._cache:
-            return self._cache[idx]
-        
-        # Get timestamps
-        t0 = self.times[idx].values
-        t1 = self.times[idx + 1].values
-        
-        # Get data slices for both timesteps
-        data_t0 = {}
-        data_t1 = {}
-        
-        for var in self.variables:
-            try:
-                # Select data for specific time and pressure levels
-                if var in self.ds:
-                    if 'level' in self.ds[var].dims:
-                        data_t0[var] = self.ds[var].sel(
-                            time=t0,
-                            level=self.pressure_levels
-                        ).values
-                        
-                        data_t1[var] = self.ds[var].sel(
-                            time=t1,
-                            level=self.pressure_levels
-                        ).values
-                    else:
-                        # Handle variables without pressure levels
-                        data_t0[var] = self.ds[var].sel(time=t0).values
-                        data_t1[var] = self.ds[var].sel(time=t1).values
-                else:
-                    self._log(f"Warning: Variable {var} not found in dataset.")
-                    # Use zeros as placeholder
-                    shape = (len(self.pressure_levels), 
-                             self.ds.latitude.size, 
-                             self.ds.longitude.size)
-                    data_t0[var] = np.zeros(shape)
-                    data_t1[var] = np.zeros(shape)
-                
-                # Normalize if requested
-                if self.normalize and var in self.normalize_stats:
-                    stats = self.normalize_stats[var]
-                    data_t0[var] = (data_t0[var] - stats['mean']) / stats['std']
-                    data_t1[var] = (data_t1[var] - stats['mean']) / stats['std']
-                    
-            except Exception as e:
-                self._log(f"Error processing variable {var}: {str(e)}")
-                # Use zeros as placeholder
-                shape = (len(self.pressure_levels), 
-                         self.ds.latitude.size, 
-                         self.ds.longitude.size)
-                data_t0[var] = np.zeros(shape)
-                data_t1[var] = np.zeros(shape)
-        
-        # Convert to tensors
-        input_data = torch.tensor(np.stack([data_t0[var] for var in self.variables]))
-        target_data = torch.tensor(np.stack([data_t1[var] for var in self.variables]))
-        
-        result = {
-            'input': input_data.float(),
-            'target': target_data.float(),
-            'metadata': {
-                't0': t0,
-                't1': t1,
-                'variables': self.variables,
-                'pressure_levels': self.pressure_levels
+        return self.ds.sizes["time"]
+
+    def __getitem__(self, idx: int) -> torch.Tensor:
+        data_slice = self.ds.isel(time=idx).load()
+        numpy_data = data_slice.to_array(dim="variable").values
+        tensor = torch.from_numpy(numpy_data).float()
+
+        std = torch.clamp(self.stats["std"], min=1e-6)
+        norm_tensor = (tensor - self.stats["mean"]) / std
+        return norm_tensor
+
+    def _download_data(self) -> None:
+        """Downloads ERA5 data year-by-year using cdsapi."""
+        import cdsapi
+
+        try:
+            client = cdsapi.Client()
+        except Exception as exc:
+            raise RuntimeError(
+                "Could not initialize CDSAPI. Ensure ~/.cdsapirc is configured."
+            ) from exc
+
+        os.makedirs(self.root_dir, exist_ok=True)
+
+        for year in self.years:
+            fname = f"era5_{year}.nc"
+            path = os.path.join(self.root_dir, fname)
+
+            if os.path.exists(path):
+                print(f"✅ Found {fname}, skipping.")
+                continue
+
+            print(f"⬇️ Requesting ERA5 data for {year}...")
+            client.retrieve(
+                "reanalysis-era5-pressure-levels",
+                {
+                    "product_type": "reanalysis",
+                    "format": "netcdf",
+                    "variable": self.variables,
+                    "pressure_level": [str(level) for level in self.levels],
+                    "year": str(year),
+                    "month": [f"{month:02d}" for month in range(1, 13)],
+                    "day": [f"{day:02d}" for day in range(1, 32)],
+                    "time": [f"{hour:02d}:00" for hour in range(0, 24, 6)],
+                },
+                path,
+            )
+
+    def _load_or_compute_stats(self) -> Dict[str, torch.Tensor]:
+        """Computes mean/std once and caches them to JSON."""
+        stats_path = os.path.join(self.root_dir, "stats.json")
+
+        if os.path.exists(stats_path):
+            with open(stats_path, "r", encoding="utf-8") as stats_file:
+                stats = json.load(stats_file)
+            return {
+                key: torch.tensor(value, dtype=torch.float32)
+                .unsqueeze(-1)
+                .unsqueeze(-1)
+                for key, value in stats.items()
             }
+
+        print("⏳ Computing normalization stats (one-time setup)...")
+        mean = self.ds.mean(dim=["time", "latitude", "longitude"]).to_array().values
+        std = self.ds.std(dim=["time", "latitude", "longitude"]).to_array().values
+        std = np.where(std == 0, 1e-6, std)
+
+        stats: Dict[str, Sequence[Sequence[float]]] = {
+            "mean": mean.tolist(),
+            "std": std.tolist(),
         }
-        
-        # Cache if requested
-        if self.cache_data:
-            self._cache[idx] = result
-            
-        return result
-    
-    @property
-    def shape(self) -> Tuple[int, ...]:
-        """Return the shape of the data (n_vars, n_levels, lat, lon)."""
-        return (len(self.variables), len(self.pressure_levels), 
-                self.ds.latitude.size, self.ds.longitude.size)
-    
-    def get_coords(self) -> Dict[str, np.ndarray]:
-        """Return coordinate arrays for the dataset."""
+        with open(stats_path, "w", encoding="utf-8") as stats_file:
+            json.dump(stats, stats_file)
+
         return {
-            'latitude': self.ds.latitude.values,
-            'longitude': self.ds.longitude.values,
-            'pressure_levels': np.array(self.pressure_levels)
+            "mean": torch.tensor(mean, dtype=torch.float32).unsqueeze(-1).unsqueeze(-1),
+            "std": torch.tensor(std, dtype=torch.float32).unsqueeze(-1).unsqueeze(-1),
         }
+
+    def visualize(self, idx: int = 0) -> None:
+        """Sanity check: denormalizes and plots the first variable."""
+        tensor = self.__getitem__(idx)
+        denorm = tensor * torch.clamp(self.stats["std"], min=1e-6) + self.stats["mean"]
+        img = denorm[0, :, :].numpy()
+
+        plt.figure(figsize=(10, 6))
+        plt.imshow(img, cmap="RdBu_r", origin="upper")
+        plt.colorbar(label="Physical Units")
+        plt.title(
+            f"Sample Visualization (Index {idx})\nVar: {self.variables[0]}, Level: {self.levels[0]}"
+        )
+        plt.show()
 
 
 def create_data_loaders(
-    variables: List[str] = ['z'],
-    pressure_levels: List[int] = [500],
-    data_path: str = None,
-    train_slice: Union[slice, Tuple[str, str]] = ('2015', '2016'),
-    val_slice: Union[slice, Tuple[str, str]] = ('2017', '2017'),
+    root_dir: str,
+    train_years: Iterable[int],
+    val_years: Iterable[int],
+    variables: Sequence[str],
+    levels: Iterable[int],
     batch_size: int = 32,
-    num_workers: int = 4,
-    normalize: bool = True,
-    stats_path: Optional[Union[str, Path]] = None,
-    auto_compute_stats: bool = False,
-    local_cache_dir: Optional[Union[str, Path]] = None,
+    num_workers: int = 0,
+    download: bool = False,
 ) -> Tuple[DataLoader, DataLoader]:
-    """Create training and validation data loaders.
-    
-    Args:
-        variables: List of variables to load (using short names: 't', 'z', 'u', 'v')
-        pressure_levels: List of pressure levels in hPa
-        data_path: Path to dataset (defaults to WeatherBench2 GCS path)
-        train_slice: Time period for training data
-        val_slice: Time period for validation data
-        batch_size: Batch size for data loaders
-        num_workers: Number of worker processes for data loading
-        normalize: Whether to normalize data
-        stats_path: Optional path to persist/restore normalization statistics
-        auto_compute_stats: Compute stats from the training slice when missing
-        local_cache_dir: Directory for simplecache to store remote chunks locally
-        
-    Returns:
-        Tuple of (train_loader, val_loader)
     """
-    
-    # Create datasets
-    train_dataset = ERA5Dataset(
+    Convenience helper to build train/validation dataloaders.
+
+    Args:
+        root_dir: Directory containing (or to store) ERA5 NetCDF files.
+        train_years: Years for training data.
+        val_years: Years for validation data.
+        variables: ERA5 variable names.
+        levels: Pressure levels to include.
+        batch_size: DataLoader batch size.
+        num_workers: DataLoader worker processes.
+        download: If True, fetch any missing files before loading.
+
+    Returns:
+        Tuple of (train_loader, val_loader).
+    """
+    train_ds = ERA5Dataset(
+        root_dir=root_dir,
+        years=train_years,
         variables=variables,
-        pressure_levels=pressure_levels,
-        data_path=data_path,
-        time_slice=train_slice,
-        normalize=normalize,
-        stats_path=stats_path,
-        auto_compute_stats=auto_compute_stats,
-        local_cache_dir=local_cache_dir,
+        levels=levels,
+        download=download,
     )
-    
-    val_dataset = ERA5Dataset(
+    val_ds = ERA5Dataset(
+        root_dir=root_dir,
+        years=val_years,
         variables=variables,
-        pressure_levels=pressure_levels,
-        data_path=data_path,
-        time_slice=val_slice,
-        normalize=normalize,
-        stats_path=stats_path,
-        auto_compute_stats=False,
-        local_cache_dir=local_cache_dir,
+        levels=levels,
+        download=download,
     )
-    
-    # Create data loaders
+
     train_loader = DataLoader(
-        train_dataset,
+        train_ds,
         batch_size=batch_size,
         shuffle=True,
         num_workers=num_workers,
-        pin_memory=True
+        pin_memory=True,
     )
-    
     val_loader = DataLoader(
-        val_dataset,
+        val_ds,
         batch_size=batch_size,
         shuffle=False,
         num_workers=num_workers,
-        pin_memory=True
+        pin_memory=True,
     )
-    
+
     return train_loader, val_loader
