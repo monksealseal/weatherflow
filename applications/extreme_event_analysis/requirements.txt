@@ -1,0 +1,19 @@
+# Additional requirements for extreme event analysis
+
+# Image processing for connected components
+scipy>=1.7.0
+
+# Statistics and climatology
+statsmodels>=0.13.0
+
+# Data handling
+pandas>=1.3.0
+xarray>=0.19.0
+
+# Visualization
+matplotlib>=3.4.0
+cartopy>=0.20.0  # For geographic plotting
+seaborn>=0.11.0
+
+# Performance metrics
+scikit-learn>=1.0.0

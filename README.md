@@ -18,6 +18,56 @@ WeatherFlow is a Python library built on PyTorch that provides a flexible and ex
 * **Visualization Tools:** Comprehensive utilities for visualizing predictions and flow fields
 * **Graduate Learning Studio:** Interactive, physics-rich dashboards for atmospheric dynamics education
 
+## 🎯 New: Model Zoo & Applications Gallery
+
+WeatherFlow now includes a comprehensive collection of **pre-trained models** and **real-world applications**!
+
+### 🏛️ Model Zoo
+
+Access ready-to-use, validated models for common forecasting tasks:
+
+```python
+from weatherflow.model_zoo import load_model
+
+# Load a pre-trained model
+model, metadata = load_model('wf_z500_3day_v1')
+print(metadata.summary())
+
+# Generate predictions immediately
+prediction = model.predict(initial_conditions)
+```
+
+**Available Models:**
+- **Global Forecasting**: Z500 3-day (ACC: 0.92), T850 weekly (ACC: 0.85), Multi-variable 5-day
+- **Extreme Events**: Tropical cyclone tracking, Atmospheric river detection
+- **Climate**: Seasonal forecasting
+
+[**→ Browse Model Zoo**](model_zoo/README.md) | [**→ View Gallery**](docs/gallery/index.md)
+
+### 🚀 Applications Gallery
+
+Complete, runnable examples for specific domains:
+
+1. **Renewable Energy Forecasting**
+   - Wind and solar power prediction
+   - Uncertainty quantification
+   - Grid integration tools
+   - [View Application →](applications/renewable_energy/README.md)
+
+2. **Extreme Event Analysis**
+   - Heatwave and atmospheric river detection
+   - Event-based model evaluation
+   - Impact assessment tools
+   - [View Application →](applications/extreme_event_analysis/README.md)
+
+3. **Educational Laboratory**
+   - Graduate-level teaching materials
+   - Interactive Jupyter notebooks
+   - Guided exercises with solutions
+   - [View Educational Resources →](applications/educational/README.md)
+
+[**→ Explore All Applications**](applications/README.md)
+
 ## Installation
 
 ```bash

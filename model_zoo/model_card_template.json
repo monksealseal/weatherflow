@@ -1,0 +1,120 @@
+{
+  "model_id": "wf_example_v1",
+  "name": "Example Weather Flow Model",
+  "description": "Brief description of what this model predicts and its intended use case",
+  "version": "1.0.0",
+  "created_date": "2024-01-01",
+  "authors": ["Author Name"],
+
+  "architecture": {
+    "model_type": "WeatherFlowMatch",
+    "input_channels": 4,
+    "hidden_dim": 256,
+    "n_layers": 6,
+    "use_attention": true,
+    "physics_informed": true,
+    "parameter_count": 15000000,
+    "grid_size": [32, 64],
+    "special_features": []
+  },
+
+  "training_data": {
+    "dataset": "ERA5",
+    "variables": ["z", "t", "u", "v"],
+    "pressure_levels": [850, 500, 250],
+    "temporal_coverage": {
+      "train": ["2010-01-01", "2016-12-31"],
+      "validation": ["2017-01-01", "2017-12-31"],
+      "test": ["2018-01-01", "2019-12-31"]
+    },
+    "spatial_resolution": "5.625 degrees",
+    "temporal_resolution": "6 hours",
+    "data_source": "WeatherBench2",
+    "normalization": "per-variable z-score"
+  },
+
+  "training_config": {
+    "optimizer": "AdamW",
+    "learning_rate": 0.0001,
+    "batch_size": 32,
+    "epochs": 50,
+    "early_stopping": true,
+    "scheduler": "CosineAnnealingLR",
+    "loss_function": "Flow Matching Loss + Physics Constraints",
+    "hardware": "4x NVIDIA A100 40GB",
+    "training_time": "48 hours"
+  },
+
+  "performance_metrics": {
+    "test_period": ["2018-01-01", "2019-12-31"],
+    "lead_times": {
+      "24h": {
+        "rmse": 0.45,
+        "acc": 0.94,
+        "bias": 0.02,
+        "mae": 0.35
+      },
+      "72h": {
+        "rmse": 0.82,
+        "acc": 0.88,
+        "bias": 0.05,
+        "mae": 0.68
+      },
+      "120h": {
+        "rmse": 1.25,
+        "acc": 0.80,
+        "bias": 0.08,
+        "mae": 1.02
+      }
+    },
+    "baseline_comparison": {
+      "climatology_acc": 0.65,
+      "persistence_acc": 0.75,
+      "improvement_over_persistence": "13%"
+    },
+    "physics_validation": {
+      "mass_conservation_error": 0.001,
+      "energy_conservation_error": 0.002,
+      "vorticity_balance": "passed"
+    }
+  },
+
+  "use_cases": [
+    "Medium-range weather forecasting",
+    "Educational demonstrations",
+    "Baseline for model comparisons"
+  ],
+
+  "limitations": [
+    "Trained on ERA5 reanalysis, may not generalize to real-time observations",
+    "Limited to specified pressure levels",
+    "Does not include precipitation or clouds"
+  ],
+
+  "file_info": {
+    "checkpoint_file": "wf_example_v1.pt",
+    "file_size_mb": 58.5,
+    "pytorch_version": "2.0.0",
+    "python_version": "3.9"
+  },
+
+  "citation": {
+    "bibtex": "@misc{wf_example_v1,\n  title={Example Weather Flow Model},\n  author={Author Name},\n  year={2024},\n  url={https://github.com/monksealseal/weatherflow}\n}"
+  },
+
+  "license": "MIT",
+
+  "links": {
+    "paper": "",
+    "code": "https://github.com/monksealseal/weatherflow",
+    "demo": "",
+    "documentation": "https://github.com/monksealseal/weatherflow/blob/main/model_zoo/README.md"
+  },
+
+  "tags": [
+    "weather-forecasting",
+    "flow-matching",
+    "medium-range",
+    "global"
+  ]
+}
