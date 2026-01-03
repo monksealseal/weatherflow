@@ -5,12 +5,10 @@ import xarray as xr
 from weatherflow.data.sequence import MultiStepERA5Dataset
 
 
-def build_dummy_sequence_dataset(
-    time_steps: int = 6,
-    context: int = 2,
-    pred: int = 2,
+def _build_dummy_sequence_dataset(
+    monkeypatch, tmp_path, time_steps: int = 6, context: int = 2, pred: int = 2
 ) -> MultiStepERA5Dataset:
-    """Construct an in-memory MultiStepERA5Dataset without I/O."""
+    """Construct an in-memory MultiStepERA5Dataset without disk I/O."""
     ds = xr.Dataset(
         {
             "z": (
@@ -26,24 +24,32 @@ def build_dummy_sequence_dataset(
         },
     )
 
-    dataset = MultiStepERA5Dataset.__new__(MultiStepERA5Dataset)
-    dataset.context_length = context
-    dataset.pred_length = pred
-    dataset.stride = 1
-    dataset.variables = ["z"]
-    dataset.pressure_levels = [500]
-    dataset.normalize = False
-    dataset.normalize_stats = {}
-    dataset.cache_data = False
-    dataset._cache = None
-    dataset.ds = ds
-    dataset.times = ds.time
-    return dataset
+    call_counter = {"count": 0}
+
+    def fake_open_mfdataset(*args, **kwargs):
+        call_counter["count"] += 1
+        return ds
+
+    monkeypatch.setattr(xr, "open_mfdataset", fake_open_mfdataset)
+
+    dataset = MultiStepERA5Dataset(
+        root_dir=tmp_path,
+        years=[2000, 2001],
+        variables=["z"],
+        levels=[500],
+        context_length=context,
+        pred_length=pred,
+        stride=1,
+    )
+
+    return dataset, call_counter
 
 
-def test_multistep_dataset_shapes():
-    dataset = build_dummy_sequence_dataset()
+def test_multistep_dataset_shapes(monkeypatch, tmp_path):
+    dataset, call_counter = _build_dummy_sequence_dataset(monkeypatch, tmp_path)
+    assert call_counter["count"] == 1
     assert len(dataset) == 3  # (6 - (2+2)) + 1
+
     sample = dataset[0]
     context = sample["context"]
     target = sample["target"]
@@ -51,3 +57,4 @@ def test_multistep_dataset_shapes():
     assert target.shape == (2, 1, 1, 4, 8)
     assert sample["metadata"]["context_length"] == 2
     assert sample["metadata"]["pred_length"] == 2
+    assert sample["metadata"]["pressure_levels"] == [500]
