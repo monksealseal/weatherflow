@@ -1,10 +1,11 @@
-
-import torch
-import torch.nn as nn
 import numpy as np
 import os
 from pathlib import Path
+import pytest
+
+torch = pytest.importorskip("torch")
 from torch.utils.data import Dataset, DataLoader
+import torch.nn as nn
 
 # Import our improved modules
 from weatherflow.models.base import BaseWeatherModel

@@ -1,9 +1,10 @@
 import json
 
 import numpy as np
-import torch
+import pytest
 import xarray as xr
 
+torch = pytest.importorskip("torch")
 from weatherflow.data.era5 import ERA5Dataset
 
 

@@ -1,7 +1,8 @@
 import numpy as np
-import torch
+import pytest
 import xarray as xr
 
+torch = pytest.importorskip("torch")
 from weatherflow.data.sequence import MultiStepERA5Dataset
 
 

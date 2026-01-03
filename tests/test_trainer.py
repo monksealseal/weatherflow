@@ -1,6 +1,7 @@
-import torch
-from torch.utils.data import DataLoader, TensorDataset
+import pytest
 
+torch = pytest.importorskip("torch")
+from torch.utils.data import DataLoader, TensorDataset
 from weatherflow.training.flow_trainer import FlowTrainer
 
 

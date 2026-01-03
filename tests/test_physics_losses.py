@@ -1,8 +1,9 @@
 """Tests for enhanced physics-based loss functions."""
 
 import pytest
-import torch
 import numpy as np
+
+torch = pytest.importorskip("torch")
 from weatherflow.physics.losses import PhysicsLossCalculator
 
 

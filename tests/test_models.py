@@ -1,4 +1,6 @@
-import torch
+import pytest
+
+torch = pytest.importorskip("torch")
 
 from weatherflow.models.flow_matching import WeatherFlowMatch, WeatherFlowODE
 
