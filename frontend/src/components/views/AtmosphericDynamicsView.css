@@ -1,0 +1,258 @@
+.atmospheric-dynamics-view {
+  padding: 2rem;
+}
+
+.constants-section, .topics-section, .tools-section, .problems-section, .resources-section {
+  margin-top: 3rem;
+}
+
+.constants-section h2, .topics-section h2, .tools-section h2, .problems-section h2, .resources-section h2 {
+  color: #e2e8f0;
+  margin-bottom: 1.5rem;
+}
+
+.constants-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.constant-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 1.5rem;
+  text-align: center;
+}
+
+.constant-card h3 {
+  color: #cbd5e1;
+  margin: 0 0 1rem 0;
+  font-size: 0.9rem;
+}
+
+.constant-card code {
+  background: rgba(102, 126, 234, 0.2);
+  color: #a5b4fc;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+  display: inline-block;
+}
+
+.topics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: 1.5rem;
+}
+
+.topic-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 1.5rem;
+  transition: all 0.2s;
+}
+
+.topic-card:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+}
+
+.topic-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.topic-icon {
+  font-size: 2rem;
+}
+
+.topic-header h3 {
+  margin: 0;
+  color: #e2e8f0;
+  font-size: 1.2rem;
+}
+
+.topic-description {
+  color: #94a3b8;
+  line-height: 1.5;
+  margin-bottom: 1rem;
+}
+
+.topic-equation {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 6px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.topic-equation code {
+  color: #a5b4fc;
+  font-family: 'Courier New', monospace;
+  font-size: 1.1rem;
+}
+
+.topic-concepts h4 {
+  color: #cbd5e1;
+  margin: 0 0 0.5rem 0;
+  font-size: 0.9rem;
+}
+
+.topic-concepts ul {
+  color: #94a3b8;
+  line-height: 1.6;
+  padding-left: 1.5rem;
+  margin: 0;
+}
+
+.tools-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 1.5rem;
+}
+
+.tool-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 1.5rem;
+}
+
+.tool-card h3 {
+  color: #e2e8f0;
+  margin: 0 0 0.75rem 0;
+  font-size: 1.1rem;
+}
+
+.tool-card p {
+  color: #94a3b8;
+  margin-bottom: 1rem;
+  line-height: 1.5;
+}
+
+.tool-card pre {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 6px;
+  padding: 1rem;
+  overflow-x: auto;
+  margin: 0;
+}
+
+.tool-card code {
+  color: #a5b4fc;
+  font-family: 'Courier New', monospace;
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+.section-description {
+  color: #94a3b8;
+  margin-bottom: 1.5rem;
+  line-height: 1.6;
+}
+
+.problems-grid {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.problem-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 1.5rem;
+}
+
+.problem-card h3 {
+  color: #e2e8f0;
+  margin: 0 0 1rem 0;
+  font-size: 1.1rem;
+}
+
+.problem-card > p {
+  color: #94a3b8;
+  line-height: 1.6;
+  margin-bottom: 1rem;
+}
+
+.problem-card details {
+  margin-top: 1rem;
+}
+
+.problem-card summary {
+  color: #667eea;
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 4px;
+  transition: background 0.2s;
+  font-weight: 500;
+}
+
+.problem-card summary:hover {
+  background: rgba(102, 126, 234, 0.1);
+}
+
+.solution {
+  padding: 1rem;
+  margin-top: 1rem;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+}
+
+.solution p {
+  color: #cbd5e1;
+  margin: 1rem 0;
+}
+
+.solution code {
+  display: block;
+  background: rgba(102, 126, 234, 0.2);
+  color: #a5b4fc;
+  padding: 0.5rem;
+  border-radius: 4px;
+  font-family: 'Courier New', monospace;
+  margin: 0.5rem 0;
+}
+
+.resources-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1rem;
+}
+
+.resource-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 1.5rem;
+}
+
+.resource-card h3 {
+  color: #e2e8f0;
+  margin: 0 0 0.5rem 0;
+  font-size: 1rem;
+}
+
+.resource-card code {
+  display: block;
+  background: rgba(102, 126, 234, 0.2);
+  color: #a5b4fc;
+  padding: 0.5rem;
+  border-radius: 4px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.85rem;
+  margin: 0.75rem 0;
+}
+
+.resource-card p {
+  color: #94a3b8;
+  margin: 0;
+  line-height: 1.5;
+  font-size: 0.9rem;
+}
