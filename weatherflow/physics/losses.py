@@ -102,9 +102,9 @@ class PhysicsLossCalculator(nn.Module):
         # Calculate relative vorticity (ζ = ∂v/∂x - ∂u/∂y)
         cos_lat = torch.cos(lat_grid).view(1, 1, lat_dim, 1).clamp(min=1e-8)
 
-        # Scale by metric factors
-        dx = dlon * self.earth_radius * cos_lat
-        dy = dlat * self.earth_radius
+        # Metric factors: distance per radian (meters/radian) for converting angular derivatives to physical gradients
+        dx = self.earth_radius * cos_lat
+        dy = self.earth_radius
 
         # Finite differences with periodic wrapping in longitude
         dvdx = torch.gradient(v, spacing=(dlon,), dim=3)[0] / dx
@@ -146,8 +146,8 @@ class PhysicsLossCalculator(nn.Module):
 
         # Also penalize large PV magnitudes at small scales (non-physical)
         # Use spatial gradients as proxy for small-scale structure
-        pv_grad_lat = torch.gradient(qg_pv, spacing=(dlat,), dim=2)[0]
-        pv_grad_lon = torch.gradient(qg_pv, spacing=(dlon,), dim=3)[0]
+        pv_grad_lat = torch.gradient(qg_pv, spacing=(dlat,), dim=2)[0] / dy
+        pv_grad_lon = torch.gradient(qg_pv, spacing=(dlon,), dim=3)[0] / dx
         pv_gradient_penalty = (pv_grad_lat**2 + pv_grad_lon**2).mean()
 
         return pv_variance + 0.1 * pv_gradient_penalty
@@ -263,15 +263,15 @@ class PhysicsLossCalculator(nn.Module):
         dlat = np.pi / (lat_dim - 1)
         dlon = 2 * np.pi / lon_dim
 
-        # Metric terms
+        # Metric terms: distance per radian (meters/radian) for converting angular derivatives to physical gradients
         cos_lat = torch.cos(lat_grid).view(1, 1, lat_dim, 1).clamp(min=1e-8)
-        dx = dlon * self.earth_radius * cos_lat
-        dy = dlat * self.earth_radius
+        dx = self.earth_radius * cos_lat
+        dy = self.earth_radius
 
         # Compute divergence for each level
-        dvdx = torch.gradient(v, spacing=(dlon,), dim=3)[0] / dx
-        dudy = torch.gradient(u, spacing=(dlat,), dim=2)[0] / dy
-        divergence = dvdx + dudy  # [batch, level, lat, lon]
+        dudx = torch.gradient(u, spacing=(dlon,), dim=3)[0] / dx
+        dvdy = torch.gradient(v, spacing=(dlat,), dim=2)[0] / dy
+        divergence = dudx + dvdy  # [batch, level, lat, lon]
 
         # Pressure-weighted vertical integration
         if pressure_levels is not None and n_levels > 1:
@@ -346,8 +346,8 @@ class PhysicsLossCalculator(nn.Module):
         dlon = 2 * np.pi / lon_dim
 
         cos_lat = torch.cos(lat_grid).view(1, 1, lat_dim, 1).clamp(min=1e-8)
-        dx = dlon * self.earth_radius * cos_lat
-        dy = dlat * self.earth_radius
+        dx = self.earth_radius * cos_lat
+        dy = self.earth_radius
 
         dPhi_dx = torch.gradient(geopotential, spacing=(dlon,), dim=3)[0] / dx
         dPhi_dy = torch.gradient(geopotential, spacing=(dlat,), dim=2)[0] / dy

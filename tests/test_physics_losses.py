@@ -180,8 +180,8 @@ class TestPhysicsLossCalculator:
         cos_lat = torch.cos(lat_grid).view(1, 1, lat_dim, 1).clamp(min=1e-8)
         f = physics_calculator.coriolis_parameter(lat_grid).view(1, 1, lat_dim, 1)
 
-        dx = dlon * physics_calculator.earth_radius * cos_lat
-        dy = dlat * physics_calculator.earth_radius
+        dx = physics_calculator.earth_radius * cos_lat
+        dy = physics_calculator.earth_radius
 
         dPhi_dx = torch.gradient(geopotential, spacing=(dlon,), dim=3)[0] / dx
         dPhi_dy = torch.gradient(geopotential, spacing=(dlat,), dim=2)[0] / dy
