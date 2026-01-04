@@ -39,16 +39,17 @@ export interface TrainingConfig {
   rolloutWeight: number;
 }
 
+export interface InferenceConfig {
+  tileSizeLat?: number;
+  tileSizeLon?: number;
+  tileOverlap?: number;
+}
+
 export interface ExperimentConfig {
   dataset: DatasetConfig;
   model: ModelConfig;
   training: TrainingConfig;
-  // inference is optional; server provides defaults
-  inference?: {
-    tileSizeLat?: number;
-    tileSizeLon?: number;
-    tileOverlap?: number;
-  };
+  inference?: InferenceConfig;
 }
 
 export interface ServerOptions {
