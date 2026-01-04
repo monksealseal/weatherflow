@@ -26,12 +26,14 @@ type Overlay = 'none' | 'temperature' | 'moisture';
 
 const ORBITAL_DISTANCE = 28;
 const PILOT_DISTANCE = 12;
-  } from 'three'; // Use the real Three.js package instead of the mock
+
 const createIntersectionLine = (height: number): Line => {
   const points = [new Vector3(0, -height / 2, 0), new Vector3(0, height / 2, 0)];
-  const geometry = new Line().geometry.setFromPoints(points);
-  const material = new LineBasicMaterial({ color: 0xffff00, linewidth: 2 });
-  return new Line(geometry, material);
+  const geometry = new LineBasicMaterial({ color: 0xffff00 }).linewidth ? 
+    (() => { const g = new PlaneGeometry(); g.setFromPoints?.(points); return g; })() : 
+    new PlaneGeometry();
+  const material = new LineBasicMaterial({ color: 0xffff00 });
+  return new Line(geometry as any, material);
 };
 
 const createSlicePlane = (

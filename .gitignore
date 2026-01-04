@@ -42,6 +42,12 @@ frontend/frontend.log
 frontend/frontend.pid
 frontend/vite.log
 frontend/vite.pid
+frontend/src/**/*.js
+frontend/src/**/*.d.ts
+frontend/*.tsbuildinfo
+frontend/*.d.ts
+frontend/*.js
+!frontend/vite.config.js
 server.log
 server.pid
 
