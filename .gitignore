@@ -30,6 +30,10 @@ env/
 venv/
 ENV/
 
+# Allow frontend environment files (they only contain backend URL, no secrets)
+!frontend/.env.production
+!frontend/.env.development
+
 # IDE
 .idea/
 .vscode/
