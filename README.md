@@ -91,6 +91,16 @@ installs can be flaky, install the pinned runtime stack directly:
 pip install -r requirements.txt
 ```
 
+## Training with Sophisticated Methods and Real Data
+
+For complete step-by-step instructions on training flow matching models with the most sophisticated methods and real ERA5 data, see [**TRAINING_INSTRUCTIONS.txt**](TRAINING_INSTRUCTIONS.txt).
+
+This guide covers:
+- Simple and advanced flow matching approaches
+- Using the FlowTrainer API with physics constraints
+- Foundation model pre-training (FlowAtmosphere)
+- Common troubleshooting solutions
+
 ## Quick Start
 
 Here's a minimal example to get started:

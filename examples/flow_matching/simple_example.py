@@ -1,6 +1,14 @@
+import sys
+import os
 import torch
-from weatherflow.path import GaussianProbPath, CondOTPath
-from weatherflow.models.score_matching import ScoreMatchingModel
+
+# Add the repository root to the path for development/example purposes
+# For production use, install the package with: pip install -e .
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+
+# Import from the local modules directly
+from weatherflow.path.gaussian_path import GaussianProbPath
+from weatherflow.path.condot_path import CondOTPath
 from weatherflow.solvers.langevin import langevin_dynamics
 
 # Example of creating a Gaussian probability path
