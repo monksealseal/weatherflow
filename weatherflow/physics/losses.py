@@ -102,7 +102,7 @@ class PhysicsLossCalculator(nn.Module):
         # Calculate relative vorticity (ζ = ∂v/∂x - ∂u/∂y)
         cos_lat = torch.cos(lat_grid).view(1, 1, lat_dim, 1).clamp(min=1e-8)
 
-        # Metric factors (meters per radian)
+        # Metric factors: distance per radian (meters/radian) for converting angular derivatives to physical gradients
         dx = self.earth_radius * cos_lat
         dy = self.earth_radius
 
@@ -263,7 +263,7 @@ class PhysicsLossCalculator(nn.Module):
         dlat = np.pi / (lat_dim - 1)
         dlon = 2 * np.pi / lon_dim
 
-        # Metric terms (meters per radian)
+        # Metric terms: distance per radian (meters/radian) for converting angular derivatives to physical gradients
         cos_lat = torch.cos(lat_grid).view(1, 1, lat_dim, 1).clamp(min=1e-8)
         dx = self.earth_radius * cos_lat
         dy = self.earth_radius

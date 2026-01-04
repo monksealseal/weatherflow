@@ -49,14 +49,13 @@ class TestGradientMetricConversion:
         
         # The gradient should be approximately 10 everywhere
         # (some variation near poles is expected due to metric distortion)
-        central_region = slice(8, 24)  # Avoid polar regions
+        central_region = slice(8, 24)  # Avoid polar regions where metric distortion and finite difference errors are largest
         mean_gradient = dz_dx_computed[0, 0, central_region, :].mean().item()
         
         # Check that gradient is close to expected value (10)
         assert abs(mean_gradient - 10.0) < 1.0, f"Expected gradient ~10, got {mean_gradient}"
         
-        # Check dimensions are correct (should be 1/s * m/s = 1/s for wind, or just m/m = dimensionless for height)
-        # For our test, dz/dx where z=10*x gives dz/dx = 10 (dimensionless as expected)
+        # For our test field z=10*x (meters), dz/dx is dimensionless with value 10
 
     def test_divergence_free_flow(self):
         """Test that divergence-free flow has near-zero divergence."""
