@@ -11,6 +11,8 @@ import RenewableEnergyView from './components/views/RenewableEnergyView';
 import TutorialsView from './components/views/TutorialsView';
 import AtmosphericDynamicsView from './components/views/AtmosphericDynamicsView';
 import ExtremeEventsView from './components/views/ExtremeEventsView';
+import PhysicsPrimerView from './components/views/PhysicsPrimerView';
+import InteractiveNotebooksView from './components/views/InteractiveNotebooksView';
 
 // Placeholder components for different views
 function DashboardView() {
@@ -179,10 +181,10 @@ export default function AppNew(): JSX.Element {
       return <TutorialsView />;
     }
     if (currentPath === '/education/notebooks') {
-      return <PlaceholderView title="📓 Interactive Notebooks" description="Hands-on Jupyter notebooks" />;
+      return <InteractiveNotebooksView />;
     }
     if (currentPath === '/education/physics') {
-      return <PlaceholderView title="⚛️ Physics Primer" description="Atmospheric physics fundamentals" />;
+      return <PhysicsPrimerView />;
     }
 
     // Evaluation views
