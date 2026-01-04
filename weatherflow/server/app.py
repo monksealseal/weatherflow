@@ -840,6 +840,21 @@ def create_app() -> FastAPI:
     """Create the FastAPI instance used by both the CLI and tests."""
     app = FastAPI(title="WeatherFlow API", version="1.0")
 
+    # Configure CORS to allow GitHub Pages frontend
+    from fastapi.middleware.cors import CORSMiddleware
+    
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[
+            "https://monksealseal.github.io",  # GitHub Pages production
+            "http://localhost:5173",            # Vite dev server
+            "http://localhost:3000",            # Alternative dev port
+        ],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
     @app.get("/api/options")
     def get_options() -> Dict[str, object]:  # noqa: D401
         """Return enumerations consumed by the front-end."""
