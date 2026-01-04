@@ -1,4 +1,11 @@
+import { useState } from 'react';
 import './RenewableEnergyView.css';
+import {
+  calculateWindPower,
+  calculateSolarPower,
+  WindPowerResponse,
+  SolarPowerResponse
+} from '../../api/client';
 
 interface TurbineSpec {
   name: string;
@@ -41,10 +48,66 @@ const TURBINE_LIBRARY: Record<string, TurbineSpec> = {
 };
 
 export default function RenewableEnergyView() {
+  // Wind Power Calculator State
+  const [windSpeedsInput, setWindSpeedsInput] = useState<string>('5, 8, 10, 12, 15, 18, 20');
+  const [selectedTurbine, setSelectedTurbine] = useState<string>('IEA-3.4MW');
+  const [numTurbines, setNumTurbines] = useState<number>(10);
+  const [windResult, setWindResult] = useState<WindPowerResponse | null>(null);
+  const [windLoading, setWindLoading] = useState(false);
+  const [windError, setWindError] = useState<string | null>(null);
+
+  // Solar Power Calculator State
+  const [solarLat, setSolarLat] = useState<number>(35);
+  const [dayOfYear, setDayOfYear] = useState<number>(172);
+  const [panelCapacity, setPanelCapacity] = useState<number>(10);
+  const [solarResult, setSolarResult] = useState<SolarPowerResponse | null>(null);
+  const [solarLoading, setSolarLoading] = useState(false);
+  const [solarError, setSolarError] = useState<string | null>(null);
+
+  const handleWindCalculate = async () => {
+    setWindLoading(true);
+    setWindError(null);
+    try {
+      const windSpeeds = windSpeedsInput.split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n));
+      if (windSpeeds.length === 0) {
+        throw new Error('Please enter valid wind speeds');
+      }
+      const result = await calculateWindPower({
+        windSpeeds,
+        turbineType: selectedTurbine,
+        numTurbines
+      });
+      setWindResult(result);
+    } catch (err) {
+      setWindError(err instanceof Error ? err.message : 'Calculation failed. Check backend connection.');
+    } finally {
+      setWindLoading(false);
+    }
+  };
+
+  const handleSolarCalculate = async () => {
+    setSolarLoading(true);
+    setSolarError(null);
+    try {
+      const hours = Array.from({ length: 24 }, (_, i) => i);
+      const result = await calculateSolarPower({
+        latitude: solarLat,
+        dayOfYear,
+        hours,
+        panelCapacityMw: panelCapacity
+      });
+      setSolarResult(result);
+    } catch (err) {
+      setSolarError(err instanceof Error ? err.message : 'Calculation failed. Check backend connection.');
+    } finally {
+      setSolarLoading(false);
+    }
+  };
+
   return (
     <div className="view-container renewable-energy-view">
       <div className="view-header">
-        <h1>⚡ Renewable Energy Forecasting</h1>
+        <h1>Renewable Energy Forecasting</h1>
         <p className="view-subtitle">
           Wind and solar power prediction using weather forecasts
         </p>
@@ -61,6 +124,194 @@ export default function RenewableEnergyView() {
         </div>
       </div>
 
+      <section className="interactive-calculators">
+        <h2>🔧 Interactive Calculators</h2>
+
+        <div className="calculator-card wind-calculator">
+          <h3>💨 Wind Power Calculator</h3>
+          <p className="calculator-description">
+            Calculate power output from wind speeds using real turbine power curves.
+            Uses the WindPowerConverter from <code>applications/renewable_energy/wind_power.py</code>
+          </p>
+
+          <div className="calculator-inputs">
+            <div className="input-group">
+              <label>Wind Speeds (m/s, comma-separated)</label>
+              <input
+                type="text"
+                value={windSpeedsInput}
+                onChange={(e) => setWindSpeedsInput(e.target.value)}
+                placeholder="5, 8, 10, 12, 15"
+              />
+              <span className="input-hint">Enter wind speeds at measurement height (10m)</span>
+            </div>
+            <div className="input-group">
+              <label>Turbine Type</label>
+              <select
+                value={selectedTurbine}
+                onChange={(e) => setSelectedTurbine(e.target.value)}
+              >
+                {Object.entries(TURBINE_LIBRARY).map(([key, spec]) => (
+                  <option key={key} value={key}>{spec.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="input-group">
+              <label>Number of Turbines</label>
+              <input
+                type="number"
+                min="1"
+                max="500"
+                value={numTurbines}
+                onChange={(e) => setNumTurbines(parseInt(e.target.value))}
+              />
+            </div>
+            <button
+              className="calculate-button"
+              onClick={handleWindCalculate}
+              disabled={windLoading}
+            >
+              {windLoading ? 'Calculating...' : 'Calculate Wind Power'}
+            </button>
+          </div>
+
+          {windError && <div className="calculator-error">{windError}</div>}
+
+          {windResult && (
+            <div className="calculator-results">
+              <h4>Results</h4>
+              <div className="result-grid">
+                <div className="result-item">
+                  <span className="result-label">Turbine Type</span>
+                  <span className="result-value">{windResult.turbineInfo.type}</span>
+                </div>
+                <div className="result-item">
+                  <span className="result-label">Rated Capacity</span>
+                  <span className="result-value">{windResult.ratedCapacity.toFixed(1)} MW</span>
+                </div>
+                <div className="result-item">
+                  <span className="result-label">Capacity Factor</span>
+                  <span className="result-value">{(windResult.capacityFactor * 100).toFixed(1)}%</span>
+                </div>
+              </div>
+              <div className="power-table">
+                <h5>Power Output by Wind Speed</h5>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Wind Speed (m/s)</th>
+                      <th>Per Turbine (MW)</th>
+                      <th>Farm Total (MW)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {windSpeedsInput.split(',').map((ws, i) => (
+                      <tr key={i}>
+                        <td>{parseFloat(ws.trim()).toFixed(1)}</td>
+                        <td>{windResult.powerPerTurbine[i]?.toFixed(2) || '-'}</td>
+                        <td>{windResult.totalPower[i]?.toFixed(2) || '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="calculator-card solar-calculator">
+          <h3>☀️ Solar Power Calculator</h3>
+          <p className="calculator-description">
+            Calculate daily solar power output based on location and date.
+            Uses the SolarPowerConverter from <code>applications/renewable_energy/solar_power.py</code>
+          </p>
+
+          <div className="calculator-inputs">
+            <div className="input-group">
+              <label>Latitude</label>
+              <input
+                type="number"
+                min="-90"
+                max="90"
+                step="1"
+                value={solarLat}
+                onChange={(e) => setSolarLat(parseFloat(e.target.value))}
+              />
+              <span className="input-hint">Positive = Northern Hemisphere</span>
+            </div>
+            <div className="input-group">
+              <label>Day of Year</label>
+              <input
+                type="number"
+                min="1"
+                max="365"
+                value={dayOfYear}
+                onChange={(e) => setDayOfYear(parseInt(e.target.value))}
+              />
+              <span className="input-hint">1-365 (172 = Summer Solstice)</span>
+            </div>
+            <div className="input-group">
+              <label>Panel Capacity (MW)</label>
+              <input
+                type="number"
+                min="0.1"
+                step="0.1"
+                value={panelCapacity}
+                onChange={(e) => setPanelCapacity(parseFloat(e.target.value))}
+              />
+            </div>
+            <button
+              className="calculate-button"
+              onClick={handleSolarCalculate}
+              disabled={solarLoading}
+            >
+              {solarLoading ? 'Calculating...' : 'Calculate Solar Power'}
+            </button>
+          </div>
+
+          {solarError && <div className="calculator-error">{solarError}</div>}
+
+          {solarResult && (
+            <div className="calculator-results">
+              <h4>Results</h4>
+              <div className="result-grid">
+                <div className="result-item">
+                  <span className="result-label">Daily Energy</span>
+                  <span className="result-value">{solarResult.dailyEnergyMwh.toFixed(2)} MWh</span>
+                </div>
+                <div className="result-item">
+                  <span className="result-label">Capacity Factor</span>
+                  <span className="result-value">{(solarResult.capacityFactor * 100).toFixed(1)}%</span>
+                </div>
+                <div className="result-item">
+                  <span className="result-label">Peak Power</span>
+                  <span className="result-value">{Math.max(...solarResult.power).toFixed(3)} MW</span>
+                </div>
+              </div>
+              <div className="solar-profile">
+                <h5>Hourly Power Profile</h5>
+                <div className="solar-chart">
+                  {solarResult.power.map((p, hour) => (
+                    <div key={hour} className="chart-bar-container">
+                      <div
+                        className="chart-bar"
+                        style={{
+                          height: `${(p / panelCapacity) * 100}%`,
+                          backgroundColor: p > 0 ? '#f59e0b' : '#374151'
+                        }}
+                        title={`${hour}:00 - ${p.toFixed(3)} MW`}
+                      />
+                      <span className="chart-label">{hour}</span>
+                    </div>
+                  ))}
+                </div>
+                <p className="chart-note">Hour of day (0-23)</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </section>
+
       <div className="energy-types">
         <div className="energy-card wind">
           <h2>💨 Wind Power</h2>
@@ -68,7 +319,7 @@ export default function RenewableEnergyView() {
             Convert wind speed forecasts to power output using turbine specifications
             and power curves. Includes hub height extrapolation and wind farm wake effects.
           </p>
-          
+
           <h3>Key Features</h3>
           <ul>
             <li>Standard turbine library (IEA, NREL, commercial models)</li>
@@ -114,7 +365,7 @@ export default function RenewableEnergyView() {
             Convert solar irradiance and weather conditions to photovoltaic power output.
             Includes temperature effects, cloud attenuation, and panel orientation.
           </p>
-          
+
           <h3>Key Features</h3>
           <ul>
             <li>Clear-sky irradiance models</li>
@@ -123,133 +374,6 @@ export default function RenewableEnergyView() {
             <li>Panel tilt and orientation optimization</li>
             <li>Diffuse and direct component separation</li>
           </ul>
-
-          <h3>Solar Models</h3>
-          <div className="solar-models">
-            <div className="model-card">
-              <h4>Clear-Sky Irradiance</h4>
-              <p>Calculate potential solar irradiance based on sun position and atmospheric conditions</p>
-            </div>
-            <div className="model-card">
-              <h4>Cloud Attenuation</h4>
-              <p>Reduce irradiance based on cloud cover from weather forecasts</p>
-            </div>
-            <div className="model-card">
-              <h4>Temperature Correction</h4>
-              <p>Adjust panel efficiency based on ambient temperature</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="code-section">
-        <h2>📖 Usage Examples</h2>
-        
-        <div className="code-example">
-          <h3>Wind Power Conversion</h3>
-          <pre><code>{`from weatherflow.applications.renewable_energy import WindPowerConverter, TURBINE_LIBRARY
-import torch
-
-# Initialize converter with turbine specs
-converter = WindPowerConverter(
-    turbine=TURBINE_LIBRARY['NREL-5MW'],
-    num_turbines=50,  # Wind farm size
-    farm_efficiency=0.85  # Account for wake effects
-)
-
-# Wind speed forecast at 10m height [batch, time, lat, lon]
-wind_speed_10m = torch.randn(1, 24, 32, 64) * 5 + 7  # ~7 m/s mean
-
-# Convert to power output
-power_output = converter.wind_to_power(
-    wind_speed=wind_speed_10m,
-    wind_direction=None,  # Optional for wake modeling
-    temperature=None,  # Optional for air density correction
-    surface_pressure=None
-)
-
-# Results in MW
-print(f"Total power: {power_output.sum().item():.2f} MW")
-print(f"Capacity factor: {converter.capacity_factor(power_output):.2%}")`}</code></pre>
-        </div>
-
-        <div className="code-example">
-          <h3>Solar Power Prediction</h3>
-          <pre><code>{`from weatherflow.applications.renewable_energy import SolarPowerConverter
-import torch
-from datetime import datetime
-
-# Initialize solar converter
-converter = SolarPowerConverter(
-    panel_capacity=100.0,  # 100 MW farm
-    panel_efficiency=0.18,
-    temperature_coefficient=-0.004,  # %/°C
-    tilt=30,  # Panel tilt angle
-    azimuth=180  # South-facing
-)
-
-# Weather forecasts
-cloud_cover = torch.rand(1, 24, 32, 64)  # 0-1 fraction
-temperature = torch.randn(1, 24, 32, 64) * 5 + 20  # ~20°C
-
-# Calculate power output
-times = [datetime(2024, 6, 15, h) for h in range(24)]
-power_output = converter.solar_to_power(
-    cloud_cover=cloud_cover,
-    temperature=temperature,
-    times=times,
-    latitude=40.0
-)
-
-print(f"Daily energy: {power_output.sum().item():.2f} MWh")`}</code></pre>
-        </div>
-
-        <div className="code-example">
-          <h3>Combined Wind-Solar Farm</h3>
-          <pre><code>{`from weatherflow.applications.renewable_energy import (
-    WindPowerConverter,
-    SolarPowerConverter,
-    TURBINE_LIBRARY
-)
-from weatherflow.models import WeatherFlowODE
-from weatherflow.data import ERA5Dataset
-
-# Load weather forecast model
-model = ...  # Your trained model
-ode_solver = WeatherFlowODE(model)
-
-# Load initial conditions
-dataset = ERA5Dataset(
-    variables=['u', 'v', 't'],
-    pressure_levels=[10, 100],  # Surface and 100m
-    time_slice=('2024-01-01', '2024-01-01')
-)
-x0 = dataset[0]['input']
-
-# Generate 48-hour forecast
-times = torch.linspace(0, 1, 48)
-forecast = ode_solver(x0.unsqueeze(0), times)
-
-# Extract wind and temperature
-wind_u = forecast[:, :, 0]  # U-component
-wind_v = forecast[:, :, 1]  # V-component
-wind_speed = torch.sqrt(wind_u**2 + wind_v**2)
-temperature = forecast[:, :, 2]
-
-# Convert to power
-wind_converter = WindPowerConverter(TURBINE_LIBRARY['IEA-3.4MW'])
-solar_converter = SolarPowerConverter(panel_capacity=50.0)
-
-wind_power = wind_converter.wind_to_power(wind_speed)
-solar_power = solar_converter.solar_to_power(
-    cloud_cover=None,  # Estimate from other variables
-    temperature=temperature,
-    times=times
-)
-
-# Combined output
-total_power = wind_power + solar_power
-print(f"Average power: {total_power.mean().item():.2f} MW")`}</code></pre>
         </div>
       </div>
 
@@ -257,7 +381,7 @@ print(f"Average power: {total_power.mean().item():.2f} MW")`}</code></pre>
         <h2>🎯 Real-World Applications</h2>
         <div className="applications-grid">
           <div className="application-card">
-            <h3>⚡ Grid Integration</h3>
+            <h3>Grid Integration</h3>
             <p>Forecast renewable energy production for grid operators to balance supply and demand</p>
           </div>
           <div className="application-card">
