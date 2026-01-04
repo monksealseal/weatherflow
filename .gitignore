@@ -45,3 +45,6 @@ frontend/vite.pid
 server.log
 server.pid
 
+# Visualization outputs
+examples/visualizations_output/
+
