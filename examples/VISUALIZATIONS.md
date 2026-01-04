@@ -45,7 +45,7 @@ This will generate 11 interactive HTML visualizations + documentation files in `
 ![Rossby Wave Dispersion](https://github.com/user-attachments/assets/b8d39dd5-1e66-4ba8-8b28-4e48e702b7f3)
 
 **Three-panel interactive visualization** showing:
-- **Left**: 3D frequency surface based on dispersion relation: `ω = Uk - βk/(k² + l²)`
+- **Left**: 3D frequency surface based on dispersion relation: `ω = Uk - βk/(k² + l²)` where k, l are zonal and meridional wavenumbers
 - **Center**: Zonal phase speed distribution showing westward propagation
 - **Right**: Meridional group velocity patterns
 - Based on real atmospheric wavenumbers and 20 m/s mean flow
