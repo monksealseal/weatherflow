@@ -33,14 +33,14 @@ jobs:
         working-directory: ./frontend
         run: npm ci
 
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
       - name: Build frontend
         working-directory: ./frontend
         env:
           GITHUB_PAGES: true
         run: npm run build
-
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
