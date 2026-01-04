@@ -1,13 +1,22 @@
-"""WeatherBench2 Evaluation: WeatherFlow vs State-of-the-Art Baselines
+"""WeatherBench2 Evaluation DEMONSTRATION (SYNTHETIC DATA)
 
-This script evaluates WeatherFlow models on the WeatherBench2 benchmark:
-- Trains on ERA5 2017-2018 (or loads pre-trained models)
-- Evaluates on 2019-2020 test set
-- Compares against: Persistence, Climatology, IFS HRES, Pangu-Weather, GraphCast
-- Computes standard metrics: RMSE, ACC, Bias for Z500, T850
-- Generates publication-quality comparison plots
+!!! IMPORTANT WARNING !!!
+This script uses SYNTHETIC/SIMULATED data for demonstration purposes only.
+The comparison results shown are NOT from actual trained models or real ERA5 data.
 
-Reference: https://github.com/google-research/weatherbench2
+All "model forecasts" (IFS HRES, Pangu-Weather, GraphCast, WeatherFlow) are
+SIMULATED with random noise patterns designed to approximate realistic
+error growth characteristics. These results should NOT be used for:
+- Scientific publications
+- Model performance claims
+- Actual weather prediction evaluation
+
+To perform real evaluation, you must:
+1. Load actual ERA5 test data from WeatherBench2
+2. Run actual trained WeatherFlow models
+3. Download real baseline forecasts from published sources
+
+Reference for real evaluation: https://github.com/google-research/weatherbench2
 """
 
 import numpy as np
@@ -35,7 +44,11 @@ plt.rcParams['figure.figsize'] = (20, 12)
 plt.rcParams['font.size'] = 11
 
 print(f"\n{'='*80}")
-print("WEATHERBENCH2 EVALUATION: WEATHERFLOW VS STATE-OF-THE-ART")
+print("⚠️  WEATHERBENCH2 EVALUATION DEMONSTRATION (SYNTHETIC DATA) ⚠️")
+print(f"{'='*80}")
+print("WARNING: This script uses SIMULATED data for demonstration purposes only.")
+print("         Results are NOT from actual models or real ERA5 data.")
+print("         DO NOT use these results for publications or model claims.")
 print(f"{'='*80}\n")
 
 
@@ -501,10 +514,12 @@ def save_weatherbench2_summary(all_results: List[Dict]):
 
     summary = {
         'evaluation_date': datetime.now().isoformat(),
-        'dataset': 'ERA5 2019-2020 (simulated WeatherBench2 test set)',
+        'WARNING': 'SYNTHETIC DATA - Results are for demonstration only, not actual model performance!',
+        'dataset': 'SIMULATED ERA5-like data (NOT real ERA5 2019-2020)',
         'variables': ['Z500', 'T850'],
         'lead_times_days': all_results[0]['lead_times'],
-        'models': {}
+        'models': {},
+        'disclaimer': 'All model forecasts are simulated with random noise patterns. Do not use for publications.'
     }
 
     for result in all_results:
@@ -560,12 +575,13 @@ def save_weatherbench2_summary(all_results: List[Dict]):
             avg_acc = (z500_acc + t850_acc) / 2
             print(f"   {result['model_name']:30s}: {avg_acc:.3f} (Z500: {z500_acc:.3f}, T850: {t850_acc:.3f})")
 
-    print("\n💡 Key Findings:")
-    print("   • WeatherFlow (Physics) achieves ~92-95% of IFS HRES performance")
-    print("   • Competitive with Pangu-Weather and GraphCast on medium-range forecasts")
-    print("   • Physics constraints provide significant improvement over baseline")
-    print("   • Still ~5-10% skill gap to operational IFS at day 5-10")
-    print("   • Future improvements: higher resolution, more training data, ensemble methods")
+    print("\n⚠️  REMINDER: These are SIMULATED results, NOT actual model performance!")
+    print("\n💡 Simulated Findings (FOR DEMONSTRATION ONLY):")
+    print("   • [SIMULATED] WeatherFlow (Physics) shows ~92-95% of IFS HRES in simulation")
+    print("   • [SIMULATED] Competitive patterns with Pangu-Weather and GraphCast")
+    print("   • [SIMULATED] Physics constraints show improvement over baseline")
+    print("   • [SIMULATED] Gap to operational IFS shown for illustration")
+    print("\n   To get REAL results, use actual ERA5 data and trained models!")
 
     print("="*80)
 

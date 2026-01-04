@@ -634,9 +634,11 @@ class WeatherVisualizer:
         step_lon = max(1, int(n_lon / (60 * density)))
         
         # Plot vectors
+        # Note: lons, lats, u_np, v_np all have shape (n_lat, n_lon)
+        # First index is latitude, second is longitude - use consistent indexing
         q = ax.quiver(
-            lons[::step_lon, ::step_lat],
-            lats[::step_lon, ::step_lat],
+            lons[::step_lat, ::step_lon],
+            lats[::step_lat, ::step_lon],
             u_np[::step_lat, ::step_lon],
             v_np[::step_lat, ::step_lon],
             transform=ccrs.PlateCarree(),
