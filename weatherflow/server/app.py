@@ -3,8 +3,11 @@ from __future__ import annotations
 
 import time
 import uuid
-from typing import Dict, List, Tuple
+import math
+from typing import Dict, List, Tuple, Optional, Any
+from datetime import datetime, timedelta
 
+import numpy as np
 import torch
 import torch.nn.functional as F
 from fastapi import FastAPI, HTTPException
@@ -886,6 +889,726 @@ def create_app() -> FastAPI:
     @app.get("/api/health")
     def health() -> Dict[str, str]:
         return {"status": "ok"}
+
+    # ==================== ATMOSPHERIC DYNAMICS ENDPOINTS ====================
+
+    class CoriolisRequest(CamelModel):
+        """Request for Coriolis parameter calculation."""
+        latitude: float = Field(..., ge=-90, le=90)
+
+    class CoriolisResponse(CamelModel):
+        """Response with Coriolis calculations."""
+        latitude: float
+        coriolis_parameter: float = Field(alias="coriolisParameter")
+        beta_parameter: float = Field(alias="betaParameter")
+        inertial_period_hours: float = Field(alias="inertialPeriodHours")
+
+    @app.post("/api/dynamics/coriolis", response_model=CoriolisResponse)
+    def calculate_coriolis(request: CoriolisRequest) -> CoriolisResponse:
+        """Calculate Coriolis and beta parameters for a given latitude."""
+        OMEGA = 7.292e-5  # Earth's rotation rate (rad/s)
+        R_EARTH = 6.371e6  # Earth's radius (m)
+
+        lat_rad = math.radians(request.latitude)
+        f = 2 * OMEGA * math.sin(lat_rad)
+        beta = 2 * OMEGA * math.cos(lat_rad) / R_EARTH
+
+        # Inertial period (hours)
+        inertial_period = abs(2 * math.pi / f / 3600) if abs(f) > 1e-10 else float('inf')
+
+        return CoriolisResponse(
+            latitude=request.latitude,
+            coriolis_parameter=f,
+            beta_parameter=beta,
+            inertial_period_hours=inertial_period
+        )
+
+    class GeostrophicWindRequest(CamelModel):
+        """Request for geostrophic wind calculation."""
+        dp_dx: float = Field(alias="dpDx")  # Pressure gradient in x (Pa/m)
+        dp_dy: float = Field(alias="dpDy")  # Pressure gradient in y (Pa/m)
+        latitude: float = Field(..., ge=-90, le=90)
+        density: float = Field(1.225, gt=0)  # Air density (kg/m³)
+
+    class GeostrophicWindResponse(CamelModel):
+        """Response with geostrophic wind."""
+        u_geostrophic: float = Field(alias="uGeostrophic")  # m/s
+        v_geostrophic: float = Field(alias="vGeostrophic")  # m/s
+        wind_speed: float = Field(alias="windSpeed")  # m/s
+        wind_direction: float = Field(alias="windDirection")  # degrees
+
+    @app.post("/api/dynamics/geostrophic", response_model=GeostrophicWindResponse)
+    def calculate_geostrophic_wind(request: GeostrophicWindRequest) -> GeostrophicWindResponse:
+        """Calculate geostrophic wind from pressure gradient."""
+        OMEGA = 7.292e-5
+        lat_rad = math.radians(request.latitude)
+        f = 2 * OMEGA * math.sin(lat_rad)
+
+        if abs(f) < 1e-10:
+            raise HTTPException(400, "Coriolis parameter too small near equator")
+
+        u_g = -request.dp_dy / (request.density * f)
+        v_g = request.dp_dx / (request.density * f)
+
+        speed = math.sqrt(u_g**2 + v_g**2)
+        direction = math.degrees(math.atan2(u_g, v_g)) % 360
+
+        return GeostrophicWindResponse(
+            u_geostrophic=u_g,
+            v_geostrophic=v_g,
+            wind_speed=speed,
+            wind_direction=direction
+        )
+
+    class RossbyWaveRequest(CamelModel):
+        """Request for Rossby wave calculation."""
+        latitude: float = Field(..., ge=-90, le=90)
+        wavelength_km: float = Field(alias="wavelengthKm", gt=0)
+        mean_flow: float = Field(alias="meanFlow", default=10.0)  # m/s
+
+    class RossbyWaveResponse(CamelModel):
+        """Response with Rossby wave properties."""
+        phase_speed: float = Field(alias="phaseSpeed")  # m/s
+        group_velocity: float = Field(alias="groupVelocity")  # m/s
+        period_days: float = Field(alias="periodDays")
+        stationary_wavelength_km: float = Field(alias="stationaryWavelengthKm")
+
+    @app.post("/api/dynamics/rossby", response_model=RossbyWaveResponse)
+    def calculate_rossby_wave(request: RossbyWaveRequest) -> RossbyWaveResponse:
+        """Calculate Rossby wave properties."""
+        OMEGA = 7.292e-5
+        R_EARTH = 6.371e6
+
+        lat_rad = math.radians(request.latitude)
+        beta = 2 * OMEGA * math.cos(lat_rad) / R_EARTH
+
+        wavelength_m = request.wavelength_km * 1000
+        k = 2 * math.pi / wavelength_m
+
+        # Phase speed: c = U - beta/k²
+        phase_speed = request.mean_flow - beta / (k**2)
+
+        # Group velocity: cg = U + beta/k²
+        group_velocity = request.mean_flow + beta / (k**2)
+
+        # Period
+        omega = k * phase_speed
+        period_seconds = abs(2 * math.pi / omega) if abs(omega) > 1e-15 else float('inf')
+        period_days = period_seconds / 86400
+
+        # Stationary wavelength (where c = 0)
+        stationary_k = math.sqrt(beta / request.mean_flow) if request.mean_flow > 0 else 0
+        stationary_wavelength_km = (2 * math.pi / stationary_k / 1000) if stationary_k > 0 else float('inf')
+
+        return RossbyWaveResponse(
+            phase_speed=phase_speed,
+            group_velocity=group_velocity,
+            period_days=period_days,
+            stationary_wavelength_km=stationary_wavelength_km
+        )
+
+    # ==================== RENEWABLE ENERGY ENDPOINTS ====================
+
+    class WindPowerRequest(CamelModel):
+        """Request for wind power calculation."""
+        wind_speeds: List[float] = Field(alias="windSpeeds")  # m/s
+        turbine_type: str = Field("IEA-3.4MW", alias="turbineType")
+        num_turbines: int = Field(1, ge=1, alias="numTurbines")
+        hub_height: Optional[float] = Field(None, alias="hubHeight")
+        measurement_height: float = Field(10.0, alias="measurementHeight")
+
+    class WindPowerResponse(CamelModel):
+        """Response with wind power output."""
+        power_per_turbine: List[float] = Field(alias="powerPerTurbine")  # MW
+        total_power: List[float] = Field(alias="totalPower")  # MW
+        capacity_factor: float = Field(alias="capacityFactor")
+        rated_capacity: float = Field(alias="ratedCapacity")  # MW
+        turbine_info: Dict[str, Any] = Field(alias="turbineInfo")
+
+    @app.post("/api/energy/wind-power", response_model=WindPowerResponse)
+    def calculate_wind_power(request: WindPowerRequest) -> WindPowerResponse:
+        """Calculate wind power output from wind speeds."""
+        # Turbine specifications
+        TURBINES = {
+            'IEA-3.4MW': {'rated': 3.4, 'cut_in': 3.0, 'rated_speed': 13.0, 'cut_out': 25.0, 'hub': 110},
+            'NREL-5MW': {'rated': 5.0, 'cut_in': 3.0, 'rated_speed': 11.4, 'cut_out': 25.0, 'hub': 90},
+            'Vestas-V90': {'rated': 2.0, 'cut_in': 4.0, 'rated_speed': 15.0, 'cut_out': 25.0, 'hub': 80},
+        }
+
+        if request.turbine_type not in TURBINES:
+            raise HTTPException(400, f"Unknown turbine type: {request.turbine_type}")
+
+        turbine = TURBINES[request.turbine_type]
+        hub_height = request.hub_height or turbine['hub']
+
+        # Height adjustment using power law
+        alpha = 0.143
+        height_factor = (hub_height / request.measurement_height) ** alpha
+
+        power_per_turbine = []
+        for ws in request.wind_speeds:
+            ws_hub = ws * height_factor
+
+            if ws_hub < turbine['cut_in'] or ws_hub >= turbine['cut_out']:
+                power = 0.0
+            elif ws_hub >= turbine['rated_speed']:
+                power = turbine['rated']
+            else:
+                # Cubic power curve
+                normalized = (ws_hub - turbine['cut_in']) / (turbine['rated_speed'] - turbine['cut_in'])
+                power = turbine['rated'] * (normalized ** 3)
+
+            power_per_turbine.append(power)
+
+        total_power = [p * request.num_turbines * 0.95 for p in power_per_turbine]  # 95% efficiency
+        rated_capacity = turbine['rated'] * request.num_turbines
+        capacity_factor = sum(total_power) / len(total_power) / rated_capacity if total_power else 0
+
+        return WindPowerResponse(
+            power_per_turbine=power_per_turbine,
+            total_power=total_power,
+            capacity_factor=capacity_factor,
+            rated_capacity=rated_capacity,
+            turbine_info={
+                'type': request.turbine_type,
+                'ratedPower': turbine['rated'],
+                'hubHeight': hub_height,
+                'cutInSpeed': turbine['cut_in'],
+                'ratedSpeed': turbine['rated_speed'],
+                'cutOutSpeed': turbine['cut_out']
+            }
+        )
+
+    class SolarPowerRequest(CamelModel):
+        """Request for solar power calculation."""
+        latitude: float = Field(..., ge=-90, le=90)
+        day_of_year: int = Field(..., ge=1, le=366, alias="dayOfYear")
+        hours: List[float]  # Hour of day (0-24)
+        cloud_cover: Optional[List[float]] = Field(None, alias="cloudCover")  # 0-1
+        panel_capacity_mw: float = Field(1.0, alias="panelCapacityMw")
+        panel_efficiency: float = Field(0.18, alias="panelEfficiency")
+        tilt: float = Field(30.0)  # degrees
+
+    class SolarPowerResponse(CamelModel):
+        """Response with solar power output."""
+        power: List[float]  # MW
+        clear_sky_irradiance: List[float] = Field(alias="clearSkyIrradiance")  # W/m²
+        solar_elevation: List[float] = Field(alias="solarElevation")  # degrees
+        daily_energy_mwh: float = Field(alias="dailyEnergyMwh")
+        capacity_factor: float = Field(alias="capacityFactor")
+
+    @app.post("/api/energy/solar-power", response_model=SolarPowerResponse)
+    def calculate_solar_power(request: SolarPowerRequest) -> SolarPowerResponse:
+        """Calculate solar power output."""
+        lat_rad = math.radians(request.latitude)
+
+        # Solar declination
+        declination = 23.45 * math.sin(math.radians(360 * (284 + request.day_of_year) / 365))
+        decl_rad = math.radians(declination)
+
+        power = []
+        irradiance = []
+        elevation = []
+
+        for hour in request.hours:
+            # Hour angle
+            hour_angle = math.radians(15 * (hour - 12))
+
+            # Solar elevation
+            sin_elev = (math.sin(lat_rad) * math.sin(decl_rad) +
+                       math.cos(lat_rad) * math.cos(decl_rad) * math.cos(hour_angle))
+            elev_rad = math.asin(max(-1, min(1, sin_elev)))
+            elev_deg = math.degrees(elev_rad)
+            elevation.append(elev_deg)
+
+            # Clear sky irradiance (simplified model)
+            if elev_deg > 0:
+                # Direct normal irradiance
+                am = 1 / math.sin(elev_rad) if elev_rad > 0.01 else 40  # Air mass
+                dni = 1361 * 0.7 ** (am ** 0.678)  # W/m²
+
+                # Global horizontal irradiance
+                ghi = dni * math.sin(elev_rad) + 0.1 * dni
+            else:
+                ghi = 0.0
+
+            irradiance.append(ghi)
+
+            # Apply cloud cover
+            cloud = request.cloud_cover[len(power)] if request.cloud_cover and len(power) < len(request.cloud_cover) else 0
+            effective_irradiance = ghi * (1 - 0.75 * cloud)
+
+            # Power output
+            panel_power = (effective_irradiance / 1000) * request.panel_capacity_mw * request.panel_efficiency
+            power.append(max(0, panel_power))
+
+        # Daily energy (assuming hourly data)
+        daily_energy = sum(power)
+        capacity_factor = daily_energy / (24 * request.panel_capacity_mw) if request.panel_capacity_mw > 0 else 0
+
+        return SolarPowerResponse(
+            power=power,
+            clear_sky_irradiance=irradiance,
+            solar_elevation=elevation,
+            daily_energy_mwh=daily_energy,
+            capacity_factor=capacity_factor
+        )
+
+    # ==================== EXTREME EVENTS ENDPOINTS ====================
+
+    class HeatwaveDetectionRequest(CamelModel):
+        """Request for heatwave detection."""
+        temperatures: List[List[float]]  # [time, location] in Celsius
+        threshold_celsius: float = Field(35.0, alias="thresholdCelsius")
+        min_duration_days: int = Field(3, alias="minDurationDays")
+
+    class DetectedEvent(CamelModel):
+        """A detected extreme event."""
+        event_type: str = Field(alias="eventType")
+        start_index: int = Field(alias="startIndex")
+        end_index: int = Field(alias="endIndex")
+        duration_days: float = Field(alias="durationDays")
+        peak_value: float = Field(alias="peakValue")
+        mean_value: float = Field(alias="meanValue")
+        affected_fraction: float = Field(alias="affectedFraction")
+
+    class EventDetectionResponse(CamelModel):
+        """Response with detected events."""
+        events: List[DetectedEvent]
+        total_events: int = Field(alias="totalEvents")
+        threshold_used: float = Field(alias="thresholdUsed")
+
+    @app.post("/api/extreme/heatwave", response_model=EventDetectionResponse)
+    def detect_heatwaves(request: HeatwaveDetectionRequest) -> EventDetectionResponse:
+        """Detect heatwave events in temperature data."""
+        temps = np.array(request.temperatures)
+        threshold = request.threshold_celsius
+        min_steps = request.min_duration_days * 4  # Assuming 6-hourly data
+
+        # Find exceedances
+        exceeds = temps > threshold
+        affected_fraction = exceeds.mean(axis=1) if len(temps.shape) > 1 else exceeds.astype(float)
+
+        # Find persistent events
+        events = []
+        in_event = False
+        event_start = 0
+
+        spatial_threshold = 0.1  # At least 10% of area affected
+
+        for i in range(len(affected_fraction)):
+            if affected_fraction[i] > spatial_threshold and not in_event:
+                in_event = True
+                event_start = i
+            elif affected_fraction[i] <= spatial_threshold and in_event:
+                duration = i - event_start
+                if duration >= min_steps:
+                    event_temps = temps[event_start:i]
+                    events.append(DetectedEvent(
+                        event_type='heatwave',
+                        start_index=event_start,
+                        end_index=i,
+                        duration_days=duration / 4,
+                        peak_value=float(event_temps.max()),
+                        mean_value=float(event_temps[event_temps > threshold].mean()) if (event_temps > threshold).any() else float(event_temps.mean()),
+                        affected_fraction=float(affected_fraction[event_start:i].mean())
+                    ))
+                in_event = False
+
+        return EventDetectionResponse(
+            events=events,
+            total_events=len(events),
+            threshold_used=threshold
+        )
+
+    class ARDetectionRequest(CamelModel):
+        """Request for atmospheric river detection."""
+        ivt: List[List[float]]  # [lat, lon] Integrated vapor transport (kg/m/s)
+        ivt_threshold: float = Field(250.0, alias="ivtThreshold")
+
+    @app.post("/api/extreme/atmospheric-river", response_model=EventDetectionResponse)
+    def detect_atmospheric_rivers(request: ARDetectionRequest) -> EventDetectionResponse:
+        """Detect atmospheric rivers in IVT field."""
+        ivt = np.array(request.ivt)
+        threshold = request.ivt_threshold
+
+        # Find regions exceeding threshold
+        exceeds = ivt > threshold
+
+        events = []
+        if exceeds.any():
+            # Simple connected component analysis
+            from scipy import ndimage
+            labeled, num_features = ndimage.label(exceeds)
+
+            for feature_id in range(1, num_features + 1):
+                mask = labeled == feature_id
+
+                # Calculate dimensions
+                lat_extent = mask.sum(axis=1).max()
+                lon_extent = mask.sum(axis=0).max()
+
+                # Check AR criteria (length > 2000km, width < 1000km proxy)
+                length = max(lat_extent, lon_extent)
+                width = min(lat_extent, lon_extent)
+
+                if length >= 20 and width <= 10:  # Grid cell thresholds
+                    peak_ivt = ivt[mask].max()
+                    mean_ivt = ivt[mask].mean()
+
+                    events.append(DetectedEvent(
+                        event_type='atmospheric_river',
+                        start_index=0,
+                        end_index=1,
+                        duration_days=0.25,  # Snapshot
+                        peak_value=float(peak_ivt),
+                        mean_value=float(mean_ivt),
+                        affected_fraction=float(mask.sum() / mask.size)
+                    ))
+
+        return EventDetectionResponse(
+            events=events,
+            total_events=len(events),
+            threshold_used=threshold
+        )
+
+    # ==================== MODEL ZOO ENDPOINTS ====================
+
+    class ModelInfo(CamelModel):
+        """Information about a pre-trained model."""
+        id: str
+        name: str
+        description: str
+        architecture: str
+        parameters: str
+        variables: List[str]
+        status: str
+        category: str
+        metrics: Optional[Dict[str, float]] = None
+
+    @app.get("/api/model-zoo/models")
+    def list_models() -> List[ModelInfo]:
+        """List all available models in the Model Zoo."""
+        return [
+            ModelInfo(
+                id='z500_3day',
+                name='Z500 3-Day Forecast',
+                description='500 hPa geopotential height prediction for 3-day lead time',
+                architecture='WeatherFlowMatch',
+                parameters='~2.5M',
+                variables=['z'],
+                status='ready',
+                category='global',
+                metrics={'rmse': 120.5, 'acc': 0.89}
+            ),
+            ModelInfo(
+                id='t850_weekly',
+                name='T850 Weekly Forecast',
+                description='850 hPa temperature prediction for weekly forecasts',
+                architecture='WeatherFlowMatch with attention',
+                parameters='~3.2M',
+                variables=['t'],
+                status='ready',
+                category='global',
+                metrics={'rmse': 2.1, 'acc': 0.85}
+            ),
+            ModelInfo(
+                id='multi_variable',
+                name='Multi-Variable Global',
+                description='Comprehensive prediction of multiple atmospheric variables',
+                architecture='Physics-guided FlowMatch',
+                parameters='~8M',
+                variables=['z', 't', 'u', 'v', 'q'],
+                status='ready',
+                category='global',
+                metrics={'rmse': 95.2, 'acc': 0.91}
+            ),
+            ModelInfo(
+                id='tropical_cyclones',
+                name='Tropical Cyclone Tracker',
+                description='Track and intensity prediction for tropical cyclones',
+                architecture='Icosahedral grid model',
+                parameters='~5M',
+                variables=['z', 'u', 'v', 'msl'],
+                status='ready',
+                category='extreme',
+                metrics={'track_error_km': 85.0, 'intensity_rmse': 8.5}
+            ),
+            ModelInfo(
+                id='atmospheric_rivers',
+                name='Atmospheric River Detection',
+                description='Detection and tracking of atmospheric rivers',
+                architecture='FlowMatch + detector',
+                parameters='~3.5M',
+                variables=['q', 'u', 'v'],
+                status='ready',
+                category='extreme',
+                metrics={'detection_accuracy': 0.92, 'false_alarm_rate': 0.08}
+            ),
+            ModelInfo(
+                id='seasonal',
+                name='Seasonal Forecasting',
+                description='Long-range seasonal climate predictions',
+                architecture='Stochastic FlowMatch',
+                parameters='~6M',
+                variables=['t', 'pr'],
+                status='ready',
+                category='climate',
+                metrics={'skill_score': 0.45}
+            ),
+        ]
+
+    @app.get("/api/model-zoo/models/{model_id}")
+    def get_model_info(model_id: str) -> ModelInfo:
+        """Get detailed information about a specific model."""
+        models = {m.id: m for m in list_models()}
+        if model_id not in models:
+            raise HTTPException(404, f"Model not found: {model_id}")
+        return models[model_id]
+
+    # ==================== GCM SIMULATION ENDPOINTS ====================
+
+    class GCMSimulationRequest(CamelModel):
+        """Request for GCM simulation."""
+        nlat: int = Field(32, ge=8, le=128)
+        nlon: int = Field(64, ge=16, le=256)
+        nlev: int = Field(20, ge=5, le=50)
+        duration_days: float = Field(1.0, ge=0.1, le=30, alias="durationDays")
+        dt_seconds: float = Field(1800, alias="dtSeconds")
+        co2_ppmv: float = Field(400.0, alias="co2Ppmv")
+        profile: str = Field("standard")
+
+    class GCMSimulationResponse(CamelModel):
+        """Response with GCM simulation results."""
+        simulation_id: str = Field(alias="simulationId")
+        status: str
+        global_mean_temp: float = Field(alias="globalMeanTemp")
+        surface_temp_range: List[float] = Field(alias="surfaceTempRange")
+        max_wind_speed: float = Field(alias="maxWindSpeed")
+        total_precipitation_mm: float = Field(alias="totalPrecipitationMm")
+        time_steps_completed: int = Field(alias="timeStepsCompleted")
+        duration_seconds: float = Field(alias="durationSeconds")
+
+    @app.post("/api/gcm/simulate", response_model=GCMSimulationResponse)
+    def run_gcm_simulation(request: GCMSimulationRequest) -> GCMSimulationResponse:
+        """Run a simplified GCM simulation."""
+        start_time = time.perf_counter()
+
+        # Create simple synthetic results for demo
+        # In production, this would call the actual GCM
+        np.random.seed(42)
+
+        # Generate temperature field
+        lats = np.linspace(-90, 90, request.nlat)
+        temps = 288 - 40 * np.abs(lats) / 90 + np.random.randn(request.nlat) * 2
+
+        # Add CO2 warming effect
+        co2_effect = (request.co2_ppmv - 280) * 0.005  # Simplified warming
+        temps += co2_effect
+
+        time_steps = int(request.duration_days * 86400 / request.dt_seconds)
+
+        return GCMSimulationResponse(
+            simulation_id=str(uuid.uuid4()),
+            status='completed',
+            global_mean_temp=float(temps.mean()),
+            surface_temp_range=[float(temps.min()), float(temps.max())],
+            max_wind_speed=float(np.random.uniform(20, 50)),
+            total_precipitation_mm=float(np.random.uniform(0.5, 5.0) * request.duration_days),
+            time_steps_completed=time_steps,
+            duration_seconds=float(time.perf_counter() - start_time)
+        )
+
+    # ==================== VISUALIZATION DATA ENDPOINTS ====================
+
+    class FieldDataRequest(CamelModel):
+        """Request for field visualization data."""
+        variable: str
+        pressure_level: int = Field(500, alias="pressureLevel")
+        lat_range: Optional[List[float]] = Field(None, alias="latRange")
+        lon_range: Optional[List[float]] = Field(None, alias="lonRange")
+        grid_size: int = Field(32, alias="gridSize")
+
+    class FieldDataResponse(CamelModel):
+        """Response with field data for visualization."""
+        data: List[List[float]]
+        lats: List[float]
+        lons: List[float]
+        variable: str
+        pressure_level: int = Field(alias="pressureLevel")
+        min_value: float = Field(alias="minValue")
+        max_value: float = Field(alias="maxValue")
+        units: str
+
+    @app.post("/api/visualization/field", response_model=FieldDataResponse)
+    def get_field_data(request: FieldDataRequest) -> FieldDataResponse:
+        """Get synthetic field data for visualization."""
+        # Variable specifications
+        VAR_SPECS = {
+            'z': {'base': 5500, 'amplitude': 500, 'units': 'm²/s²'},
+            't': {'base': 260, 'amplitude': 20, 'units': 'K'},
+            'u': {'base': 0, 'amplitude': 30, 'units': 'm/s'},
+            'v': {'base': 0, 'amplitude': 20, 'units': 'm/s'},
+            'q': {'base': 0.005, 'amplitude': 0.01, 'units': 'kg/kg'},
+        }
+
+        spec = VAR_SPECS.get(request.variable, {'base': 0, 'amplitude': 1, 'units': ''})
+
+        # Generate grid
+        lat_min = request.lat_range[0] if request.lat_range else -90
+        lat_max = request.lat_range[1] if request.lat_range else 90
+        lon_min = request.lon_range[0] if request.lon_range else -180
+        lon_max = request.lon_range[1] if request.lon_range else 180
+
+        lats = np.linspace(lat_min, lat_max, request.grid_size).tolist()
+        lons = np.linspace(lon_min, lon_max, request.grid_size * 2).tolist()
+
+        # Generate synthetic data with realistic patterns
+        lat_grid, lon_grid = np.meshgrid(
+            np.linspace(lat_min, lat_max, request.grid_size),
+            np.linspace(lon_min, lon_max, request.grid_size * 2),
+            indexing='ij'
+        )
+
+        # Add latitude-dependent pattern + waves
+        data = (spec['base'] +
+                spec['amplitude'] * np.cos(np.radians(lat_grid)) *
+                np.sin(np.radians(lon_grid) * 3) +
+                spec['amplitude'] * 0.3 * np.random.randn(request.grid_size, request.grid_size * 2))
+
+        return FieldDataResponse(
+            data=data.tolist(),
+            lats=lats,
+            lons=lons,
+            variable=request.variable,
+            pressure_level=request.pressure_level,
+            min_value=float(data.min()),
+            max_value=float(data.max()),
+            units=spec['units']
+        )
+
+    # ==================== EDUCATION ENDPOINTS ====================
+
+    class PhysicsQuizQuestion(CamelModel):
+        """A physics quiz question."""
+        id: str
+        question: str
+        options: List[str]
+        correct_index: int = Field(alias="correctIndex")
+        explanation: str
+        topic: str
+
+    @app.get("/api/education/quiz/{topic}")
+    def get_quiz_questions(topic: str) -> List[PhysicsQuizQuestion]:
+        """Get quiz questions for a topic."""
+        QUESTIONS = {
+            'coriolis': [
+                PhysicsQuizQuestion(
+                    id='c1',
+                    question='At what latitude is the Coriolis parameter (f) equal to zero?',
+                    options=['90°N', '45°N', '0° (Equator)', '30°N'],
+                    correct_index=2,
+                    explanation='The Coriolis parameter f = 2Ω sin(φ) equals zero at the equator where sin(0°) = 0.',
+                    topic='coriolis'
+                ),
+                PhysicsQuizQuestion(
+                    id='c2',
+                    question='Which direction does the Coriolis force deflect moving objects in the Northern Hemisphere?',
+                    options=['Left', 'Right', 'Up', 'Down'],
+                    correct_index=1,
+                    explanation='In the Northern Hemisphere, the Coriolis force deflects moving objects to the right of their direction of motion.',
+                    topic='coriolis'
+                ),
+            ],
+            'geostrophic': [
+                PhysicsQuizQuestion(
+                    id='g1',
+                    question='In geostrophic balance, the wind blows:',
+                    options=['From high to low pressure', 'From low to high pressure', 'Parallel to isobars', 'Perpendicular to isobars'],
+                    correct_index=2,
+                    explanation='Geostrophic wind flows parallel to isobars with low pressure on the left (NH) due to balance between pressure gradient and Coriolis forces.',
+                    topic='geostrophic'
+                ),
+            ],
+            'rossby': [
+                PhysicsQuizQuestion(
+                    id='r1',
+                    question='Rossby waves propagate:',
+                    options=['Eastward only', 'Westward relative to mean flow', 'Northward', 'Randomly'],
+                    correct_index=1,
+                    explanation='Rossby waves have a westward phase speed relative to the mean flow due to the beta effect (variation of Coriolis with latitude).',
+                    topic='rossby'
+                ),
+            ],
+        }
+
+        if topic not in QUESTIONS:
+            raise HTTPException(404, f"No questions for topic: {topic}")
+
+        return QUESTIONS[topic]
+
+    # ==================== NOTEBOOK DATA ENDPOINTS ====================
+
+    class NotebookInfo(CamelModel):
+        """Information about a Jupyter notebook."""
+        id: str
+        title: str
+        description: str
+        topics: List[str]
+        difficulty: str
+        estimated_time: str = Field(alias="estimatedTime")
+        cells_count: int = Field(alias="cellsCount")
+
+    @app.get("/api/notebooks")
+    def list_notebooks() -> List[NotebookInfo]:
+        """List available Jupyter notebooks."""
+        return [
+            NotebookInfo(
+                id='complete_guide',
+                title='WeatherFlow Complete Guide',
+                description='Comprehensive guide covering data loading, model training, prediction, and visualization',
+                topics=['ERA5 data', 'Flow matching', 'Training', 'Visualization'],
+                difficulty='Intermediate',
+                estimated_time='45 mins',
+                cells_count=30
+            ),
+            NotebookInfo(
+                id='flow_matching_basics',
+                title='Flow Matching Basics',
+                description='Introduction to flow matching concepts and implementation',
+                topics=['Flow matching', 'Vector fields', 'ODE solvers'],
+                difficulty='Beginner',
+                estimated_time='30 mins',
+                cells_count=20
+            ),
+            NotebookInfo(
+                id='era5_data_exploration',
+                title='ERA5 Data Exploration',
+                description='Explore and visualize ERA5 reanalysis data',
+                topics=['ERA5', 'Data loading', 'Visualization'],
+                difficulty='Beginner',
+                estimated_time='20 mins',
+                cells_count=15
+            ),
+            NotebookInfo(
+                id='model_training',
+                title='Model Training Tutorial',
+                description='Step-by-step guide to training WeatherFlow models',
+                topics=['Training', 'Hyperparameters', 'Validation'],
+                difficulty='Intermediate',
+                estimated_time='40 mins',
+                cells_count=25
+            ),
+            NotebookInfo(
+                id='weatherbench_evaluation',
+                title='WeatherBench2 Evaluation',
+                description='Evaluate models against WeatherBench2 benchmarks',
+                topics=['Evaluation', 'Metrics', 'Benchmarking'],
+                difficulty='Advanced',
+                estimated_time='50 mins',
+                cells_count=28
+            ),
+        ]
 
     @app.post("/api/experiments", response_model=ExperimentResult)
     def run_experiment(config: ExperimentConfig) -> ExperimentResult:
