@@ -1,0 +1,122 @@
+.generic-info-view {
+  padding: 2rem;
+}
+
+.content-section {
+  margin-top: 3rem;
+}
+
+.content-section h2 {
+  color: #e2e8f0;
+  margin-bottom: 1.5rem;
+}
+
+.section-content {
+  color: #94a3b8;
+  line-height: 1.8;
+}
+
+.section-content p {
+  margin-bottom: 1rem;
+}
+
+.section-content ul {
+  padding-left: 1.5rem;
+  margin: 1rem 0;
+}
+
+.section-content code {
+  background: rgba(102, 126, 234, 0.2);
+  color: #a5b4fc;
+  padding: 0.2rem 0.4rem;
+  border-radius: 3px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+}
+
+.code-examples-section {
+  margin-top: 3rem;
+}
+
+.code-examples-section h2 {
+  color: #e2e8f0;
+  margin-bottom: 1.5rem;
+}
+
+.code-example {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.code-example h3 {
+  color: #e2e8f0;
+  margin: 0 0 1rem 0;
+  font-size: 1rem;
+}
+
+.code-example pre {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 6px;
+  padding: 1rem;
+  overflow-x: auto;
+  margin: 0;
+}
+
+.code-example code {
+  color: #a5b4fc;
+  font-family: 'Courier New', monospace;
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+.features-section {
+  margin-top: 3rem;
+}
+
+.features-section h2 {
+  color: #e2e8f0;
+  margin-bottom: 1.5rem;
+}
+
+.features-list {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 2rem;
+  color: #94a3b8;
+  line-height: 1.8;
+}
+
+.related-section {
+  margin-top: 3rem;
+}
+
+.related-section h2 {
+  color: #e2e8f0;
+  margin-bottom: 1.5rem;
+}
+
+.related-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.related-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 1rem;
+  color: #e2e8f0;
+  text-align: center;
+  transition: all 0.2s;
+}
+
+.related-card:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(102, 126, 234, 0.5);
+  transform: translateY(-2px);
+}

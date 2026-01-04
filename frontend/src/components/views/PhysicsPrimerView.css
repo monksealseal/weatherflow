@@ -1,0 +1,155 @@
+.physics-primer-view {
+  padding: 2rem;
+}
+
+.concept-section {
+  margin-top: 3rem;
+}
+
+.concept-section h2 {
+  color: #e2e8f0;
+  margin-bottom: 1.5rem;
+}
+
+.principles-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: 1.5rem;
+}
+
+.principle-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 1.5rem;
+  transition: all 0.2s;
+}
+
+.principle-card:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+}
+
+.principle-card h3 {
+  color: #e2e8f0;
+  margin: 0 0 1rem 0;
+  font-size: 1.1rem;
+}
+
+.equation-box {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 6px;
+  padding: 1rem;
+  margin: 1rem 0;
+  text-align: center;
+}
+
+.equation-box code {
+  color: #a5b4fc;
+  font-family: 'Courier New', monospace;
+  font-size: 1.1rem;
+}
+
+.principle-card p {
+  color: #94a3b8;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.implementation-section {
+  margin-top: 3rem;
+}
+
+.implementation-section h2 {
+  color: #e2e8f0;
+  margin-bottom: 1.5rem;
+}
+
+.impl-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 1.5rem;
+}
+
+.impl-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 1.5rem;
+}
+
+.impl-card h3 {
+  color: #e2e8f0;
+  margin: 0 0 1rem 0;
+  font-size: 1rem;
+}
+
+.impl-card p {
+  color: #94a3b8;
+  margin-bottom: 1rem;
+  line-height: 1.5;
+}
+
+.impl-card pre {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 6px;
+  padding: 1rem;
+  overflow-x: auto;
+  margin: 0;
+}
+
+.impl-card code {
+  color: #a5b4fc;
+  font-family: 'Courier New', monospace;
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+.impl-card ul {
+  color: #94a3b8;
+  line-height: 1.8;
+  padding-left: 1.5rem;
+  margin: 0;
+}
+
+.impl-card ul code {
+  background: rgba(102, 126, 234, 0.2);
+  padding: 0.2rem 0.4rem;
+  border-radius: 3px;
+}
+
+.references-section {
+  margin-top: 3rem;
+}
+
+.references-section h2 {
+  color: #e2e8f0;
+  margin-bottom: 1.5rem;
+}
+
+.references-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+.reference-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 1.5rem;
+}
+
+.reference-card h3 {
+  color: #e2e8f0;
+  margin: 0 0 1rem 0;
+  font-size: 1rem;
+}
+
+.reference-card ul {
+  color: #94a3b8;
+  line-height: 1.8;
+  padding-left: 1.5rem;
+  margin: 0;
+}

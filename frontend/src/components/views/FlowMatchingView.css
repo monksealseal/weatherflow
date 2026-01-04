@@ -1,0 +1,41 @@
+.flow-matching-view .equation-display {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 6px;
+  padding: 1.5rem;
+  margin: 1.5rem 0;
+  text-align: center;
+}
+
+.flow-matching-view .equation-display code {
+  color: #a5b4fc;
+  font-family: 'Courier New', monospace;
+  font-size: 1.2rem;
+}
+
+.source-section {
+  margin-top: 3rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 2rem;
+}
+
+.source-section h2 {
+  color: #e2e8f0;
+  margin: 0 0 1.5rem 0;
+}
+
+.source-links {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.source-links code {
+  background: rgba(0, 0, 0, 0.3);
+  color: #a5b4fc;
+  padding: 0.75rem;
+  border-radius: 4px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+}

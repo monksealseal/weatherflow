@@ -1,0 +1,224 @@
+.renewable-energy-view {
+  padding: 2rem;
+}
+
+.energy-types {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 2rem;
+  margin: 2rem 0;
+}
+
+.energy-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 2rem;
+}
+
+.energy-card h2 {
+  color: #e2e8f0;
+  margin: 0 0 1rem 0;
+}
+
+.energy-card p {
+  color: #94a3b8;
+  line-height: 1.6;
+  margin-bottom: 1.5rem;
+}
+
+.energy-card h3 {
+  color: #cbd5e1;
+  margin: 1.5rem 0 1rem 0;
+  font-size: 1.1rem;
+}
+
+.energy-card ul {
+  color: #94a3b8;
+  line-height: 1.8;
+  padding-left: 1.5rem;
+}
+
+.turbine-specs {
+  margin-top: 1rem;
+}
+
+.turbine-details {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+  padding: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.turbine-details summary {
+  color: #e2e8f0;
+  cursor: pointer;
+  font-weight: 500;
+  padding: 0.5rem;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.turbine-details summary:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.turbine-details[open] summary {
+  margin-bottom: 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.spec-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.75rem;
+  padding: 0.5rem;
+}
+
+.spec-item {
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+
+.spec-item strong {
+  color: #cbd5e1;
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.solar-models {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.model-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+  padding: 1rem;
+}
+
+.model-card h4 {
+  color: #e2e8f0;
+  margin: 0 0 0.5rem 0;
+  font-size: 1rem;
+}
+
+.model-card p {
+  color: #94a3b8;
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.code-section {
+  margin-top: 3rem;
+}
+
+.code-section h2 {
+  color: #e2e8f0;
+  margin-bottom: 1.5rem;
+}
+
+.code-example {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.code-example h3 {
+  color: #e2e8f0;
+  margin: 0 0 1rem 0;
+  font-size: 1rem;
+}
+
+.code-example pre {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 6px;
+  padding: 1rem;
+  overflow-x: auto;
+  margin: 0;
+}
+
+.code-example code {
+  color: #a5b4fc;
+  font-family: 'Courier New', monospace;
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+.applications-section {
+  margin-top: 3rem;
+}
+
+.applications-section h2 {
+  color: #e2e8f0;
+  margin-bottom: 1.5rem;
+}
+
+.applications-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+}
+
+.application-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 1.5rem;
+  transition: all 0.2s;
+}
+
+.application-card:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+}
+
+.application-card h3 {
+  color: #e2e8f0;
+  margin: 0 0 0.75rem 0;
+  font-size: 1rem;
+}
+
+.application-card p {
+  color: #94a3b8;
+  margin: 0;
+  line-height: 1.5;
+  font-size: 0.9rem;
+}
+
+.reference-section {
+  margin-top: 3rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 1.5rem;
+}
+
+.reference-section h2 {
+  color: #e2e8f0;
+  margin: 0 0 1rem 0;
+  font-size: 1.1rem;
+}
+
+.reference-section ul {
+  color: #94a3b8;
+  line-height: 1.8;
+  padding-left: 1.5rem;
+  margin: 0;
+}
+
+.reference-section code {
+  background: rgba(102, 126, 234, 0.2);
+  color: #a5b4fc;
+  padding: 0.2rem 0.4rem;
+  border-radius: 3px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.85rem;
+}

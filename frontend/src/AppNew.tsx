@@ -4,6 +4,17 @@ import ExperimentHistory from './components/ExperimentHistory';
 import { ExperimentRecord } from './utils/experimentTracker';
 import './AppNew.css';
 
+// Import real view components
+import ModelZooView from './components/views/ModelZooView';
+import ERA5BrowserView from './components/views/ERA5BrowserView';
+import RenewableEnergyView from './components/views/RenewableEnergyView';
+import TutorialsView from './components/views/TutorialsView';
+import AtmosphericDynamicsView from './components/views/AtmosphericDynamicsView';
+import ExtremeEventsView from './components/views/ExtremeEventsView';
+import PhysicsPrimerView from './components/views/PhysicsPrimerView';
+import InteractiveNotebooksView from './components/views/InteractiveNotebooksView';
+import FlowMatchingView from './components/views/FlowMatchingView';
+
 // Placeholder components for different views
 function DashboardView() {
   return (
@@ -89,10 +100,10 @@ export default function AppNew(): JSX.Element {
 
     // Model views
     if (currentPath === '/models/zoo') {
-      return <PlaceholderView title="🏛️ Model Zoo" description="Pre-trained models for weather prediction" />;
+      return <ModelZooView />;
     }
     if (currentPath === '/models/flow-matching') {
-      return <PlaceholderView title="🌊 Flow Matching Models" description="Configure continuous normalizing flows" />;
+      return <FlowMatchingView />;
     }
     if (currentPath === '/models/icosahedral') {
       return <PlaceholderView title="⚽ Icosahedral Grid" description="Spherical mesh for global predictions" />;
@@ -106,7 +117,7 @@ export default function AppNew(): JSX.Element {
 
     // Data views
     if (currentPath === '/data/era5') {
-      return <PlaceholderView title="🌍 ERA5 Browser" description="Access ECMWF reanalysis data" />;
+      return <ERA5BrowserView />;
     }
     if (currentPath === '/data/weatherbench2') {
       return <PlaceholderView title="📈 WeatherBench2" description="Benchmark datasets for model evaluation" />;
@@ -151,10 +162,10 @@ export default function AppNew(): JSX.Element {
 
     // Application views
     if (currentPath === '/applications/renewable-energy') {
-      return <PlaceholderView title="⚡ Renewable Energy" description="Wind and solar power forecasting" />;
+      return <RenewableEnergyView />;
     }
     if (currentPath === '/applications/extreme-events') {
-      return <PlaceholderView title="⚠️ Extreme Events" description="Detect and track severe weather" />;
+      return <ExtremeEventsView />;
     }
     if (currentPath === '/applications/climate') {
       return <PlaceholderView title="🌡️ Climate Analysis" description="Long-term trends and patterns" />;
@@ -165,16 +176,16 @@ export default function AppNew(): JSX.Element {
 
     // Education views
     if (currentPath === '/education/dynamics') {
-      return <PlaceholderView title="🌀 Atmospheric Dynamics" description="Graduate-level learning tools" />;
+      return <AtmosphericDynamicsView />;
     }
     if (currentPath === '/education/tutorials') {
-      return <PlaceholderView title="📚 Tutorials" description="Step-by-step guides" />;
+      return <TutorialsView />;
     }
     if (currentPath === '/education/notebooks') {
-      return <PlaceholderView title="📓 Interactive Notebooks" description="Hands-on Jupyter notebooks" />;
+      return <InteractiveNotebooksView />;
     }
     if (currentPath === '/education/physics') {
-      return <PlaceholderView title="⚛️ Physics Primer" description="Atmospheric physics fundamentals" />;
+      return <PhysicsPrimerView />;
     }
 
     // Evaluation views
