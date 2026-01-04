@@ -13,6 +13,7 @@ import AtmosphericDynamicsView from './components/views/AtmosphericDynamicsView'
 import ExtremeEventsView from './components/views/ExtremeEventsView';
 import PhysicsPrimerView from './components/views/PhysicsPrimerView';
 import InteractiveNotebooksView from './components/views/InteractiveNotebooksView';
+import FlowMatchingView from './components/views/FlowMatchingView';
 
 // Placeholder components for different views
 function DashboardView() {
@@ -102,7 +103,7 @@ export default function AppNew(): JSX.Element {
       return <ModelZooView />;
     }
     if (currentPath === '/models/flow-matching') {
-      return <PlaceholderView title="🌊 Flow Matching Models" description="Configure continuous normalizing flows" />;
+      return <FlowMatchingView />;
     }
     if (currentPath === '/models/icosahedral') {
       return <PlaceholderView title="⚽ Icosahedral Grid" description="Spherical mesh for global predictions" />;
