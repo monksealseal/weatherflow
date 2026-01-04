@@ -47,14 +47,14 @@ from weatherflow.path import GaussianProbPath  # ImportError
 ```
 
 **Solution:**
-Use the fixed example files:
-- `examples/flow_matching/simple_example_fixed.py` instead of `simple_example.py`
-
-Or add path setup at the top of your script:
+The example files have been fixed to use correct imports. If you're using an older version or encounter import issues, add path setup at the top of your script:
 ```python
 import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+
+from weatherflow.path.gaussian_path import GaussianProbPath
+from weatherflow.path.condot_path import CondOTPath
 ```
 
 ## Data Access Issues
