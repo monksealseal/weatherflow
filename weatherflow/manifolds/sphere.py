@@ -17,11 +17,11 @@ class Sphere:
     edge cases and prevent division by zero errors.
     """
     
-    def __init__(self, radius: float = 6371.0, epsilon: Optional[float] = None):
+    def __init__(self, radius: float = 6371e3, epsilon: Optional[float] = None):
         """Initialize the sphere manifold.
-        
+
         Args:
-            radius: Radius of the sphere in km (default: Earth's radius)
+            radius: Radius of the sphere in meters (default: Earth's radius = 6.371e6 m)
             epsilon: Custom epsilon value for numerical stability
                     (if None, defaults based on dtype will be used)
         """

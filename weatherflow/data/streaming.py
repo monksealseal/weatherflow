@@ -47,6 +47,9 @@ class StreamingERA5Dataset(IterableDataset):
             iter_end = min(iter_start + per_worker, total_steps)
 
         current_step = iter_start
+        # Track the last sample from previous chunk to handle chunk boundary transitions
+        prev_chunk_last_sample = None
+
         while current_step < iter_end - 1:
             chunk_end = min(current_step + self.chunk_size, iter_end)
             time_slice = slice(current_step, chunk_end)
@@ -60,6 +63,18 @@ class StreamingERA5Dataset(IterableDataset):
                     ).values
 
                 chunk_len = chunk_data[self.variables[0]].shape[0]
+
+                # Handle chunk boundary: yield transition from previous chunk's last sample
+                # to this chunk's first sample
+                if prev_chunk_last_sample is not None and chunk_len > 0:
+                    x0 = prev_chunk_last_sample
+                    x1 = []
+                    for var in self.variables:
+                        x1.append(chunk_data[var][0])
+                    x1_tensor = torch.tensor(np.stack(x1), dtype=torch.float32)
+                    yield x0, x1_tensor
+
+                # Process pairs within the current chunk
                 for i in range(chunk_len - 1):
                     x0 = []
                     x1 = []
@@ -72,7 +87,15 @@ class StreamingERA5Dataset(IterableDataset):
                     x1_tensor = torch.tensor(np.stack(x1), dtype=torch.float32)
                     yield x0_tensor, x1_tensor
 
+                # Store last sample for chunk boundary handling
+                if chunk_len > 0:
+                    last_sample = []
+                    for var in self.variables:
+                        last_sample.append(chunk_data[var][-1])
+                    prev_chunk_last_sample = torch.tensor(np.stack(last_sample), dtype=torch.float32)
+
             except Exception as e:
                 logging.error(f"Error streaming chunk {current_step}: {e}")
+                prev_chunk_last_sample = None  # Reset on error to avoid stale data
 
             current_step += self.chunk_size
