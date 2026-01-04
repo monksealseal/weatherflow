@@ -9,6 +9,19 @@
 
 WeatherFlow is a Python library built on PyTorch that provides a flexible and extensible framework for developing weather prediction models using flow matching techniques. It integrates seamlessly with ERA5 reanalysis data and incorporates physics-guided neural network architectures.
 
+## 🌐 Try It Online
+
+**Visit our interactive web interface:** https://monksealseal.github.io/weatherflow/
+
+The web interface provides access to all WeatherFlow functionality through your browser:
+- Run ML training experiments
+- Configure datasets and models
+- Visualize predictions and results
+- Track experiment history
+- No installation required!
+
+> **Note:** The web interface requires a backend server for training. See [BACKEND_QUICKSTART.md](BACKEND_QUICKSTART.md) for deployment instructions.
+
 ## Key Features
 
 * **Flow Matching Models:** Implementation of continuous normalizing flows for weather prediction, inspired by Meta AI's approach

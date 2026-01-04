@@ -1,1 +1,1 @@
-web: gunicorn app:app --timeout 300 --workers 2
+web: uvicorn weatherflow.server.app:app --host 0.0.0.0 --port $PORT --workers 2
