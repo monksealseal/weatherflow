@@ -196,6 +196,7 @@ print(f"Predictions shape: {predictions.shape}")  # [time, batch, channels, lat,
 
 - Main README: README.md
 - Advanced Usage Guide: docs/advanced_usage.md
+- Troubleshooting Guide: docs/troubleshooting.md
 - API Documentation: docs/api/training.md
 - ERA5 Data Tutorial: docs/tutorials/era5.md
 - Foundation Model: foundation_model/README.md
@@ -203,7 +204,7 @@ print(f"Predictions shape: {predictions.shape}")  # [time, batch, channels, lat,
 ## Getting Help
 
 If you encounter issues:
-1. Check this troubleshooting section
+1. Check the troubleshooting guide: [docs/troubleshooting.md](docs/troubleshooting.md)
 2. Review the examples in `examples/` directory
 3. Read the documentation in `docs/` directory
 4. File an issue on GitHub: https://github.com/monksealseal/weatherflow/issues
