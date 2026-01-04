@@ -2,7 +2,8 @@ import sys
 import os
 import torch
 
-# Add the repository root to the path
+# Add the repository root to the path for development/example purposes
+# For production use, install the package with: pip install -e .
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 # Import from the local modules directly
