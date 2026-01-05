@@ -156,8 +156,11 @@ class FlowTrainer:
             # Sample time points
             t = torch.rand(x0.size(0), device=self.device)
             
-            # Forward pass with AMP if enabled (autocast works on CPU too with enabled=False)
-            with torch.cuda.amp.autocast(enabled=self.use_amp, device_type='cuda' if torch.cuda.is_available() else 'cpu'):
+            # Forward pass with AMP if enabled (use torch.autocast for device-agnostic support)
+            with torch.autocast(
+                device_type="cuda" if getattr(self.device, "type", None) == "cuda" else "cpu",
+                enabled=self.use_amp and getattr(self.device, "type", None) in ("cuda", "cpu"),
+            ):
                 # Compute model prediction
                 if getattr(self.model, 'supports_style_conditioning', False):
                     v_t = self.model(x0_noisy, t, style=style)

@@ -1,5 +1,6 @@
 # weatherflow/version.py
 """Version information for the WeatherFlow package."""
+import re
 
 __version__ = "0.4.2"
 
@@ -11,7 +12,6 @@ def get_version():
 # Version components - handle pre-release versions (e.g., "0.4.2rc1", "0.4.2.post1")
 def _parse_version_component(component: str) -> int:
     """Extract numeric part from version component, ignoring pre-release suffixes."""
-    import re
     match = re.match(r'(\d+)', component)
     return int(match.group(1)) if match else 0
 

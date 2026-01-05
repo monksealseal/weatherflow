@@ -7,6 +7,7 @@ import io
 from PIL import Image
 import base64
 import xarray as xr
+import warnings
 
 # Optional cartopy import - gracefully handle if not available
 try:
@@ -80,7 +81,6 @@ class WeatherVisualizer:
             self.projection = getattr(ccrs, projection)()
         else:
             self.projection = None
-            import warnings
             warnings.warn(
                 "Cartopy not available. Geographic projections will not be supported. "
                 "Install cartopy with: pip install cartopy",
