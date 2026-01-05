@@ -418,7 +418,7 @@ class WeatherFlowMatch(nn.Module):
         # Compute target velocity (straight-line path)
         # For spherical geometries, this should use geodesics
         # Add epsilon to prevent division by zero when t approaches 1
-        v_target = (x1 - x0) / ((1 - t).view(-1, 1, 1, 1) + 1e-8)
+        v_target = (x1 - x0) / ((1 - t).view(-1, 1, 1, 1) + 1e-6)
 
         # Main flow matching loss
         flow_loss = F.mse_loss(v_pred, v_target)

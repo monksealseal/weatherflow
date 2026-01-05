@@ -15,6 +15,7 @@ import json
 import threading
 import time
 from datetime import datetime
+import secrets
 
 from gcm import GCM
 
@@ -117,7 +118,6 @@ def run_simulation():
 
     # Generate simulation ID (thread-safe)
     # Use threading-safe random and timestamp with higher precision
-    import secrets
     sim_id = f"sim_{int(time.time() * 1000)}_{secrets.randbelow(10000)}"
 
     # Create runner
@@ -143,10 +143,14 @@ def get_status(sim_id):
     with simulations_lock:
         if sim_id in active_simulations:
             runner = active_simulations[sim_id]
+            # Read runner attributes while holding the lock to prevent race conditions
+            status = runner.status
+            progress = runner.progress
+            error = runner.error
             return jsonify({
-                'status': runner.status,
-                'progress': runner.progress,
-                'error': runner.error
+                'status': status,
+                'progress': progress,
+                'error': error
             })
         elif sim_id in simulation_results:
             return jsonify({
@@ -298,28 +302,29 @@ def create_plot(model, plot_type):
 
 @app.route('/api/simulations')
 def list_simulations():
-    """List all simulations"""
+    """List all simulations (thread-safe)"""
     sims = []
 
-    # Active simulations
-    for sim_id, runner in active_simulations.items():
-        sims.append({
-            'id': sim_id,
-            'status': runner.status,
-            'progress': runner.progress,
-            'config': runner.config
-        })
-
-    # Completed simulations
-    for sim_id, result in simulation_results.items():
-        if sim_id not in active_simulations:
+    with simulations_lock:
+        # Active simulations
+        for sim_id, runner in active_simulations.items():
             sims.append({
                 'id': sim_id,
-                'status': 'complete',
-                'progress': 100,
-                'config': result['config'],
-                'timestamp': result['timestamp']
+                'status': runner.status,
+                'progress': runner.progress,
+                'config': runner.config
             })
+
+        # Completed simulations
+        for sim_id, result in simulation_results.items():
+            if sim_id not in active_simulations:
+                sims.append({
+                    'id': sim_id,
+                    'status': 'complete',
+                    'progress': 100,
+                    'config': result['config'],
+                    'timestamp': result['timestamp']
+                })
 
     return jsonify(sims)
 
