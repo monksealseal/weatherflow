@@ -14,6 +14,8 @@ import ExtremeEventsView from './components/views/ExtremeEventsView';
 import PhysicsPrimerView from './components/views/PhysicsPrimerView';
 import InteractiveNotebooksView from './components/views/InteractiveNotebooksView';
 import FlowMatchingView from './components/views/FlowMatchingView';
+import TrainingWorkflowsView from './components/views/TrainingWorkflowsView';
+import EvaluationView from './components/views/EvaluationView';
 
 // Placeholder components for different views
 function DashboardView() {
@@ -45,6 +47,33 @@ function DashboardView() {
           <button className="card-action">Start Learning</button>
         </div>
       </div>
+
+      <section className="readiness-section">
+        <div className="readiness-header">
+          <h2>🧭 Feature readiness map</h2>
+          <p>See what runs instantly versus where training or checkpoints unlock extra depth.</p>
+        </div>
+        <div className="readiness-grid">
+          <div className="readiness-card">
+            <h3>Works without training</h3>
+            <ul>
+              <li>Renewable energy converters (<code>applications/renewable_energy/*</code>)</li>
+              <li>Extreme event detectors (<code>applications/extreme_event_analysis/detectors.py</code>)</li>
+              <li>ERA5 data exploration (<code>weatherflow/data/era5.py</code>)</li>
+              <li>FastAPI smoke tests (<code>run_experiment.py</code> → <code>weatherflow/server/app.py</code>)</li>
+            </ul>
+          </div>
+          <div className="readiness-card">
+            <h3>Benefits from checkpoints</h3>
+            <ul>
+              <li>Model Zoo cards and Flow Matching demos (<code>model_zoo/train_model.py</code>)</li>
+              <li>Experiment visualizations powered by <code>WeatherFlowODE</code></li>
+              <li>Evaluation dashboards using <code>weatherflow/training/metrics.py</code></li>
+              <li>Remote/Hugging Face runs for heavier training jobs</li>
+            </ul>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
@@ -131,16 +160,16 @@ export default function AppNew(): JSX.Element {
 
     // Training views
     if (currentPath === '/training/basic') {
-      return <PlaceholderView title="🏃 Basic Training" description="Simple training configuration" />;
+      return <TrainingWorkflowsView mode="basic" />;
     }
     if (currentPath === '/training/advanced') {
-      return <PlaceholderView title="🚀 Advanced Training" description="Physics losses and advanced options" />;
+      return <TrainingWorkflowsView mode="advanced" />;
     }
     if (currentPath === '/training/distributed') {
-      return <PlaceholderView title="🌐 Distributed Training" description="Multi-GPU training (Coming Soon)" />;
+      return <TrainingWorkflowsView mode="distributed" />;
     }
     if (currentPath === '/training/tuning') {
-      return <PlaceholderView title="🎛️ Hyperparameter Tuning" description="Automated hyperparameter search" />;
+      return <TrainingWorkflowsView mode="tuning" />;
     }
 
     // Visualization views
@@ -190,16 +219,16 @@ export default function AppNew(): JSX.Element {
 
     // Evaluation views
     if (currentPath === '/evaluation/dashboard') {
-      return <PlaceholderView title="📊 Metrics Dashboard" description="Comprehensive evaluation metrics" />;
+      return <EvaluationView mode="dashboard" />;
     }
     if (currentPath === '/evaluation/skill-scores') {
-      return <PlaceholderView title="🎯 Skill Scores" description="ACC, RMSE, and verification metrics" />;
+      return <EvaluationView mode="skill" />;
     }
     if (currentPath === '/evaluation/spatial') {
-      return <PlaceholderView title="🗺️ Spatial Analysis" description="Regional error patterns" />;
+      return <EvaluationView mode="spatial" />;
     }
     if (currentPath === '/evaluation/spectra') {
-      return <PlaceholderView title="📉 Energy Spectra" description="Spectral energy analysis" />;
+      return <EvaluationView mode="spectra" />;
     }
 
     // Settings views

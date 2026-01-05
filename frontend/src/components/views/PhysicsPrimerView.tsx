@@ -193,9 +193,9 @@ print(f"Energy budget residual: {metrics['energy_error']:.2e}")`}</code></pre>
           <div className="reference-card">
             <h3>Textbooks</h3>
             <ul>
-              <li>Holton & Hakim - "An Introduction to Dynamic Meteorology"</li>
-              <li>Vallis - "Atmospheric and Oceanic Fluid Dynamics"</li>
-              <li>Wallace & Hobbs - "Atmospheric Science"</li>
+              <li>Holton & Hakim - &quot;An Introduction to Dynamic Meteorology&quot;</li>
+              <li>Vallis - &quot;Atmospheric and Oceanic Fluid Dynamics&quot;</li>
+              <li>Wallace & Hobbs - &quot;Atmospheric Science&quot;</li>
             </ul>
           </div>
           <div className="reference-card">

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { experimentTracker, ExperimentRecord } from '../utils/experimentTracker';
 import './ExperimentHistory.css';
 
@@ -18,11 +18,7 @@ export default function ExperimentHistory({
   const [sortBy, setSortBy] = useState<'timestamp' | 'name' | 'duration'>('timestamp');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
-  useEffect(() => {
-    loadExperiments();
-  }, [filterStatus, searchQuery, sortBy, sortOrder]);
-
-  const loadExperiments = () => {
+  const loadExperiments = useCallback(() => {
     let filtered = experimentTracker.getAllExperiments();
 
     // Apply status filter
@@ -49,7 +45,11 @@ export default function ExperimentHistory({
     });
 
     setExperiments(filtered);
-  };
+  }, [filterStatus, searchQuery, sortBy, sortOrder]);
+
+  useEffect(() => {
+    loadExperiments();
+  }, [loadExperiments]);
 
   const handleToggleSelect = (id: string) => {
     const newSelected = new Set(selectedIds);
@@ -190,7 +190,12 @@ export default function ExperimentHistory({
 
         <div className="filter-group">
           <label>Sort by:</label>
-          <select value={sortBy} onChange={(e) => setSortBy(e.target.value as any)}>
+          <select
+            value={sortBy}
+            onChange={(e) =>
+              setSortBy(e.target.value as 'timestamp' | 'name' | 'duration')
+            }
+          >
             <option value="timestamp">Date</option>
             <option value="name">Name</option>
             <option value="duration">Duration</option>

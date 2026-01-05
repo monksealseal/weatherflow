@@ -114,6 +114,47 @@ export default function ModelZooView() {
         </div>
       </div>
 
+      <div className="info-section">
+        <h2>🚀 Quick Playbooks</h2>
+        <div className="info-grid">
+          <div className="info-card">
+            <h3>Use an existing checkpoint (no training)</h3>
+            <p>Great for demos where you do not want to launch a long job.</p>
+            <pre><code>{`python model_zoo/download_model.py wf_global_multivariable_v2 --output-dir ./model_zoo/global_forecasting/multivariable
+
+import torch
+from weatherflow.models.flow_matching import WeatherFlowMatch, WeatherFlowODE
+checkpoint = torch.load("model_zoo/global_forecasting/z500_3day/wf_z500_3day_v1.pt", map_location="cpu")
+model = WeatherFlowMatch(**checkpoint["config"])
+model.load_state_dict(checkpoint["model_state_dict"])
+forecast = WeatherFlowODE(model)(x0, times=torch.linspace(0, 1, 5))`}</code></pre>
+            <p className="model-description">
+              Files: <code>model_zoo/download_model.py</code>, <code>weatherflow/models/flow_matching.py</code>
+            </p>
+          </div>
+          <div className="info-card">
+            <h3>Train & publish a Model Zoo entry</h3>
+            <p>When you do need training, stick to the existing CLI and model cards.</p>
+            <pre><code>{`python model_zoo/train_model.py z500_3day --output-dir model_zoo/global_forecasting/z500_3day
+# Outputs: checkpoint (*.pt) + model_card.json ready for the website`}</code></pre>
+            <ul>
+              <li>Metrics and cards are generated automatically.</li>
+              <li>Can run locally or on a remote runner (e.g., Hugging Face) with the same command.</li>
+              <li>Drop the artifacts back into <code>model_zoo/</code> to light up the UI.</li>
+            </ul>
+          </div>
+          <div className="info-card">
+            <h3>Wire to the Experiment API</h3>
+            <p>Feed Model Zoo checkpoints into the FastAPI backend for notebook-style runs.</p>
+            <pre><code>{`python run_experiment.py  # posts payload to weatherflow/server/app.py
+# API returns metrics and prediction snapshots you can display here`}</code></pre>
+            <p className="model-description">
+              Keeps website features useful even when training happens elsewhere.
+            </p>
+          </div>
+        </div>
+      </div>
+
       <div className="model-zoo-controls">
         <input
           type="text"
