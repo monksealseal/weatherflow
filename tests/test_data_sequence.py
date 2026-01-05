@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import pytest
 import xarray as xr
 
@@ -10,6 +11,8 @@ def _build_dummy_sequence_dataset(
     monkeypatch, tmp_path, time_steps: int = 6, context: int = 2, pred: int = 2
 ) -> MultiStepERA5Dataset:
     """Construct an in-memory MultiStepERA5Dataset without disk I/O."""
+    # Use datetime coordinates that match the years parameter (2000-2001)
+    time_range = pd.date_range("2000-01-01", periods=time_steps, freq="6h")
     ds = xr.Dataset(
         {
             "z": (
@@ -18,7 +21,7 @@ def _build_dummy_sequence_dataset(
             )
         },
         coords={
-            "time": np.arange(time_steps),
+            "time": time_range,
             "level": np.array([500]),
             "latitude": np.linspace(-90, 90, 4),
             "longitude": np.linspace(0, 360, 8, endpoint=False),
