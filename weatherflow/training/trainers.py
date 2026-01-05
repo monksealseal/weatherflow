@@ -223,8 +223,7 @@ class WeatherTrainer:
                 break
             
             # Print epoch summary
-            print(f"
-Epoch {epoch}:")
+            print(f"\nEpoch {epoch}:")
             print(f"Train Loss: {train_metrics['loss']:.4f}")
             print(f"Val Loss: {val_metrics['val_loss']:.4f}")
             print(f"Physics Loss: {train_metrics['physics_loss']:.4f}")
