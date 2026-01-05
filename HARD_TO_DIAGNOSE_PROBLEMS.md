@@ -307,41 +307,7 @@ if self._ema_params is not None:
 
 ---
 
-### 10. **Missing Model Eval Mode Restoration**
-
-**Location:** `weatherflow/training/flow_trainer.py:247-251`
-
-**Code:**
-```python
-eval_state = None
-if self._ema_params is not None:
-    eval_state = self.model.state_dict()
-    self.model.load_state_dict(self._ema_state_dict())  # type: ignore
-
-# ... evaluation happens ...
-# Missing: self.model.load_state_dict(eval_state)
-```
-
-**Problem:**
-- Training state is saved to `eval_state`
-- Model is switched to EMA weights
-- After evaluation, training state is NEVER restored
-- Subsequent training uses EMA weights instead of training weights
-
-**Impact:**
-- EMA updates corrupt because they're applied to EMA params, not training params
-- Training diverges after first validation
-- Loss increases after validation epochs
-
-**Why It's Hard to Diagnose:**
-- Only affects training AFTER validation
-- Works fine for first epoch before validation
-- Effect is gradual degradation, not immediate failure
-- Requires understanding EMA mechanics to notice
-
----
-
-### 11. **Device Mismatch in Flow Visualization**
+### 10. **Device Mismatch in Flow Visualization**
 
 **Location:** `weatherflow/utils/flow_visualization.py:27-33`
 
@@ -374,7 +340,7 @@ for t in times[1:]:
 
 ---
 
-### 12. **Type Confusion: Tensor vs NumPy Array**
+### 11. **Type Confusion: Tensor vs NumPy Array**
 
 **Location:** `weatherflow/physics/losses.py:122-124` (example usage)
 
@@ -401,7 +367,7 @@ if pressure_levels.dim() == 1:  # Assumes tensor
 
 ---
 
-### 13. **Spectral Loss Division by Zero**
+### 12. **Spectral Loss Division by Zero**
 
 **Location:** `weatherflow/physics/losses.py:226-228`
 
@@ -428,7 +394,7 @@ slope = numerator / (denominator + 1e-8)
 
 ---
 
-### 14. **No NaN/Inf Checking in Metrics**
+### 13. **No NaN/Inf Checking in Metrics**
 
 **Location:** `weatherflow/training/metrics.py:6`
 
@@ -457,7 +423,7 @@ def rmse(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
 
 ---
 
-### 15. **Unsafe Optimizer zero_grad()**
+### 14. **Unsafe Optimizer zero_grad()**
 
 **Location:** Multiple locations (e.g., `weatherflow/training/flow_trainer.py:186`)
 
@@ -485,7 +451,7 @@ self.optimizer.zero_grad()
 
 ## 🟠 MEDIUM SEVERITY ISSUES
 
-### 16. **Coriolis Parameter Zero at Equator**
+### 15. **Coriolis Parameter Zero at Equator**
 
 **Location:** `weatherflow/physics/losses.py:356-357`
 
@@ -512,7 +478,7 @@ v_g = dPhi_dx / (f + 1e-8)
 
 ---
 
-### 17. **DataLoader num_workers=0 in Examples**
+### 16. **DataLoader num_workers=0 in Examples**
 
 **Location:** `examples/flow_matching/era5_strict_training_loop.py:42`
 
@@ -537,7 +503,7 @@ num_workers: int = 0
 
 ---
 
-### 18. **Missing Gradient Clipping Validation**
+### 17. **Missing Gradient Clipping Validation**
 
 **Location:** `weatherflow/training/flow_trainer.py:189-191`
 
@@ -563,7 +529,7 @@ if self.grad_clip is not None:
 
 ---
 
-### 19. **Resource Leak: Unclosed Datasets**
+### 18. **Resource Leak: Unclosed Datasets**
 
 **Location:** `weatherflow/data/datasets.py:31`
 
@@ -589,7 +555,7 @@ self.ds = xr.open_zarr(self.data_path, ...)  # Never closed
 
 ---
 
-### 20. **Hardcoded Configuration URLs**
+### 19. **Hardcoded Configuration URLs**
 
 **Location:** `weatherflow/data/datasets.py:206`
 
@@ -613,7 +579,7 @@ DEFAULT_URL = "gs://weatherbench2/datasets/era5/1959-2023_01_10-6h-64x32_equiang
 
 ---
 
-### 21. **Missing train/eval Mode Switches**
+### 20. **Missing train/eval Mode Switches**
 
 **Location:** Various (e.g., `weatherflow/utils/flow_visualization.py:22`)
 
@@ -641,7 +607,7 @@ model.eval()
 
 ---
 
-### 22. **Arbitrary Numerical Constants**
+### 21. **Arbitrary Numerical Constants**
 
 **Location:** Multiple locations
 
@@ -668,7 +634,7 @@ model.eval()
 
 ## 📊 TESTING GAPS
 
-### 23. **No Tests for Edge Cases**
+### 22. **No Tests for Edge Cases**
 
 **Missing Test Coverage:**
 - Grid sizes: 0, 1, 2 dimensions
