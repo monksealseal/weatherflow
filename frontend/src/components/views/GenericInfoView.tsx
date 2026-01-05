@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import './GenericInfoView.css';
 
 interface InfoSection {

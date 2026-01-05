@@ -1,0 +1,113 @@
+.evaluation-view .evaluation-banner {
+  background: linear-gradient(135deg, #6b46c1 0%, #805ad5 100%);
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  color: #fff;
+  margin-bottom: 2rem;
+}
+
+.evaluation-view .evaluation-banner .banner-icon {
+  font-size: 2rem;
+}
+
+.evaluation-section {
+  margin-bottom: 2.25rem;
+}
+
+.metric-grid,
+.pipeline-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+}
+
+.metric-card,
+.pipeline-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+}
+
+.metric-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.metric-card h3,
+.pipeline-card h3 {
+  margin: 0 0 0.35rem 0;
+  color: #e2e8f0;
+}
+
+.metric-card p,
+.pipeline-card p {
+  margin: 0;
+  color: #cbd5e1;
+  line-height: 1.6;
+}
+
+.metric-card code,
+.pipeline-card code {
+  background: rgba(102, 126, 234, 0.12);
+  border: 1px solid rgba(102, 126, 234, 0.4);
+  color: #c3dafe;
+  border-radius: 6px;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.85rem;
+  font-family: 'Courier New', monospace;
+}
+
+.pipeline-card .file-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.code-block pre {
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 10px;
+  padding: 1rem;
+  color: #a5b4fc;
+  overflow-x: auto;
+  margin-top: 1rem;
+  font-size: 0.95rem;
+}
+
+.no-train-list {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+  color: #cbd5e1;
+  line-height: 1.7;
+}
+
+.integration-notes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.integration-notes h4 {
+  margin: 0 0 0.3rem 0;
+  color: #e2e8f0;
+}
+
+.integration-notes p {
+  margin: 0;
+  color: #cbd5e1;
+  line-height: 1.6;
+}
+
+@media (max-width: 768px) {
+  .evaluation-view .evaluation-banner {
+    flex-direction: column;
+  }
+}

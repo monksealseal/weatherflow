@@ -191,7 +191,7 @@ jupyter notebook</code></pre>
           <div className="tip-card">
             <h3>Modify and Experiment</h3>
             <p>
-              Don't just run cells - modify parameters, try different settings,
+              Don&apos;t just run cells - modify parameters, try different settings,
               and see what happens!
             </p>
           </div>

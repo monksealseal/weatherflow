@@ -1,0 +1,154 @@
+.training-workflows .training-banner {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  background: linear-gradient(135deg, #5a67d8 0%, #7f9cf5 100%);
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 2rem;
+  color: #0f172a;
+}
+
+.training-workflows .banner-icon {
+  font-size: 2rem;
+}
+
+.training-workflows .banner-text h3 {
+  margin: 0 0 0.25rem 0;
+}
+
+.training-workflows .banner-text p {
+  margin: 0;
+  line-height: 1.6;
+}
+
+.workflow-section {
+  margin-bottom: 2.5rem;
+}
+
+.workflow-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.workflow-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.workflow-card h3 {
+  margin: 0;
+  color: #e2e8f0;
+}
+
+.workflow-card p {
+  margin: 0;
+  color: #cbd5e1;
+  line-height: 1.6;
+}
+
+.workflow-card pre {
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 8px;
+  padding: 0.75rem;
+  overflow-x: auto;
+  color: #a5b4fc;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.workflow-card code {
+  font-family: 'Courier New', monospace;
+}
+
+.workflow-card .file-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.workflow-card .file-list code {
+  background: rgba(102, 126, 234, 0.12);
+  border: 1px solid rgba(102, 126, 234, 0.4);
+  color: #c3dafe;
+  border-radius: 6px;
+  padding: 0.35rem 0.55rem;
+  font-size: 0.85rem;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.pill {
+  background: rgba(16, 185, 129, 0.2);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: #6ee7b7;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.integration-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+.integration-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+}
+
+.integration-card h3 {
+  margin: 0 0 0.5rem 0;
+  color: #e2e8f0;
+}
+
+.integration-card ul {
+  margin: 0;
+  padding-left: 1.25rem;
+  color: #cbd5e1;
+  line-height: 1.6;
+}
+
+.next-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+}
+
+.next-steps .step {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 1rem;
+}
+
+.next-steps h4 {
+  margin: 0 0 0.35rem 0;
+  color: #e2e8f0;
+}
+
+.next-steps p {
+  margin: 0;
+  color: #cbd5e1;
+}
+
+@media (max-width: 768px) {
+  .training-workflows .training-banner {
+    flex-direction: column;
+  }
+}

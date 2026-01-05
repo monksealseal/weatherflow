@@ -95,6 +95,49 @@
   box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
 }
 
+.readiness-section {
+  margin-top: 2.5rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 1.5rem;
+}
+
+.readiness-header h2 {
+  margin: 0 0 0.25rem 0;
+  color: #e2e8f0;
+}
+
+.readiness-header p {
+  margin: 0 0 1rem 0;
+  color: #a0aec0;
+}
+
+.readiness-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.readiness-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+}
+
+.readiness-card h3 {
+  margin: 0 0 0.5rem 0;
+  color: #e2e8f0;
+}
+
+.readiness-card ul {
+  margin: 0;
+  padding-left: 1.25rem;
+  color: #cbd5e0;
+  line-height: 1.6;
+}
+
 .placeholder-content {
   display: flex;
   justify-content: center;

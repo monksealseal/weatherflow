@@ -412,11 +412,11 @@ export default function AtmosphericDynamicsView() {
         <h2>📏 Physical Constants</h2>
         <div className="constants-grid">
           <div className="constant-card">
-            <h3>Earth's Rotation Rate</h3>
+            <h3>Earth&apos;s Rotation Rate</h3>
             <code>Ω = {CONSTANTS.OMEGA}</code>
           </div>
           <div className="constant-card">
-            <h3>Earth's Radius</h3>
+            <h3>Earth&apos;s Radius</h3>
             <code>R_earth = {CONSTANTS.R_EARTH}</code>
           </div>
           <div className="constant-card">

@@ -1,9 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { vi } from 'vitest';
-import App from './App';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ExperimentResult, ServerOptions } from './api/types';
-import { fetchOptions, runExperiment } from './api/client';
 
 vi.mock('./api/client', () => ({
   fetchOptions: vi.fn(),
@@ -14,6 +12,14 @@ vi.mock('react-plotly.js', () => ({
   __esModule: true,
   default: () => null
 }));
+
+vi.mock('./game/AtmosphereViewer', () => ({
+  __esModule: true,
+  default: () => null
+}));
+
+import App from './App';
+import { fetchOptions, runExperiment } from './api/client';
 
 const mockOptions: ServerOptions = {
   variables: ['t', 'z', 'u', 'v'],
@@ -134,22 +140,19 @@ describe('App', () => {
   it('renders configuration panels after loading options', async () => {
     render(<App />);
 
-    await waitFor(() => {
-      expect(screen.getByText(/Dataset configuration/i)).toBeInTheDocument();
-    });
-
-    expect(screen.getByLabelText(/Training samples/i)).toBeInTheDocument();
+    await waitFor(() => expect(mockedFetchOptions).toHaveBeenCalled());
+    expect(await screen.findByText(/Dataset configuration/i)).toBeInTheDocument();
     expect(screen.getByText(/Model architecture/i)).toBeInTheDocument();
-    expect(screen.getByText(/Immersive mission prototyping/i)).toBeInTheDocument();
-    expect(screen.getByText(/Free-flight lab/i)).toBeInTheDocument();
-    expect(screen.getByText(/Narrative achievements/i)).toBeInTheDocument();
-    expect(screen.getByTestId('probe-sondes')).toBeInTheDocument();
+    expect(screen.getByText(/Training setup/i)).toBeInTheDocument();
+    expect(screen.getByText(/Inference tiling/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Run experiment/i })).toBeInTheDocument();
   });
 
   it('runs an experiment and shows summary', async () => {
     render(<App />);
     const user = userEvent.setup();
 
+    await waitFor(() => expect(mockedFetchOptions).toHaveBeenCalled());
     const runButton = await screen.findByRole('button', { name: /Run experiment/i });
     await user.click(runButton);
 
