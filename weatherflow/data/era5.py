@@ -1,6 +1,7 @@
 import json
 import os
 from typing import Dict, Iterable, Sequence, Tuple
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -88,7 +89,6 @@ class ERA5Dataset(Dataset):
     def _download_data(self) -> None:
         """Downloads ERA5 data year-by-year using cdsapi."""
         import cdsapi
-        from pathlib import Path
 
         try:
             client = cdsapi.Client()
