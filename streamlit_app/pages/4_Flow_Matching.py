@@ -310,20 +310,51 @@ with tab2:
             row=2, col=2
         )
 
-        # Streamlines (quiver plot)
+        # Streamlines (quiver plot using scatter with arrows)
         skip = max(1, lat_size // 16)
         xx, yy = np.meshgrid(range(0, lon_size, skip), range(0, lat_size, skip))
 
         if input_channels >= 2:
+            # Create quiver-style plot using scatter
+            u_skip = v_np[0, ::skip, ::skip]
+            v_skip = v_np[1, ::skip, ::skip]
+
+            # Normalize for visualization
+            mag = np.sqrt(u_skip**2 + v_skip**2)
+            mag_safe = np.where(mag > 0, mag, 1)  # Avoid division by zero
+            scale = skip * 0.8
+
+            # Create arrow endpoints
+            x_start = xx.flatten()
+            y_start = yy.flatten()
+            x_end = x_start + scale * u_skip.flatten() / mag_safe.flatten()
+            y_end = y_start + scale * v_skip.flatten() / mag_safe.flatten()
+
+            # Create line segments with None separators (efficient single trace)
+            x_lines = []
+            y_lines = []
+            for i in range(len(x_start)):
+                x_lines.extend([x_start[i], x_end[i], None])
+                y_lines.extend([y_start[i], y_end[i], None])
+
+            # Add all arrows as single trace
             fig.add_trace(
-                go.Cone(
-                    x=xx.flatten(), y=yy.flatten(),
-                    z=np.zeros_like(xx.flatten()),
-                    u=v_np[0, ::skip, ::skip].flatten(),
-                    v=v_np[1, ::skip, ::skip].flatten(),
-                    w=np.zeros_like(xx.flatten()),
-                    sizemode='absolute', sizeref=2,
-                    colorscale='Blues', showscale=False
+                go.Scatter(
+                    x=x_lines, y=y_lines,
+                    mode='lines',
+                    line=dict(color='steelblue', width=1.5),
+                    showlegend=False
+                ),
+                row=2, col=3
+            )
+
+            # Add arrowheads as scatter points
+            fig.add_trace(
+                go.Scatter(
+                    x=x_end, y=y_end,
+                    mode='markers',
+                    marker=dict(size=5, color=mag.flatten(), colorscale='Blues', symbol='triangle-up'),
+                    showlegend=False
                 ),
                 row=2, col=3
             )
