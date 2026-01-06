@@ -106,6 +106,12 @@
   line-height: 1.6;
 }
 
+.wiring-list {
+  margin: 0.5rem 0 0 1.25rem;
+  color: #cbd5e1;
+  line-height: 1.6;
+}
+
 @media (max-width: 768px) {
   .evaluation-view .evaluation-banner {
     flex-direction: column;

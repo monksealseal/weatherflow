@@ -69,6 +69,35 @@ export default function FlowMatchingView() {
           </ul>
         </>
       )
+    },
+    {
+      title: '🔌 Repository wiring for this page',
+      content: (
+        <>
+          <p>
+            Everything shown on the Flow Matching and Model Zoo navigation items already maps to concrete
+            Python entry points—no new backend code is required.
+          </p>
+          <ul>
+            <li><strong>Core models:</strong> <code>weatherflow/models/flow_matching.py</code> and <code>weatherflow/models/weather_flow.py</code> back the architecture cards.</li>
+            <li><strong>Training metrics:</strong> <code>weatherflow/training/flow_trainer.py</code> exports the RMSE/MAE/energy fields rendered in Evaluation.</li>
+            <li><strong>API payloads:</strong> <code>run_experiment.py</code> posts to <code>weatherflow/server/app.py</code>, letting the website ingest runs without bespoke adapters.</li>
+            <li><strong>Artifacts:</strong> Drop <code>.pt</code> checkpoints and <code>model_card.json</code> files into <code>model_zoo/</code> so Model Zoo and Flow Matching cards light up immediately.</li>
+          </ul>
+        </>
+      )
+    },
+    {
+      title: '🚦 Instant vs. training paths',
+      content: (
+        <>
+          <ul>
+            <li><strong>Skip training:</strong> Run <code>model_zoo/download_model.py</code> or <code>examples/flow_matching/simple_example.py</code> to populate cards and visualizations without GPUs.</li>
+            <li><strong>Short local run:</strong> Use <code>examples/flow_matching/era5_strict_training_loop.py</code> with a handful of epochs—FlowTrainer already emits the metrics the UI expects.</li>
+            <li><strong>Remote job:</strong> Train via <code>model_zoo/train_model.py</code> on Hugging Face or a cluster, then point <code>VITE_API_URL</code> at the remote FastAPI host while the UI reuses the same payloads.</li>
+          </ul>
+        </>
+      )
     }
   ];
 
@@ -138,6 +167,18 @@ for epoch in range(num_epochs):
         optimizer.step()
         
     print(f"Epoch {epoch}: loss = {loss.item():.4f}")`
+    },
+    {
+      title: 'Serve flow runs to the website',
+      code: `# Start the FastAPI backend
+uvicorn weatherflow.server.app:app --port 8000 --reload
+
+# Post the bundled payload (used by the Experiments page)
+python run_experiment.py
+
+# Point the UI to a remote or local API for GitHub Pages builds
+export VITE_API_URL="https://<your-api-host>"
+npm run build`
     }
   ];
 

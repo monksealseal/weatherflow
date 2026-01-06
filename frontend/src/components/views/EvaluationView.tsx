@@ -59,6 +59,33 @@ const ZERO_TRAINING_ANALYTICS = [
   'ERA5 loaders can drive climatology/persistence baselines for charts before checkpoints exist.'
 ];
 
+const UI_WIRING = [
+  {
+    title: 'Experiments → History + Evaluation',
+    points: [
+      'Run `uvicorn weatherflow.server.app:app --port 8000` then `python run_experiment.py` to seed charts in seconds.',
+      'Metrics come straight from weatherflow/training/metrics.py (rmse, mae, energy_ratio, persistence).',
+      'Switch VITE_API_URL to a remote FastAPI host or Hugging Face Space when local training is too heavy.'
+    ]
+  },
+  {
+    title: 'Model-free analytics',
+    points: [
+      'Renewable Energy calculators push capacity-factor time series into Evaluation without checkpoints.',
+      'applications/extreme_event_analysis/detectors.py produces counts/footprints the Spatial tab can plot.',
+      'weatherflow/data/era5.py enables climatology + persistence baselines for the Skill Scores view.'
+    ]
+  },
+  {
+    title: 'Checkpoints & Flow Matching',
+    points: [
+      'Download weights with model_zoo/download_model.py, then chart RMSE/MAE via weatherflow/training/metrics.py.',
+      'FlowTrainer and WeatherTrainer validation JSON feeds the dashboard cards without extra glue code.',
+      'If training remotely, publish metrics JSON next to the checkpoint so the UI can fetch both together.'
+    ]
+  }
+];
+
 export default function EvaluationView({ mode }: { mode: EvaluationMode }) {
   const copy = MODE_COPY[mode];
 
@@ -128,6 +155,22 @@ print({
     "mae": val_metrics["val_mae"],
     "energy_ratio": val_metrics["val_energy_ratio"],
 })`}</code></pre>
+        </div>
+      </section>
+
+      <section className="evaluation-section">
+        <h2>🧭 Wire UI tabs to Python</h2>
+        <div className="pipeline-grid">
+          {UI_WIRING.map((item) => (
+            <div key={item.title} className="pipeline-card">
+              <h3>{item.title}</h3>
+              <ul className="wiring-list">
+                {item.points.map((point) => (
+                  <li key={point}>{point}</li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </div>
       </section>
 

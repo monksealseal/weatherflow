@@ -192,6 +192,46 @@
   white-space: nowrap;
 }
 
+.playbook-section {
+  margin-top: 2.5rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 1.5rem;
+}
+
+.playbook-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.playbook-grid.compact {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.playbook-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.playbook-card h3 {
+  margin: 0;
+  color: #e2e8f0;
+}
+
+.playbook-card ul {
+  margin: 0;
+  padding-left: 1.25rem;
+  color: #cbd5e0;
+  line-height: 1.6;
+}
+
 .placeholder-content {
   display: flex;
   justify-content: center;

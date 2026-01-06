@@ -128,6 +128,81 @@ function DashboardView() {
           </div>
         </div>
       </section>
+
+      <section className="playbook-section">
+        <div className="readiness-header">
+          <h2>🧭 Navigation wiring cheat sheet</h2>
+          <p>Map each major sidebar section to the Python flows that keep it useful today.</p>
+        </div>
+        <div className="playbook-grid">
+          <div className="playbook-card">
+            <div className="integration-card-header">
+              <h3>Experiments & Evaluation</h3>
+              <span className="pill">Smoke-test ready</span>
+            </div>
+            <ul>
+              <li><strong>Fast path:</strong> Start <code>uvicorn weatherflow.server.app:app --port 8000</code> then run <code>python run_experiment.py</code> to populate History and Evaluation without editing code.</li>
+              <li><strong>Metrics:</strong> The UI reads <code>weatherflow/training/metrics.py</code> outputs directly—no extra adapters.</li>
+              <li><strong>Remote swap:</strong> Change <code>VITE_API_URL</code> to a cloud runner if training locally is too heavy.</li>
+            </ul>
+          </div>
+          <div className="playbook-card">
+            <div className="integration-card-header">
+              <h3>Data + Applications</h3>
+              <span className="pill">Model optional</span>
+            </div>
+            <ul>
+              <li><strong>Data pages:</strong> <code>weatherflow/data/era5.py</code> streams WeatherBench2 or local slices to power browsers and baselines.</li>
+              <li><strong>Applications:</strong> Renewable Energy + Extreme Events lean on deterministic converters in <code>applications/renewable_energy/*</code> and <code>applications/extreme_event_analysis/detectors.py</code>.</li>
+              <li><strong>Visualization:</strong> Plug those outputs straight into the Visualization and Evaluation tabs to avoid blocking on checkpoints.</li>
+            </ul>
+          </div>
+          <div className="playbook-card">
+            <div className="integration-card-header">
+              <h3>Models + Flow Matching</h3>
+              <span className="pill">Checkpoints preferred</span>
+            </div>
+            <ul>
+              <li><strong>Download:</strong> Use <code>model_zoo/download_model.py</code> to hydrate Model Zoo + Flow Matching cards without training.</li>
+              <li><strong>Train elsewhere:</strong> Run <code>model_zoo/train_model.py</code> on a remote runner/Hugging Face; return the <code>.pt</code> + <code>model_card.json</code> files to unlock UI buttons.</li>
+              <li><strong>Examples:</strong> <code>examples/flow_matching/simple_example.py</code> feeds small tensors you can immediately visualize.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section className="playbook-section">
+        <div className="readiness-header">
+          <h2>🚦 Decide when to train</h2>
+          <p>Keep user experience smooth by defaulting to reuse and pushing heavy jobs off the laptop.</p>
+        </div>
+        <div className="playbook-grid compact">
+          <div className="playbook-card">
+            <h3>Instant demo path</h3>
+            <ul>
+              <li>Renewable Energy + Extreme Events → deterministic converters, no checkpoints.</li>
+              <li>Experiments → run the bundled payload to get metrics and plots in seconds.</li>
+              <li>Model Zoo → load archived configs/weights via download script.</li>
+            </ul>
+          </div>
+          <div className="playbook-card">
+            <h3>Short local runs</h3>
+            <ul>
+              <li>Use <code>examples/flow_matching/era5_strict_training_loop.py</code> with a handful of epochs.</li>
+              <li>Export metrics from <code>FlowTrainer</code> to the Evaluation dashboard JSON feed.</li>
+              <li>Keep batch sizes tiny; the UI only needs representative outputs.</li>
+            </ul>
+          </div>
+          <div className="playbook-card">
+            <h3>Remote/long jobs</h3>
+            <ul>
+              <li>Ship <code>model_zoo/train_model.py</code> to Hugging Face or a cluster.</li>
+              <li>Point the website to the remote API host via <code>VITE_API_URL</code>.</li>
+              <li>Drop returned checkpoints into <code>model_zoo/</code> so downloads + docs light up.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
