@@ -1,0 +1,38 @@
+model:
+  input_channels: 120
+  levels: 38
+  embed_dim: 1536
+  depth: 24
+  num_heads: 16
+  patch_size: 4
+  mlp_ratio: 4.0
+  dropout: 0.0
+  use_grad_checkpointing: true
+  static_channels: 2
+  forcing_dim: 8
+  sphere_regularization: true
+
+data:
+  shard_pattern: "gs://bucket/era5-shards/shard-{000000..009999}.tar"
+  val_shard_pattern: null
+  sequence_length: 4
+  stats_path: "/path/to/stats.json"
+  shard_shuffle_buffer: 128
+  sample_shuffle_buffer: 512
+  prefetch: 64
+  batch_size: 1
+  num_workers: 4
+  dt_hours: 6.0
+
+trainer:
+  lr: 3.0e-4
+  weight_decay: 0.01
+  warmup_steps: 1000
+  max_steps: 200000
+  clip_grad: 1.0
+  checkpoint_dir: "checkpoints"
+  checkpoint_interval: 1000
+  keep_last: 5
+  use_compile: true
+  use_bf16: true
+  validation_interval: 2000
