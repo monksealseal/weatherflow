@@ -2,6 +2,7 @@
 Extreme Event Detection - Heatwaves, Atmospheric Rivers, Extreme Precipitation
 
 Uses the actual detector classes from applications/extreme_event_analysis/detectors.py
+Supports ERA5 real data or demo mode with synthetic data.
 """
 
 import streamlit as st
@@ -16,6 +17,7 @@ from pathlib import Path
 # Add parent directory to path
 ROOT_DIR = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(ROOT_DIR))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from applications.extreme_event_analysis.detectors import (
     HeatwaveDetector,
@@ -23,6 +25,19 @@ from applications.extreme_event_analysis.detectors import (
     ExtremePrecipitationDetector,
     ExtremeEvent
 )
+
+# Import ERA5 utilities
+try:
+    from era5_utils import (
+        get_era5_data_banner,
+        has_era5_data,
+        get_active_era5_data,
+        get_era5_temperature,
+        get_era5_time_range,
+    )
+    ERA5_UTILS_AVAILABLE = True
+except ImportError:
+    ERA5_UTILS_AVAILABLE = False
 
 st.set_page_config(page_title="Extreme Event Detection", page_icon="🌡️", layout="wide")
 
@@ -32,11 +47,20 @@ Detect and characterize extreme weather events using physics-based algorithms.
 This runs the actual detector classes from the repository.
 """)
 
+# Show data source banner
+if ERA5_UTILS_AVAILABLE:
+    banner = get_era5_data_banner()
+    if "Demo Mode" in banner or "⚠️" in banner:
+        st.info(f"📊 {banner}")
+    else:
+        st.success(f"📊 {banner}")
+
 # Tabs for different event types
-tab1, tab2, tab3 = st.tabs([
+tab1, tab2, tab3, tab4 = st.tabs([
     "🔥 Heatwave Detection",
     "🌊 Atmospheric Rivers",
-    "🌧️ Extreme Precipitation"
+    "🌧️ Extreme Precipitation",
+    "🌍 ERA5 Event Analysis"
 ])
 
 # Tab 1: Heatwave Detection
@@ -595,3 +619,164 @@ with st.expander("📝 Code Reference"):
     precip_events = precip_detector.detect(precipitation, times, lats, lons)
     ```
     """)
+
+# Tab 4: ERA5 Event Analysis
+with tab4:
+    st.header("🌍 Detect Events in ERA5 Data")
+    
+    st.markdown("""
+    Run extreme event detection algorithms on **real ERA5 reanalysis data**.
+    This allows you to identify actual historical weather events.
+    """)
+    
+    if ERA5_UTILS_AVAILABLE and has_era5_data():
+        data, metadata = get_active_era5_data()
+        
+        st.success(f"✅ Using Real ERA5 Data: **{metadata.get('name', 'Unknown')}**")
+        st.markdown(f"- **Period:** {metadata.get('start_date', '?')} to {metadata.get('end_date', '?')}")
+        
+        # Check available variables
+        available_vars = list(data.data_vars)
+        has_temp = any(v in available_vars for v in ["temperature", "t", "T"])
+        has_wind = all(any(v in available_vars for v in names) 
+                      for names in [["u_component_of_wind", "u"], ["v_component_of_wind", "v"]])
+        
+        st.markdown("**Available for analysis:**")
+        col1, col2, col3 = st.columns(3)
+        col1.markdown(f"{'✅' if has_temp else '❌'} Temperature (Heatwave)")
+        col2.markdown(f"{'✅' if has_wind else '❌'} Wind (Atmospheric Rivers)")
+        col3.markdown(f"❌ Precipitation (not in sample)")
+        
+        if has_temp:
+            st.markdown("---")
+            st.subheader("🔥 Heatwave Detection on ERA5 Data")
+            
+            col1, col2 = st.columns([1, 2])
+            
+            with col1:
+                # Detection parameters
+                era5_temp_threshold = st.slider(
+                    "Temperature Threshold (K)",
+                    280.0, 320.0, 300.0,
+                    help="Temperature above which conditions are considered extreme"
+                )
+                
+                era5_duration = st.slider(
+                    "Minimum Duration (days)",
+                    1, 7, 2
+                )
+                
+                era5_spatial = st.slider(
+                    "Minimum Spatial Extent",
+                    0.05, 0.5, 0.1
+                )
+                
+                # Select pressure level if available
+                if "level" in data.coords:
+                    levels = sorted([int(l) for l in data.level.values])
+                    era5_level = st.selectbox(
+                        "Pressure Level (hPa)",
+                        options=levels,
+                        index=0  # Surface level
+                    )
+                else:
+                    era5_level = None
+                
+                run_detection = st.button("🔍 Run Heatwave Detection", type="primary")
+            
+            with col2:
+                if run_detection:
+                    with st.spinner("Analyzing ERA5 temperature data..."):
+                        try:
+                            # Get temperature variable name
+                            temp_var = None
+                            for name in ["temperature", "t", "T"]:
+                                if name in available_vars:
+                                    temp_var = name
+                                    break
+                            
+                            # Get coordinates
+                            if "latitude" in data.coords:
+                                lats = data.latitude.values
+                                lons = data.longitude.values
+                            else:
+                                lats = data.lat.values
+                                lons = data.lon.values
+                            
+                            # Extract temperature data
+                            temp_data = data[temp_var]
+                            if era5_level is not None and "level" in temp_data.dims:
+                                temp_data = temp_data.sel(level=era5_level)
+                            
+                            # Get as numpy array
+                            temp_values = temp_data.values
+                            times = np.array([pd.Timestamp(t).to_pydatetime() for t in data.time.values])
+                            
+                            # Create detector
+                            detector = HeatwaveDetector(
+                                temperature_threshold=era5_temp_threshold,
+                                duration_days=era5_duration,
+                                spatial_extent=era5_spatial
+                            )
+                            
+                            # Detect events
+                            events = detector.detect(temp_values, times, lats, lons)
+                            
+                            st.success(f"✅ Found **{len(events)} heatwave event(s)**")
+                            
+                            if events:
+                                for i, event in enumerate(events):
+                                    with st.expander(f"Event {i+1}: {event.start_time.strftime('%Y-%m-%d')}", expanded=True):
+                                        ev_cols = st.columns(4)
+                                        ev_cols[0].metric("Duration", f"{event.duration_hours:.0f} hours")
+                                        ev_cols[1].metric("Peak Temperature", f"{event.peak_value:.1f} K")
+                                        ev_cols[2].metric("Mean Temperature", f"{event.mean_value:.1f} K")
+                                        ev_cols[3].metric("Affected Area", f"{event.affected_area_km2:,.0f} km²")
+                            else:
+                                st.info("No heatwave events detected with current thresholds. Try adjusting parameters.")
+                            
+                            # Show temperature time series
+                            st.subheader("Temperature Time Series")
+                            domain_mean = np.mean(temp_values, axis=(1, 2))
+                            domain_max = np.max(temp_values, axis=(1, 2))
+                            
+                            fig = go.Figure()
+                            fig.add_trace(go.Scatter(
+                                x=times, y=domain_mean,
+                                name="Domain Mean", line=dict(color="#1e88e5")
+                            ))
+                            fig.add_trace(go.Scatter(
+                                x=times, y=domain_max,
+                                name="Domain Max", line=dict(color="#ef5350")
+                            ))
+                            fig.add_hline(y=era5_temp_threshold, line_dash="dash", 
+                                         line_color="red", annotation_text="Threshold")
+                            
+                            fig.update_layout(
+                                title="ERA5 Temperature (Real Data)",
+                                xaxis_title="Time",
+                                yaxis_title="Temperature (K)",
+                                height=350
+                            )
+                            st.plotly_chart(fig, use_container_width=True)
+                            
+                        except Exception as e:
+                            st.error(f"Error during detection: {e}")
+                else:
+                    st.info("Configure detection parameters and click 'Run Heatwave Detection' to analyze ERA5 data.")
+        
+        else:
+            st.warning("Temperature data not available in current dataset. Please load a dataset with temperature.")
+    
+    else:
+        st.warning("""
+        ⚠️ **ERA5 Data Not Available**
+        
+        To run event detection on real data:
+        1. Go to the **Data Manager** page
+        2. Download a sample dataset (e.g., "European Heat Wave 2003" for heatwave analysis)
+        3. Click "Use This Dataset"
+        4. Return here to detect events in real data
+        
+        The other tabs demonstrate event detection using synthetic data.
+        """)

@@ -2,6 +2,7 @@
 General Circulation Model (GCM) Simulation
 
 Uses the actual GCM class from gcm/core/model.py
+Note: GCM is a standalone simulation - it does not use ERA5 data but generates its own climate.
 """
 
 import streamlit as st
@@ -16,6 +17,7 @@ import time
 # Add parent directory to path
 ROOT_DIR = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(ROOT_DIR))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 st.set_page_config(page_title="GCM Simulation", page_icon="🌍", layout="wide")
 
@@ -23,6 +25,13 @@ st.title("🌍 General Circulation Model (GCM)")
 st.markdown("""
 Run a complete General Circulation Model simulation with configurable resolution,
 physics parameterizations, and CO2 forcing. This uses the actual GCM code from the repository.
+""")
+
+# Note about data source
+st.info("""
+📊 **Data Note:** The GCM is a **standalone climate simulation** that generates its own atmospheric state.
+Unlike other pages, it does not use ERA5 observational data. The GCM produces physically-consistent
+climate fields based on fundamental equations of atmospheric motion.
 """)
 
 # Import GCM components (with fallback for missing dependencies)

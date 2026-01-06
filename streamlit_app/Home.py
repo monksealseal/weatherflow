@@ -65,12 +65,31 @@ st.markdown('<p class="sub-header">Physics-Informed Flow Matching for Weather Pr
 
 st.markdown("---")
 
+# ERA5 Data Status Banner
+sys.path.insert(0, str(Path(__file__).parent))
+try:
+    from era5_utils import get_era5_data_banner, has_era5_data
+    banner = get_era5_data_banner()
+    if has_era5_data():
+        st.success(f"🌍 {banner}")
+    else:
+        st.info(f"""
+        🌍 **Start Here:** Go to **📊 Data Manager** to download real ERA5 data.
+        
+        Choose from pre-defined weather events (hurricanes, heat waves, etc.) or download custom data.
+        All app features can use actual ECMWF atmospheric observations.
+        """)
+except ImportError:
+    pass
+
 # Overview
 st.markdown("""
 ### Welcome to WeatherFlow Interactive Platform
 
 This web application provides **live, interactive access** to all the Python functionality
 in the WeatherFlow repository. Every feature runs actual Python code - no simulations or mockups.
+
+**All functionality uses REAL ERA5 data** from ECMWF when available, or clearly indicates demo mode.
 """)
 
 # Feature Grid

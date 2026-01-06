@@ -2,6 +2,7 @@
 Graduate Atmospheric Dynamics Education Tools
 
 Uses the actual GraduateAtmosphericDynamicsTool class from weatherflow/education/graduate_tool.py
+This is an educational tool using idealized scenarios - ERA5 data is optional.
 """
 
 import streamlit as st
@@ -14,6 +15,7 @@ from pathlib import Path
 # Add parent directory to path
 ROOT_DIR = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(ROOT_DIR))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from weatherflow.education.graduate_tool import (
     GraduateAtmosphericDynamicsTool,
@@ -28,6 +30,13 @@ st.title("📚 Graduate Atmospheric Dynamics")
 st.markdown("""
 Interactive learning tools for graduate-level atmospheric dynamics.
 This runs the actual `GraduateAtmosphericDynamicsTool` class from the repository.
+""")
+
+# Note about data source
+st.info("""
+📊 **Data Note:** This educational module uses **idealized scenarios** based on analytical solutions 
+and textbook examples. The calculations demonstrate fundamental atmospheric dynamics principles 
+using physically realistic but simplified conditions.
 """)
 
 # Create tool instance

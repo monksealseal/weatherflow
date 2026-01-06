@@ -1,7 +1,8 @@
 """
 Flow Matching Weather Models - Train and run physics-informed weather prediction
 
-Uses the actual WeatherFlowMatch and FlowTrainer classes from the repository
+Uses the actual WeatherFlowMatch and FlowTrainer classes from the repository.
+Can use ERA5 data for realistic initial conditions when available.
 """
 
 import streamlit as st
@@ -17,10 +18,18 @@ import time
 # Add parent directory to path
 ROOT_DIR = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(ROOT_DIR))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Import the actual model classes
 from weatherflow.models.flow_matching import WeatherFlowMatch, WeatherFlowODE
 from weatherflow.physics.losses import PhysicsLossCalculator
+
+# Import ERA5 utilities
+try:
+    from era5_utils import get_era5_data_banner, has_era5_data
+    ERA5_UTILS_AVAILABLE = True
+except ImportError:
+    ERA5_UTILS_AVAILABLE = False
 
 st.set_page_config(page_title="Flow Matching Models", page_icon="🧠", layout="wide")
 
@@ -29,6 +38,14 @@ st.markdown("""
 Interactive interface for physics-informed flow matching weather prediction models.
 This runs the actual `WeatherFlowMatch` and `WeatherFlowODE` classes from the repository.
 """)
+
+# Show data source banner
+if ERA5_UTILS_AVAILABLE:
+    banner = get_era5_data_banner()
+    if "Demo Mode" in banner or "⚠️" in banner:
+        st.info(f"📊 {banner} - Using synthetic weather patterns for model demonstration.")
+    else:
+        st.success(f"📊 {banner} - ERA5 data can be used for realistic initial conditions.")
 
 # Sidebar configuration
 st.sidebar.header("Model Configuration")

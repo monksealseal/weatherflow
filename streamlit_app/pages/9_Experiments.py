@@ -2,7 +2,9 @@
 Experiments & Model Zoo
 
 Demonstrates ablation studies, benchmarking, and model management
-from experiments/ and model_zoo/ directories
+from experiments/ and model_zoo/ directories.
+
+These are demonstration tools - actual training uses ERA5 data from Data Manager.
 """
 
 import streamlit as st
@@ -15,6 +17,14 @@ from pathlib import Path
 # Add parent directory to path
 ROOT_DIR = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(ROOT_DIR))
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+# Import ERA5 utilities
+try:
+    from era5_utils import get_era5_data_banner, has_era5_data
+    ERA5_UTILS_AVAILABLE = True
+except ImportError:
+    ERA5_UTILS_AVAILABLE = False
 
 st.set_page_config(page_title="Experiments & Model Zoo", page_icon="🔬", layout="wide")
 
@@ -22,6 +32,13 @@ st.title("🔬 Experiments & Model Zoo")
 st.markdown("""
 Explore ablation studies, benchmarks, and pre-trained models.
 Based on code from `experiments/` and `model_zoo/` directories.
+""")
+
+# Show data source banner
+st.info("""
+📊 **Data Note:** This page shows experiment configuration and benchmark results.
+Actual model training uses ERA5 data from the Data Manager. Results shown here
+are representative examples from typical training runs.
 """)
 
 # Main tabs

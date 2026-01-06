@@ -2,8 +2,40 @@
   "source": "WeatherBench2 ERA5 (ECMWF Reanalysis)",
   "is_synthetic": false,
   "url": "gs://weatherbench2/datasets/era5/1959-2023_01_10-6h-64x32_equiangular_conservative.zarr",
-  "status": "PENDING_DOWNLOAD",
-  "note": "Run 'python streamlit_app/prepare_data.py' to download REAL ERA5 data, or deploy to Streamlit Cloud where data will be fetched automatically from WeatherBench2.",
+  "status": "REQUIRES_DOWNLOAD",
+  "instructions": "Use the Data Manager page to download sample datasets or custom data from WeatherBench2.",
+  "available_samples": [
+    {
+      "id": "tropical_cyclones_2005",
+      "name": "Tropical Cyclones (2005)",
+      "description": "Hurricane Katrina and active Atlantic hurricane season"
+    },
+    {
+      "id": "heat_wave_europe_2003",
+      "name": "European Heat Wave (2003)",
+      "description": "Record-breaking heat wave affecting Western Europe"
+    },
+    {
+      "id": "atmospheric_rivers_2017",
+      "name": "Atmospheric Rivers (2017)",
+      "description": "Pineapple Express events impacting US West Coast"
+    },
+    {
+      "id": "polar_vortex_2019",
+      "name": "Polar Vortex Event (2019)",
+      "description": "Extreme cold outbreak in North America"
+    },
+    {
+      "id": "sudden_stratospheric_warming_2018",
+      "name": "Sudden Stratospheric Warming (2018)",
+      "description": "Major SSW event with Beast from the East"
+    },
+    {
+      "id": "general_sample_2023",
+      "name": "General Sample (2023)",
+      "description": "Standard sample for testing and development"
+    }
+  ],
   "variables": [
     "temperature",
     "geopotential",

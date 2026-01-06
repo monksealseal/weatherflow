@@ -2,10 +2,12 @@
 Wind Power Calculator - Interactive wind farm power estimation
 
 Uses the actual WindPowerConverter class from applications/renewable_energy/wind_power.py
+Supports ERA5 real wind data or demo mode with synthetic data.
 """
 
 import streamlit as st
 import numpy as np
+import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
@@ -15,12 +17,28 @@ from pathlib import Path
 # Add parent directory to path
 ROOT_DIR = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(ROOT_DIR))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from applications.renewable_energy.wind_power import (
     WindPowerConverter,
     TURBINE_LIBRARY,
     TurbineSpec
 )
+
+# Import ERA5 utilities
+try:
+    from era5_utils import (
+        ensure_era5_data_or_demo,
+        get_era5_wind_data,
+        get_era5_time_range,
+        get_era5_data_banner,
+        has_era5_data,
+        get_active_era5_data,
+        generate_synthetic_era5_like_data
+    )
+    ERA5_UTILS_AVAILABLE = True
+except ImportError:
+    ERA5_UTILS_AVAILABLE = False
 
 st.set_page_config(page_title="Wind Power Calculator", page_icon="🌬️", layout="wide")
 
@@ -29,6 +47,14 @@ st.markdown("""
 Convert wind speed forecasts to power output using real turbine power curves.
 This runs the actual `WindPowerConverter` class from the repository.
 """)
+
+# Show data source banner
+if ERA5_UTILS_AVAILABLE:
+    banner = get_era5_data_banner()
+    if "Demo Mode" in banner or "⚠️" in banner:
+        st.info(f"📊 {banner}")
+    else:
+        st.success(f"📊 {banner}")
 
 # Sidebar configuration
 st.sidebar.header("Wind Farm Configuration")
@@ -74,11 +100,12 @@ converter = WindPowerConverter(
 )
 
 # Main content - tabs
-tab1, tab2, tab3, tab4 = st.tabs([
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "📈 Power Curve",
     "🔢 Single Calculation",
     "📊 Time Series Analysis",
-    "🗺️ Weather Forecast Conversion"
+    "🗺️ Weather Forecast Conversion",
+    "🌍 ERA5 Wind Data"
 ])
 
 # Tab 1: Power Curve
@@ -494,3 +521,223 @@ with st.expander("📝 Code Reference"):
     result = converter.convert_forecast(weather_forecast)
     ```
     """)
+
+# Tab 5: ERA5 Wind Data
+with tab5:
+    st.header("🌍 ERA5 Real Wind Data Analysis")
+    
+    st.markdown("""
+    Analyze wind power production using **real ERA5 reanalysis data**.
+    This demonstrates how to use actual atmospheric observations for wind farm planning.
+    """)
+    
+    if ERA5_UTILS_AVAILABLE and has_era5_data():
+        data, metadata = get_active_era5_data()
+        
+        st.success(f"✅ Using Real ERA5 Data: **{metadata.get('name', 'Unknown')}**")
+        st.markdown(f"- **Period:** {metadata.get('start_date', '?')} to {metadata.get('end_date', '?')}")
+        st.markdown(f"- **Source:** {metadata.get('source', 'ERA5')}")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.subheader("Time Selection")
+            
+            # Get time range
+            start_time, end_time = get_era5_time_range()
+            
+            if start_time is not None:
+                time_values = data.time.values
+                time_options = [str(t)[:19] for t in time_values]
+                
+                selected_time_idx = st.selectbox(
+                    "Select Time",
+                    options=range(len(time_options)),
+                    format_func=lambda x: time_options[x],
+                    key="era5_wind_time"
+                )
+                
+                # Get pressure levels if available
+                levels = []
+                if "level" in data.coords:
+                    levels = sorted([int(l) for l in data.level.values])
+                    selected_level = st.selectbox(
+                        "Pressure Level (hPa)",
+                        options=levels,
+                        index=min(1, len(levels) - 1),
+                        key="era5_wind_level"
+                    )
+                else:
+                    selected_level = None
+            else:
+                st.warning("Could not determine time range")
+                selected_time_idx = 0
+                selected_level = None
+        
+        with col2:
+            st.subheader("Wind Analysis Options")
+            
+            analysis_type = st.radio(
+                "Analysis Type",
+                ["Spatial Wind Map", "Power Production Map", "Time Series at Point"]
+            )
+        
+        st.markdown("---")
+        
+        # Get wind data
+        u_data, v_data, lats, lons = get_era5_wind_data(selected_time_idx, selected_level)
+        
+        if u_data is not None and v_data is not None:
+            # Calculate wind speed
+            wind_speed = np.sqrt(u_data**2 + v_data**2)
+            
+            if analysis_type == "Spatial Wind Map":
+                st.subheader("ERA5 Wind Speed Map")
+                
+                fig = go.Figure(data=go.Heatmap(
+                    z=wind_speed,
+                    x=lons,
+                    y=lats,
+                    colorscale="YlOrRd",
+                    colorbar=dict(title="Wind Speed (m/s)")
+                ))
+                
+                title = f"ERA5 Wind Speed"
+                if selected_level:
+                    title += f" at {selected_level} hPa"
+                title += f" - {time_options[selected_time_idx]}"
+                
+                fig.update_layout(
+                    title=title,
+                    xaxis_title="Longitude",
+                    yaxis_title="Latitude",
+                    height=500
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Statistics
+                col1, col2, col3, col4 = st.columns(4)
+                col1.metric("Mean Wind", f"{np.mean(wind_speed):.1f} m/s")
+                col2.metric("Max Wind", f"{np.max(wind_speed):.1f} m/s")
+                col3.metric("Min Wind", f"{np.min(wind_speed):.1f} m/s")
+                col4.metric("Std Dev", f"{np.std(wind_speed):.1f} m/s")
+                
+            elif analysis_type == "Power Production Map":
+                st.subheader("Estimated Power Production Map")
+                
+                # Calculate power at each grid point
+                power_map = converter.wind_speed_to_power(wind_speed.flatten()).reshape(wind_speed.shape)
+                
+                fig = go.Figure(data=go.Heatmap(
+                    z=power_map,
+                    x=lons,
+                    y=lats,
+                    colorscale="Viridis",
+                    colorbar=dict(title="Power (MW)")
+                ))
+                
+                fig.update_layout(
+                    title=f"Estimated Wind Power Production ({turbine_type})",
+                    xaxis_title="Longitude",
+                    yaxis_title="Latitude",
+                    height=500
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Statistics
+                col1, col2, col3, col4 = st.columns(4)
+                col1.metric("Mean Power", f"{np.mean(power_map):.2f} MW")
+                col2.metric("Max Power", f"{np.max(power_map):.2f} MW")
+                
+                # Capacity factor based on spatial average
+                cf = np.mean(power_map) / turbine.rated_power * 100
+                col3.metric("Avg Capacity Factor", f"{cf:.1f}%")
+                
+                # Areas above rated
+                above_rated = np.sum(power_map >= turbine.rated_power * 0.9) / power_map.size * 100
+                col4.metric("% Above 90% Rated", f"{above_rated:.1f}%")
+                
+            else:  # Time Series at Point
+                st.subheader("Wind Time Series Analysis")
+                
+                # Select location
+                lat_options = lats.tolist()
+                lon_options = lons.tolist()
+                
+                point_lat = st.select_slider("Latitude", options=lat_options, value=lat_options[len(lat_options)//2])
+                point_lon = st.select_slider("Longitude", options=lon_options, value=lon_options[len(lon_options)//2])
+                
+                # Get lat/lon indices
+                lat_idx = np.argmin(np.abs(lats - point_lat))
+                lon_idx = np.argmin(np.abs(lons - point_lon))
+                
+                # Extract time series
+                u_var = None
+                v_var = None
+                for name in ["u_component_of_wind", "u", "U"]:
+                    if name in data.data_vars:
+                        u_var = name
+                        break
+                for name in ["v_component_of_wind", "v", "V"]:
+                    if name in data.data_vars:
+                        v_var = name
+                        break
+                
+                if u_var and v_var:
+                    if "latitude" in data.coords:
+                        u_ts = data[u_var].isel(latitude=lat_idx, longitude=lon_idx)
+                        v_ts = data[v_var].isel(latitude=lat_idx, longitude=lon_idx)
+                    else:
+                        u_ts = data[u_var].isel(lat=lat_idx, lon=lon_idx)
+                        v_ts = data[v_var].isel(lat=lat_idx, lon=lon_idx)
+                    
+                    if selected_level and "level" in u_ts.dims:
+                        u_ts = u_ts.sel(level=selected_level)
+                        v_ts = v_ts.sel(level=selected_level)
+                    
+                    wind_ts = np.sqrt(u_ts.values**2 + v_ts.values**2)
+                    power_ts = converter.wind_speed_to_power(wind_ts)
+                    
+                    times = pd.to_datetime(data.time.values).strftime("%Y-%m-%d %H:%M").tolist()
+                    
+                    fig = make_subplots(rows=2, cols=1, subplot_titles=("Wind Speed", "Power Output"))
+                    
+                    fig.add_trace(
+                        go.Scatter(x=times, y=wind_ts, name="Wind Speed", line=dict(color="#26a69a")),
+                        row=1, col=1
+                    )
+                    
+                    fig.add_trace(
+                        go.Scatter(x=times, y=power_ts, name="Power", fill="tozeroy", line=dict(color="#1e88e5")),
+                        row=2, col=1
+                    )
+                    
+                    fig.update_yaxes(title_text="m/s", row=1, col=1)
+                    fig.update_yaxes(title_text="MW", row=2, col=1)
+                    fig.update_layout(height=500, showlegend=False)
+                    
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                    # Statistics
+                    col1, col2, col3 = st.columns(3)
+                    col1.metric("Mean Wind", f"{np.mean(wind_ts):.1f} m/s")
+                    col2.metric("Mean Power", f"{np.mean(power_ts):.2f} MW")
+                    cf = np.mean(power_ts) / turbine.rated_power * 100
+                    col3.metric("Capacity Factor", f"{cf:.1f}%")
+        else:
+            st.warning("Could not extract wind data. Make sure your dataset contains u and v wind components.")
+    
+    else:
+        st.warning("""
+        ⚠️ **ERA5 Data Not Available**
+        
+        To use real ERA5 wind data:
+        1. Go to the **Data Manager** page
+        2. Download a sample dataset (e.g., "General Sample 2023")
+        3. Click "Use This Dataset"
+        4. Return here to analyze real wind data
+        
+        The other tabs on this page demonstrate functionality using synthetic data.
+        """)
