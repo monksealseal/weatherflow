@@ -7,6 +7,7 @@ Supports ERA5 real wind data or demo mode with synthetic data.
 
 import streamlit as st
 import numpy as np
+import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
@@ -699,7 +700,7 @@ with tab5:
                     wind_ts = np.sqrt(u_ts.values**2 + v_ts.values**2)
                     power_ts = converter.wind_speed_to_power(wind_ts)
                     
-                    times = [str(t)[:19] for t in data.time.values]
+                    times = pd.to_datetime(data.time.values).strftime("%Y-%m-%d %H:%M").tolist()
                     
                     fig = make_subplots(rows=2, cols=1, subplot_titles=("Wind Speed", "Power Output"))
                     

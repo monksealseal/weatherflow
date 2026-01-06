@@ -520,7 +520,7 @@ with tab2:
                 update_progress(10, "Selecting data...")
                 
                 subset = ds[selected_vars].sel(
-                    time=slice(str(start_date), str(end_date))
+                    time=slice(pd.Timestamp(start_date), pd.Timestamp(end_date))
                 )
                 
                 if selected_levels and "level" in ds.coords:
@@ -719,7 +719,8 @@ with tab4:
                     
                     # Histogram
                     sample_size = min(50000, len(values))
-                    sample_values = np.random.choice(values, sample_size, replace=False)
+                    replace_samples = sample_size >= len(values)
+                    sample_values = np.random.choice(values, sample_size, replace=replace_samples)
                     
                     fig = go.Figure(data=go.Histogram(x=sample_values, nbinsx=50))
                     

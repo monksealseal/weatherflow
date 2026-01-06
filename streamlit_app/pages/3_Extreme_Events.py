@@ -710,7 +710,7 @@ with tab4:
                             
                             # Get as numpy array
                             temp_values = temp_data.values
-                            times = np.array([datetime.fromisoformat(str(t)[:19]) for t in data.time.values])
+                            times = np.array([pd.Timestamp(t).to_pydatetime() for t in data.time.values])
                             
                             # Create detector
                             detector = HeatwaveDetector(

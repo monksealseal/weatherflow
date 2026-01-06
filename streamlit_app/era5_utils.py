@@ -295,7 +295,6 @@ def ensure_era5_data_or_demo(page_name: str, use_demo: bool = True):
     else:
         show_era5_data_warning()
         st.stop()
-        return False
 
 
 def generate_synthetic_era5_like_data(
@@ -318,8 +317,6 @@ def generate_synthetic_era5_like_data(
     Returns:
         dict: Dictionary with synthetic data arrays
     """
-    import numpy as np
-    
     np.random.seed(seed)
     
     if variables is None:
