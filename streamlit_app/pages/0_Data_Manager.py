@@ -243,9 +243,12 @@ with tab2:
         min_time = pd.Timestamp(ds.time.values[0])
         max_time = pd.Timestamp(ds.time.values[-1])
 
+        preferred_date = pd.Timestamp("2023-01-15")
+        default_date = max(min(preferred_date, max_time), min_time).date()
+
         preview_date = st.date_input(
             "Date",
-            value=pd.Timestamp("2023-01-15"),
+            value=default_date,
             min_value=min_time.date(),
             max_value=max_time.date(),
         )
