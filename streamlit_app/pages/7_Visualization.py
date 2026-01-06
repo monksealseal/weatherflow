@@ -7,6 +7,7 @@ Supports ERA5 data visualization or demo mode with synthetic data.
 
 import streamlit as st
 import numpy as np
+import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import sys
@@ -26,7 +27,14 @@ except ImportError:
 
 # Import ERA5 utilities
 try:
-    from era5_utils import get_era5_data_banner, has_era5_data
+    from era5_utils import (
+        get_era5_data_banner,
+        has_era5_data,
+        get_active_era5_data,
+        get_era5_slice,
+        get_era5_wind_data,
+        get_era5_time_range,
+    )
     ERA5_UTILS_AVAILABLE = True
 except ImportError:
     ERA5_UTILS_AVAILABLE = False
@@ -86,11 +94,12 @@ show_coastlines = st.sidebar.checkbox("Show Coastlines", value=True)
 show_grid = st.sidebar.checkbox("Show Grid", value=True)
 
 # Main tabs
-tab1, tab2, tab3, tab4 = st.tabs([
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "🗺️ Global Maps",
     "🌬️ Flow Fields",
     "📈 Error Analysis",
-    "🎬 Animation"
+    "🎬 Animation",
+    "🌍 ERA5 Visualization"
 ])
 
 # Tab 1: Global Maps
@@ -588,6 +597,417 @@ with tab4:
             height=250
         )
         st.plotly_chart(fig_ts, use_container_width=True)
+
+# Tab 5: ERA5 Visualization
+with tab5:
+    st.header("🌍 ERA5 Data Visualization")
+    
+    st.markdown("""
+    Visualize **real ERA5 reanalysis data** from the Data Manager.
+    All visualizations use actual atmospheric observations - no synthetic data.
+    """)
+    
+    if ERA5_UTILS_AVAILABLE and has_era5_data():
+        data, metadata = get_active_era5_data()
+        
+        st.success(f"✅ Visualizing Real ERA5 Data: **{metadata.get('name', 'Unknown')}**")
+        
+        col_info1, col_info2 = st.columns(2)
+        with col_info1:
+            st.markdown(f"**Period:** {metadata.get('start_date', '?')} to {metadata.get('end_date', '?')}")
+        with col_info2:
+            st.markdown(f"**Source:** {metadata.get('source', 'ECMWF ERA5 Reanalysis')}")
+        
+        st.markdown("---")
+        
+        # ERA5 visualization options
+        era5_viz_type = st.radio(
+            "Visualization Type",
+            ["🗺️ Spatial Map", "🌬️ Wind Vectors", "📈 Time Series", "📊 Multi-Variable Comparison"],
+            horizontal=True
+        )
+        
+        available_vars = list(data.data_vars)
+        
+        if era5_viz_type == "🗺️ Spatial Map":
+            col1, col2 = st.columns([1, 2])
+            
+            with col1:
+                st.subheader("Map Settings")
+                
+                era5_var = st.selectbox(
+                    "Variable",
+                    options=available_vars,
+                    key="era5_viz_var"
+                )
+                
+                # Time selection
+                time_values = data.time.values
+                time_options = [str(t)[:19] for t in time_values]
+                era5_time_idx = st.selectbox(
+                    "Time",
+                    options=range(len(time_options)),
+                    format_func=lambda x: time_options[x],
+                    key="era5_viz_time"
+                )
+                
+                # Level selection
+                if "level" in data.coords:
+                    levels = sorted([int(l) for l in data.level.values])
+                    era5_level = st.selectbox(
+                        "Pressure Level (hPa)",
+                        options=levels,
+                        index=min(1, len(levels) - 1),
+                        key="era5_viz_level"
+                    )
+                else:
+                    era5_level = None
+                
+                era5_cmap = st.selectbox(
+                    "Colormap",
+                    options=["RdBu_r", "viridis", "plasma", "Blues", "YlOrRd"],
+                    key="era5_viz_cmap"
+                )
+            
+            with col2:
+                # Get data slice
+                var_data = data[era5_var].isel(time=era5_time_idx)
+                if era5_level is not None and "level" in var_data.dims:
+                    var_data = var_data.sel(level=era5_level)
+                
+                # Get coordinates
+                if "latitude" in data.coords:
+                    lats = data.latitude.values
+                    lons = data.longitude.values
+                else:
+                    lats = data.lat.values
+                    lons = data.lon.values
+                
+                fig = go.Figure(data=go.Heatmap(
+                    z=var_data.values,
+                    x=lons,
+                    y=lats,
+                    colorscale=era5_cmap,
+                    colorbar=dict(title=era5_var)
+                ))
+                
+                title = f"ERA5 {era5_var}"
+                if era5_level:
+                    title += f" at {era5_level} hPa"
+                title += f" - {time_options[era5_time_idx]}"
+                
+                fig.update_layout(
+                    title=title,
+                    xaxis_title="Longitude",
+                    yaxis_title="Latitude",
+                    height=500
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Statistics
+                col_s1, col_s2, col_s3, col_s4 = st.columns(4)
+                values = var_data.values.flatten()
+                values = values[~np.isnan(values)]
+                col_s1.metric("Min", f"{np.min(values):.2f}")
+                col_s2.metric("Max", f"{np.max(values):.2f}")
+                col_s3.metric("Mean", f"{np.mean(values):.2f}")
+                col_s4.metric("Std Dev", f"{np.std(values):.2f}")
+        
+        elif era5_viz_type == "🌬️ Wind Vectors":
+            col1, col2 = st.columns([1, 2])
+            
+            with col1:
+                st.subheader("Wind Vector Settings")
+                
+                # Time selection
+                time_values = data.time.values
+                time_options = [str(t)[:19] for t in time_values]
+                wind_time_idx = st.selectbox(
+                    "Time",
+                    options=range(len(time_options)),
+                    format_func=lambda x: time_options[x],
+                    key="era5_wind_time"
+                )
+                
+                # Level selection
+                if "level" in data.coords:
+                    levels = sorted([int(l) for l in data.level.values])
+                    wind_level = st.selectbox(
+                        "Pressure Level (hPa)",
+                        options=levels,
+                        index=min(1, len(levels) - 1),
+                        key="era5_wind_level"
+                    )
+                else:
+                    wind_level = None
+                
+                vector_density = st.slider("Vector Density", 1, 5, 2, key="era5_vec_density")
+            
+            with col2:
+                # Get wind data
+                u_data, v_data, lats, lons = get_era5_wind_data(wind_time_idx, wind_level)
+                
+                if u_data is not None and v_data is not None:
+                    wind_speed = np.sqrt(u_data**2 + v_data**2)
+                    
+                    fig = go.Figure()
+                    
+                    # Background wind speed
+                    fig.add_trace(go.Heatmap(
+                        z=wind_speed,
+                        x=lons,
+                        y=lats,
+                        colorscale='YlOrRd',
+                        opacity=0.7,
+                        colorbar=dict(title='Speed (m/s)')
+                    ))
+                    
+                    # Add wind vectors
+                    skip = 6 - vector_density
+                    nlat, nlon = u_data.shape
+                    
+                    for i in range(0, nlat, skip):
+                        for j in range(0, nlon, skip):
+                            if wind_speed[i, j] > 1:
+                                scale = 0.3 * (1 + vector_density * 0.2)
+                                fig.add_annotation(
+                                    x=lons[j],
+                                    y=lats[i],
+                                    ax=lons[j] + u_data[i, j] * scale,
+                                    ay=lats[i] + v_data[i, j] * scale,
+                                    xref='x',
+                                    yref='y',
+                                    axref='x',
+                                    ayref='y',
+                                    showarrow=True,
+                                    arrowhead=2,
+                                    arrowsize=1,
+                                    arrowwidth=1,
+                                    arrowcolor='black'
+                                )
+                    
+                    title = "ERA5 Wind Field"
+                    if wind_level:
+                        title += f" at {wind_level} hPa"
+                    title += f" - {time_options[wind_time_idx]}"
+                    
+                    fig.update_layout(
+                        title=title,
+                        xaxis_title="Longitude",
+                        yaxis_title="Latitude",
+                        height=500
+                    )
+                    
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                    # Wind statistics
+                    col_w1, col_w2, col_w3 = st.columns(3)
+                    col_w1.metric("Mean Speed", f"{np.mean(wind_speed):.1f} m/s")
+                    col_w2.metric("Max Speed", f"{np.max(wind_speed):.1f} m/s")
+                    
+                    # Dominant direction
+                    mean_u = np.mean(u_data)
+                    mean_v = np.mean(v_data)
+                    direction = np.degrees(np.arctan2(mean_v, mean_u)) % 360
+                    col_w3.metric("Mean Direction", f"{direction:.0f}°")
+                else:
+                    st.warning("Wind components (u, v) not found in the dataset.")
+        
+        elif era5_viz_type == "📈 Time Series":
+            col1, col2 = st.columns([1, 2])
+            
+            with col1:
+                st.subheader("Time Series Settings")
+                
+                ts_var = st.selectbox(
+                    "Variable",
+                    options=available_vars,
+                    key="era5_ts_var"
+                )
+                
+                if "level" in data.coords:
+                    levels = sorted([int(l) for l in data.level.values])
+                    ts_level = st.selectbox(
+                        "Pressure Level (hPa)",
+                        options=levels,
+                        index=min(1, len(levels) - 1),
+                        key="era5_ts_level"
+                    )
+                else:
+                    ts_level = None
+                
+                ts_type = st.radio(
+                    "Aggregation",
+                    ["Domain Mean", "Domain Max", "Domain Min", "Specific Location"],
+                    key="era5_ts_type"
+                )
+                
+                if ts_type == "Specific Location":
+                    if "latitude" in data.coords:
+                        lats = data.latitude.values
+                        lons = data.longitude.values
+                    else:
+                        lats = data.lat.values
+                        lons = data.lon.values
+                    
+                    ts_lat = st.select_slider("Latitude", options=lats.tolist(), value=lats[len(lats)//2], key="era5_ts_lat")
+                    ts_lon = st.select_slider("Longitude", options=lons.tolist(), value=lons[len(lons)//2], key="era5_ts_lon")
+            
+            with col2:
+                # Get time series data
+                var_data = data[ts_var]
+                if ts_level is not None and "level" in var_data.dims:
+                    var_data = var_data.sel(level=ts_level)
+                
+                times = pd.to_datetime(data.time.values)
+                
+                if "latitude" in data.coords:
+                    lat_dim = "latitude"
+                    lon_dim = "longitude"
+                else:
+                    lat_dim = "lat"
+                    lon_dim = "lon"
+                
+                if ts_type == "Domain Mean":
+                    values = var_data.mean(dim=[lat_dim, lon_dim]).values
+                    title = f"ERA5 {ts_var} - Domain Mean"
+                elif ts_type == "Domain Max":
+                    values = var_data.max(dim=[lat_dim, lon_dim]).values
+                    title = f"ERA5 {ts_var} - Domain Maximum"
+                elif ts_type == "Domain Min":
+                    values = var_data.min(dim=[lat_dim, lon_dim]).values
+                    title = f"ERA5 {ts_var} - Domain Minimum"
+                else:
+                    lat_idx = np.argmin(np.abs(lats - ts_lat))
+                    lon_idx = np.argmin(np.abs(lons - ts_lon))
+                    values = var_data.isel(**{lat_dim: lat_idx, lon_dim: lon_idx}).values
+                    title = f"ERA5 {ts_var} at ({ts_lat:.1f}°, {ts_lon:.1f}°)"
+                
+                if ts_level:
+                    title += f" at {ts_level} hPa"
+                
+                fig = go.Figure()
+                fig.add_trace(go.Scatter(
+                    x=times,
+                    y=values,
+                    mode='lines+markers',
+                    line=dict(color='#1e88e5', width=2),
+                    marker=dict(size=4)
+                ))
+                
+                fig.update_layout(
+                    title=title,
+                    xaxis_title="Time",
+                    yaxis_title=ts_var,
+                    height=400
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Statistics
+                col_ts1, col_ts2, col_ts3, col_ts4 = st.columns(4)
+                col_ts1.metric("Min", f"{np.min(values):.2f}")
+                col_ts2.metric("Max", f"{np.max(values):.2f}")
+                col_ts3.metric("Mean", f"{np.mean(values):.2f}")
+                col_ts4.metric("Range", f"{np.max(values) - np.min(values):.2f}")
+        
+        else:  # Multi-Variable Comparison
+            st.subheader("Multi-Variable Comparison")
+            
+            # Select multiple variables
+            compare_vars = st.multiselect(
+                "Select Variables to Compare",
+                options=available_vars,
+                default=available_vars[:min(4, len(available_vars))],
+                key="era5_compare_vars"
+            )
+            
+            if compare_vars:
+                # Time selection
+                time_values = data.time.values
+                time_options = [str(t)[:19] for t in time_values]
+                compare_time_idx = st.selectbox(
+                    "Time",
+                    options=range(len(time_options)),
+                    format_func=lambda x: time_options[x],
+                    key="era5_compare_time"
+                )
+                
+                # Level selection
+                if "level" in data.coords:
+                    levels = sorted([int(l) for l in data.level.values])
+                    compare_level = st.selectbox(
+                        "Pressure Level (hPa)",
+                        options=levels,
+                        index=min(1, len(levels) - 1),
+                        key="era5_compare_level"
+                    )
+                else:
+                    compare_level = None
+                
+                # Get coordinates
+                if "latitude" in data.coords:
+                    lats = data.latitude.values
+                    lons = data.longitude.values
+                else:
+                    lats = data.lat.values
+                    lons = data.lon.values
+                
+                # Create subplot grid
+                n_vars = len(compare_vars)
+                n_cols = min(2, n_vars)
+                n_rows = (n_vars + n_cols - 1) // n_cols
+                
+                fig = make_subplots(
+                    rows=n_rows, cols=n_cols,
+                    subplot_titles=compare_vars
+                )
+                
+                for idx, var in enumerate(compare_vars):
+                    row = idx // n_cols + 1
+                    col = idx % n_cols + 1
+                    
+                    var_data = data[var].isel(time=compare_time_idx)
+                    if compare_level is not None and "level" in var_data.dims:
+                        var_data = var_data.sel(level=compare_level)
+                    
+                    fig.add_trace(
+                        go.Heatmap(
+                            z=var_data.values,
+                            x=lons,
+                            y=lats,
+                            colorscale='RdBu_r' if 'temperature' in var.lower() or 'wind' in var.lower() else 'viridis',
+                            showscale=True
+                        ),
+                        row=row, col=col
+                    )
+                
+                title = f"ERA5 Multi-Variable Comparison - {time_options[compare_time_idx]}"
+                if compare_level:
+                    title += f" at {compare_level} hPa"
+                
+                fig.update_layout(
+                    title=title,
+                    height=300 * n_rows,
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.warning("Please select at least one variable to visualize.")
+    
+    else:
+        st.warning("""
+        ⚠️ **ERA5 Data Not Available**
+        
+        To visualize real ERA5 data:
+        1. Go to the **📊 Data Manager** page
+        2. Download a sample dataset
+        3. Click "Use This Dataset" to activate it
+        4. Return here to visualize real atmospheric data
+        
+        The other tabs demonstrate visualization capabilities using synthetic data.
+        """)
 
 # Code reference
 with st.expander("📝 Code Reference"):

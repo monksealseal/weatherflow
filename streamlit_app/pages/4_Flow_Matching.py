@@ -26,7 +26,14 @@ from weatherflow.physics.losses import PhysicsLossCalculator
 
 # Import ERA5 utilities
 try:
-    from era5_utils import get_era5_data_banner, has_era5_data
+    from era5_utils import (
+        get_era5_data_banner,
+        has_era5_data,
+        get_active_era5_data,
+        get_era5_time_range,
+        get_era5_variables,
+        get_era5_levels,
+    )
     ERA5_UTILS_AVAILABLE = True
 except ImportError:
     ERA5_UTILS_AVAILABLE = False
@@ -70,11 +77,12 @@ use_graph_mp = st.sidebar.checkbox("Graph Message Passing", value=False)
 enhanced_physics = st.sidebar.checkbox("Enhanced Physics Losses", value=False)
 
 # Main tabs
-tab1, tab2, tab3, tab4 = st.tabs([
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "📐 Model Architecture",
     "🎯 Flow Visualization",
     "🏋️ Training Demo",
-    "🔮 Inference Demo"
+    "🔮 Inference Demo",
+    "🌍 ERA5 Training"
 ])
 
 # Tab 1: Model Architecture
@@ -725,6 +733,343 @@ with tab4:
             The ODE solver integrates the learned velocity field to
             generate smooth transitions from initial to predicted states.
             """)
+
+# Tab 5: ERA5 Training
+with tab5:
+    st.header("🌍 Train with ERA5 Data")
+    
+    st.markdown("""
+    Train flow matching models using **real ERA5 reanalysis data** from the Data Manager.
+    This demonstrates the complete workflow: data → training → inference → evaluation.
+    """)
+    
+    if ERA5_UTILS_AVAILABLE and has_era5_data():
+        data, metadata = get_active_era5_data()
+        
+        st.success(f"✅ Using Real ERA5 Data: **{metadata.get('name', 'Unknown')}**")
+        
+        col_info1, col_info2, col_info3 = st.columns(3)
+        with col_info1:
+            st.markdown(f"**Period:** {metadata.get('start_date', '?')} to {metadata.get('end_date', '?')}")
+        with col_info2:
+            st.markdown(f"**Source:** {metadata.get('source', 'ERA5')}")
+        with col_info3:
+            st.markdown(f"**Time Steps:** {len(data.time) if 'time' in data.coords else '?'}")
+        
+        st.markdown("---")
+        
+        col1, col2 = st.columns([1, 2])
+        
+        with col1:
+            st.subheader("ERA5 Training Configuration")
+            
+            # Get available variables from the ERA5 data
+            available_vars = list(data.data_vars)
+            
+            # Select variables for training
+            st.markdown("**Select Variables:**")
+            selected_vars = st.multiselect(
+                "Training Variables",
+                options=available_vars,
+                default=available_vars[:min(4, len(available_vars))],
+                key="era5_train_vars"
+            )
+            
+            # Select pressure level if available
+            if "level" in data.coords:
+                levels = sorted([int(l) for l in data.level.values])
+                selected_level = st.selectbox(
+                    "Pressure Level (hPa)",
+                    options=levels,
+                    index=min(1, len(levels) - 1),
+                    key="era5_train_level"
+                )
+            else:
+                selected_level = None
+            
+            st.markdown("---")
+            st.markdown("**Training Parameters:**")
+            
+            era5_batch_size = st.slider("Batch Size", 1, 8, 2, key="era5_batch")
+            era5_learning_rate = st.select_slider(
+                "Learning Rate",
+                options=[1e-5, 5e-5, 1e-4, 5e-4, 1e-3],
+                value=1e-4,
+                key="era5_lr"
+            )
+            era5_num_steps = st.slider("Training Steps", 5, 30, 10, key="era5_steps")
+            
+            era5_use_physics = st.checkbox("Include Physics Loss", value=True, key="era5_physics")
+            era5_physics_lambda = st.slider("Physics Lambda", 0.01, 1.0, 0.1, key="era5_physics_lambda") if era5_use_physics else 0.0
+            
+            era5_run_training = st.button("▶️ Train on ERA5 Data", type="primary", key="era5_train_btn")
+        
+        with col2:
+            if era5_run_training and selected_vars:
+                st.subheader("Training on Real ERA5 Data")
+                
+                with st.spinner("Preparing ERA5 data for training..."):
+                    try:
+                        # Get coordinate names
+                        if "latitude" in data.coords:
+                            lat_coord = "latitude"
+                            lon_coord = "longitude"
+                        else:
+                            lat_coord = "lat"
+                            lon_coord = "lon"
+                        
+                        # Prepare data for training
+                        # Stack selected variables into a tensor
+                        var_data_list = []
+                        for var in selected_vars:
+                            var_data = data[var]
+                            if selected_level is not None and "level" in var_data.dims:
+                                var_data = var_data.sel(level=selected_level)
+                            var_data_list.append(var_data.values)
+                        
+                        # Stack variables: [time, n_vars, lat, lon]
+                        stacked_data = np.stack(var_data_list, axis=1)
+                        
+                        # Normalize the data
+                        data_mean = np.mean(stacked_data)
+                        data_std = np.std(stacked_data)
+                        if data_std > 0:
+                            normalized_data = (stacked_data - data_mean) / data_std
+                        else:
+                            normalized_data = stacked_data
+                        
+                        n_times = normalized_data.shape[0]
+                        n_channels = normalized_data.shape[1]
+                        era5_lat_size = normalized_data.shape[2]
+                        era5_lon_size = normalized_data.shape[3]
+                        
+                        st.info(f"📊 ERA5 Data Shape: {n_times} time steps × {n_channels} variables × {era5_lat_size}×{era5_lon_size} grid")
+                        
+                        # Create model with ERA5 dimensions
+                        era5_model = WeatherFlowMatch(
+                            input_channels=n_channels,
+                            hidden_dim=hidden_dim,
+                            n_layers=n_layers,
+                            use_attention=use_attention,
+                            grid_size=(era5_lat_size, era5_lon_size),
+                            physics_informed=physics_informed,
+                            window_size=window_size
+                        )
+                        
+                        optimizer = torch.optim.AdamW(era5_model.parameters(), lr=era5_learning_rate)
+                        
+                        # Training loop
+                        losses = []
+                        flow_losses = []
+                        physics_losses = []
+                        
+                        progress_bar = st.progress(0)
+                        status_text = st.empty()
+                        loss_chart = st.empty()
+                        
+                        for step in range(era5_num_steps):
+                            # Sample random consecutive time pairs from ERA5 data
+                            batch_x0 = []
+                            batch_x1 = []
+                            
+                            for _ in range(era5_batch_size):
+                                # Random time index (ensure we can get a pair)
+                                t_idx = np.random.randint(0, n_times - 1)
+                                batch_x0.append(normalized_data[t_idx])
+                                batch_x1.append(normalized_data[t_idx + 1])
+                            
+                            x0_batch = torch.tensor(np.stack(batch_x0), dtype=torch.float32)
+                            x1_batch = torch.tensor(np.stack(batch_x1), dtype=torch.float32)
+                            t_batch = torch.rand(era5_batch_size)
+                            
+                            # Interpolate
+                            t_broadcast = t_batch.view(-1, 1, 1, 1)
+                            x_t = torch.lerp(x0_batch, x1_batch, t_broadcast)
+                            
+                            # Forward pass
+                            era5_model.train()
+                            v_pred = era5_model(x_t, t_batch)
+                            
+                            # Target velocity (rectified flow)
+                            v_target = x1_batch - x0_batch
+                            
+                            # Flow loss with time weighting
+                            diff = v_pred - v_target
+                            weight = (t_batch * (1 - t_batch)).clamp(min=1e-3).view(-1, 1, 1, 1)
+                            flow_loss = (diff.pow(2) * weight).mean()
+                            
+                            # Physics loss
+                            if era5_use_physics and n_channels >= 2:
+                                du_dx = torch.gradient(v_pred[:, 0], dim=2)[0]
+                                dv_dy = torch.gradient(v_pred[:, 1], dim=1)[0]
+                                div = du_dx + dv_dy
+                                physics_loss = div.pow(2).mean()
+                            else:
+                                physics_loss = torch.tensor(0.0)
+                            
+                            total_loss = flow_loss + era5_physics_lambda * physics_loss
+                            
+                            # Backward pass
+                            optimizer.zero_grad()
+                            total_loss.backward()
+                            optimizer.step()
+                            
+                            # Record
+                            losses.append(total_loss.item())
+                            flow_losses.append(flow_loss.item())
+                            physics_losses.append(physics_loss.item())
+                            
+                            # Update progress
+                            progress_bar.progress((step + 1) / era5_num_steps)
+                            status_text.text(f"Step {step+1}/{era5_num_steps} | Loss: {total_loss.item():.4f}")
+                            
+                            # Update chart
+                            fig = go.Figure()
+                            fig.add_trace(go.Scatter(y=losses, name='Total Loss', line=dict(color='#1e88e5')))
+                            fig.add_trace(go.Scatter(y=flow_losses, name='Flow Loss', line=dict(color='#66bb6a')))
+                            if era5_use_physics:
+                                fig.add_trace(go.Scatter(y=physics_losses, name='Physics Loss', line=dict(color='#ef5350')))
+                            fig.update_layout(
+                                title='Training Loss (ERA5 Data)',
+                                xaxis_title='Step',
+                                yaxis_title='Loss',
+                                height=300
+                            )
+                            loss_chart.plotly_chart(fig, use_container_width=True)
+                            
+                            time.sleep(0.1)
+                        
+                        st.success(f"✅ Training complete on ERA5 data! Final loss: {losses[-1]:.4f}")
+                        
+                        # Final metrics
+                        metric_cols = st.columns(3)
+                        with metric_cols[0]:
+                            st.metric("Initial Loss", f"{losses[0]:.4f}")
+                        with metric_cols[1]:
+                            st.metric("Final Loss", f"{losses[-1]:.4f}")
+                        with metric_cols[2]:
+                            reduction = (losses[0] - losses[-1]) / losses[0] * 100
+                            st.metric("Loss Reduction", f"{reduction:.1f}%")
+                        
+                        st.markdown("---")
+                        
+                        # Run inference on ERA5 data
+                        st.subheader("📊 Inference on ERA5 Initial Condition")
+                        
+                        # Use first time step as initial condition
+                        x0_inference = torch.tensor(normalized_data[0:1], dtype=torch.float32)
+                        
+                        # Create ODE wrapper
+                        ode_model = WeatherFlowODE(
+                            flow_model=era5_model,
+                            solver_method='euler',
+                            fast_mode=True
+                        )
+                        
+                        # Generate predictions
+                        inference_steps = 10
+                        times = torch.linspace(0, 1, inference_steps)
+                        
+                        with torch.no_grad():
+                            era5_model.eval()
+                            predictions = ode_model(x0_inference, times)
+                        
+                        # Visualize
+                        st.markdown("**Predicted Weather Evolution (First Variable):**")
+                        
+                        n_frames = min(5, inference_steps)
+                        frame_indices = np.linspace(0, inference_steps-1, n_frames, dtype=int)
+                        
+                        fig = make_subplots(
+                            rows=1, cols=n_frames,
+                            subplot_titles=[f't = {times[i]:.2f}' for i in frame_indices]
+                        )
+                        
+                        for idx, frame_idx in enumerate(frame_indices):
+                            # Denormalize for display
+                            pred_frame = predictions[frame_idx, 0, 0].numpy() * data_std + data_mean
+                            
+                            fig.add_trace(
+                                go.Heatmap(
+                                    z=pred_frame,
+                                    colorscale='RdBu_r',
+                                    showscale=(idx == n_frames - 1)
+                                ),
+                                row=1, col=idx+1
+                            )
+                        
+                        fig.update_layout(height=300, title='ERA5-Based Weather Prediction')
+                        st.plotly_chart(fig, use_container_width=True)
+                        
+                        st.info(f"📊 Model trained on **{metadata.get('name', 'ERA5')}** data and used for inference on real initial conditions.")
+                        
+                    except Exception as e:
+                        st.error(f"Error during training: {e}")
+                        import traceback
+                        st.code(traceback.format_exc())
+            
+            elif not selected_vars:
+                st.warning("Please select at least one variable to train on.")
+            else:
+                st.info("""
+                Click **'Train on ERA5 Data'** to:
+                1. Load real atmospheric data from the Data Manager
+                2. Train a flow matching model on consecutive time steps
+                3. Run inference to predict weather evolution
+                
+                The model learns to predict how weather states evolve from one time step to the next
+                using actual ERA5 reanalysis observations.
+                """)
+                
+                # Show a preview of the data
+                st.subheader("📊 Data Preview")
+                
+                if selected_vars:
+                    preview_var = selected_vars[0]
+                    preview_data = data[preview_var]
+                    
+                    if selected_level is not None and "level" in preview_data.dims:
+                        preview_data = preview_data.sel(level=selected_level)
+                    
+                    # Show first time step
+                    first_frame = preview_data.isel(time=0).values
+                    
+                    if "latitude" in data.coords:
+                        lats = data.latitude.values
+                        lons = data.longitude.values
+                    else:
+                        lats = data.lat.values
+                        lons = data.lon.values
+                    
+                    fig = go.Figure(data=go.Heatmap(
+                        z=first_frame,
+                        x=lons,
+                        y=lats,
+                        colorscale='RdBu_r',
+                        colorbar=dict(title=preview_var)
+                    ))
+                    
+                    fig.update_layout(
+                        title=f"ERA5 {preview_var} - First Time Step (Training Input)",
+                        xaxis_title="Longitude",
+                        yaxis_title="Latitude",
+                        height=350
+                    )
+                    
+                    st.plotly_chart(fig, use_container_width=True)
+    
+    else:
+        st.warning("""
+        ⚠️ **ERA5 Data Not Available**
+        
+        To train on real ERA5 data:
+        1. Go to the **📊 Data Manager** page
+        2. Download a sample dataset (e.g., "General Sample 2023")
+        3. Click "Use This Dataset" to activate it
+        4. Return here to train models on real atmospheric data
+        
+        The "Training Demo" tab provides synthetic data demonstrations in the meantime.
+        """)
 
 # Code reference
 with st.expander("📝 Code Reference"):
