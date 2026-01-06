@@ -22,7 +22,13 @@ from weatherflow.physics.losses import PhysicsLossCalculator
 
 # Import ERA5 utilities
 try:
-    from era5_utils import get_era5_data_banner, has_era5_data
+    from era5_utils import (
+        get_era5_data_banner,
+        has_era5_data,
+        get_active_era5_data,
+        get_era5_wind_data,
+        get_era5_slice,
+    )
     ERA5_UTILS_AVAILABLE = True
 except ImportError:
     ERA5_UTILS_AVAILABLE = False
@@ -59,12 +65,13 @@ st.sidebar.markdown(f"""
 """)
 
 # Main tabs
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "📊 Divergence Loss",
     "🌀 PV Conservation",
     "📈 Energy Spectra",
     "⚖️ Geostrophic Balance",
-    "🧮 Combined Losses"
+    "🧮 Combined Losses",
+    "🌍 ERA5 Physics"
 ])
 
 # Tab 1: Divergence Loss
@@ -661,6 +668,212 @@ with tab5:
         fig_pie.update_layout(title='Loss Contribution', height=300)
 
         st.plotly_chart(fig_pie, use_container_width=True)
+
+# Tab 6: ERA5 Physics Analysis
+with tab6:
+    st.header("🌍 Physics Analysis of ERA5 Data")
+    
+    st.markdown("""
+    Apply physics loss functions to **real ERA5 reanalysis data**.
+    This demonstrates how to evaluate physical consistency of actual atmospheric observations.
+    """)
+    
+    if ERA5_UTILS_AVAILABLE and has_era5_data():
+        data, metadata = get_active_era5_data()
+        
+        st.success(f"✅ Analyzing Real ERA5 Data: **{metadata.get('name', 'Unknown')}**")
+        st.markdown(f"**Period:** {metadata.get('start_date', '?')} to {metadata.get('end_date', '?')}")
+        
+        st.markdown("---")
+        
+        col1, col2 = st.columns([1, 2])
+        
+        with col1:
+            st.subheader("Analysis Configuration")
+            
+            # Time selection
+            time_values = data.time.values
+            time_options = [str(t)[:19] for t in time_values]
+            era5_phys_time = st.selectbox(
+                "Select Time",
+                options=range(len(time_options)),
+                format_func=lambda x: time_options[x],
+                key="era5_phys_time"
+            )
+            
+            # Level selection
+            if "level" in data.coords:
+                levels = sorted([int(l) for l in data.level.values])
+                era5_phys_level = st.selectbox(
+                    "Pressure Level (hPa)",
+                    options=levels,
+                    index=min(1, len(levels) - 1),
+                    key="era5_phys_level"
+                )
+            else:
+                era5_phys_level = None
+            
+            st.markdown("---")
+            st.markdown("**Analysis Options:**")
+            
+            analyze_div = st.checkbox("Divergence", value=True, key="era5_analyze_div")
+            analyze_vor = st.checkbox("Vorticity", value=True, key="era5_analyze_vor")
+            analyze_ke = st.checkbox("Kinetic Energy", value=True, key="era5_analyze_ke")
+            
+            run_era5_analysis = st.button("🔍 Analyze ERA5 Physics", type="primary", key="era5_phys_btn")
+        
+        with col2:
+            if run_era5_analysis:
+                st.subheader("Physics Analysis Results")
+                
+                with st.spinner("Analyzing ERA5 wind field physics..."):
+                    try:
+                        # Get wind data
+                        u_data, v_data, lats, lons = get_era5_wind_data(era5_phys_time, era5_phys_level)
+                        
+                        if u_data is not None and v_data is not None:
+                            # Compute physics diagnostics
+                            results = {}
+                            
+                            if analyze_div:
+                                # Divergence
+                                du_dx = np.gradient(u_data, axis=1) / (calculator.earth_radius * np.cos(np.radians(lats[:, np.newaxis])))
+                                dv_dy = np.gradient(v_data, axis=0) / calculator.earth_radius
+                                divergence = du_dx + dv_dy
+                                results['Divergence'] = divergence
+                            
+                            if analyze_vor:
+                                # Relative vorticity
+                                dv_dx = np.gradient(v_data, axis=1) / (calculator.earth_radius * np.cos(np.radians(lats[:, np.newaxis])))
+                                du_dy = np.gradient(u_data, axis=0) / calculator.earth_radius
+                                vorticity = dv_dx - du_dy
+                                results['Vorticity'] = vorticity
+                            
+                            if analyze_ke:
+                                # Kinetic energy
+                                kinetic_energy = 0.5 * (u_data**2 + v_data**2)
+                                results['Kinetic Energy'] = kinetic_energy
+                            
+                            # Visualize results
+                            n_plots = len(results)
+                            if n_plots > 0:
+                                n_cols = min(2, n_plots)
+                                n_rows = (n_plots + n_cols - 1) // n_cols
+                                
+                                fig = make_subplots(
+                                    rows=n_rows, cols=n_cols,
+                                    subplot_titles=list(results.keys())
+                                )
+                                
+                                colorscales = {
+                                    'Divergence': 'RdBu_r',
+                                    'Vorticity': 'RdBu_r',
+                                    'Kinetic Energy': 'Viridis'
+                                }
+                                
+                                for idx, (name, field) in enumerate(results.items()):
+                                    row = idx // n_cols + 1
+                                    col = idx % n_cols + 1
+                                    
+                                    # Scale for visualization
+                                    if name in ['Divergence', 'Vorticity']:
+                                        display_field = field * 1e5  # Scale to 10^-5
+                                    else:
+                                        display_field = field
+                                    
+                                    fig.add_trace(
+                                        go.Heatmap(
+                                            z=display_field,
+                                            x=lons,
+                                            y=lats,
+                                            colorscale=colorscales.get(name, 'Viridis'),
+                                            showscale=True,
+                                            zmid=0 if name in ['Divergence', 'Vorticity'] else None
+                                        ),
+                                        row=row, col=col
+                                    )
+                                
+                                title = f"ERA5 Physics Analysis - {time_options[era5_phys_time]}"
+                                if era5_phys_level:
+                                    title += f" at {era5_phys_level} hPa"
+                                
+                                fig.update_layout(
+                                    title=title,
+                                    height=300 * n_rows
+                                )
+                                
+                                st.plotly_chart(fig, use_container_width=True)
+                                
+                                # Statistics
+                                st.subheader("📊 Physics Statistics")
+                                
+                                stat_cols = st.columns(len(results))
+                                for idx, (name, field) in enumerate(results.items()):
+                                    with stat_cols[idx]:
+                                        st.markdown(f"**{name}**")
+                                        if name in ['Divergence', 'Vorticity']:
+                                            st.metric("Mean (×10⁻⁵)", f"{np.mean(field) * 1e5:.4f}")
+                                            st.metric("RMS (×10⁻⁵)", f"{np.sqrt(np.mean(field**2)) * 1e5:.4f}")
+                                            st.metric("Max |field| (×10⁻⁵)", f"{np.max(np.abs(field)) * 1e5:.4f}")
+                                        else:
+                                            st.metric("Mean", f"{np.mean(field):.2f}")
+                                            st.metric("Max", f"{np.max(field):.2f}")
+                                            st.metric("Total", f"{np.sum(field):.2e}")
+                                
+                                # Physical interpretation
+                                st.markdown("---")
+                                st.subheader("📝 Physical Interpretation")
+                                
+                                if analyze_div and 'Divergence' in results:
+                                    div_rms = np.sqrt(np.mean(results['Divergence']**2)) * 1e5
+                                    if div_rms < 0.5:
+                                        st.success(f"✅ **Divergence**: Low RMS divergence ({div_rms:.3f} × 10⁻⁵ s⁻¹) indicates near-balanced flow")
+                                    else:
+                                        st.info(f"ℹ️ **Divergence**: RMS divergence ({div_rms:.3f} × 10⁻⁵ s⁻¹) indicates significant convergence/divergence regions")
+                                
+                                if analyze_vor and 'Vorticity' in results:
+                                    vor_max = np.max(np.abs(results['Vorticity'])) * 1e5
+                                    if vor_max > 5:
+                                        st.info(f"🌀 **Vorticity**: High max vorticity ({vor_max:.2f} × 10⁻⁵ s⁻¹) suggests strong cyclonic/anticyclonic features")
+                                    else:
+                                        st.success(f"✅ **Vorticity**: Moderate vorticity ({vor_max:.2f} × 10⁻⁵ s⁻¹)")
+                                
+                                if analyze_ke and 'Kinetic Energy' in results:
+                                    ke_mean = np.mean(results['Kinetic Energy'])
+                                    st.info(f"⚡ **Kinetic Energy**: Mean KE = {ke_mean:.1f} m²/s² (wind speed ≈ {np.sqrt(2*ke_mean):.1f} m/s)")
+                        
+                        else:
+                            st.warning("Wind components (u, v) not found in the dataset.")
+                    
+                    except Exception as e:
+                        st.error(f"Error during analysis: {e}")
+                        import traceback
+                        st.code(traceback.format_exc())
+            
+            else:
+                st.info("""
+                Click **'Analyze ERA5 Physics'** to compute:
+                
+                - **Divergence**: Measures mass convergence/divergence
+                - **Vorticity**: Measures rotational motion
+                - **Kinetic Energy**: Measures flow intensity
+                
+                These diagnostics help assess the physical consistency of the ERA5 data
+                and can be used as loss functions during model training.
+                """)
+    
+    else:
+        st.warning("""
+        ⚠️ **ERA5 Data Not Available**
+        
+        To analyze physics of real ERA5 data:
+        1. Go to the **📊 Data Manager** page
+        2. Download a sample dataset with wind components
+        3. Click "Use This Dataset" to activate it
+        4. Return here to analyze physical properties
+        
+        The other tabs demonstrate physics constraints using synthetic data.
+        """)
 
 # Code reference
 with st.expander("📝 Code Reference"):
