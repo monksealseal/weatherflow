@@ -135,7 +135,7 @@ if ds is None:
 
     **If running locally**, ensure you have network access and try:
     ```bash
-    pip install gcsfs xarray zarr
+    pip install xarray zarr gcsfs fsspec requests aiohttp
     ```
 
     **If on Streamlit Cloud**, this should work automatically.
