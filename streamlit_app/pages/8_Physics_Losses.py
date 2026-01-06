@@ -2,6 +2,7 @@
 Physics-Based Loss Functions
 
 Uses the actual PhysicsLossCalculator class from weatherflow/physics/losses.py
+Demonstrates physics constraints that can be applied to ERA5 or synthetic data.
 """
 
 import streamlit as st
@@ -15,8 +16,16 @@ from pathlib import Path
 # Add parent directory to path
 ROOT_DIR = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(ROOT_DIR))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from weatherflow.physics.losses import PhysicsLossCalculator
+
+# Import ERA5 utilities
+try:
+    from era5_utils import get_era5_data_banner, has_era5_data
+    ERA5_UTILS_AVAILABLE = True
+except ImportError:
+    ERA5_UTILS_AVAILABLE = False
 
 st.set_page_config(page_title="Physics Loss Functions", page_icon="⚛️", layout="wide")
 
@@ -25,6 +34,15 @@ st.markdown("""
 Explore the physics constraints used to regularize weather prediction models.
 This uses the actual `PhysicsLossCalculator` class from the repository.
 """)
+
+# Show data source banner
+if ERA5_UTILS_AVAILABLE:
+    banner = get_era5_data_banner()
+    st.info(f"""
+    📊 **Data Note:** Physics constraints are demonstrated with synthetic wind fields.
+    These same constraints can be applied to ERA5 data to ensure physical consistency
+    in machine learning weather predictions.
+    """)
 
 # Create calculator
 calculator = PhysicsLossCalculator()

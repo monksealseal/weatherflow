@@ -2,6 +2,7 @@
 Solar Power Calculator - Interactive PV system power estimation
 
 Uses the actual SolarPowerConverter class from applications/renewable_energy/solar_power.py
+Supports ERA5 real data or demo mode with synthetic data.
 """
 
 import streamlit as st
@@ -15,12 +16,20 @@ from pathlib import Path
 # Add parent directory to path
 ROOT_DIR = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(ROOT_DIR))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from applications.renewable_energy.solar_power import (
     SolarPowerConverter,
     PV_LIBRARY,
     PVSystemSpec
 )
+
+# Import ERA5 utilities
+try:
+    from era5_utils import get_era5_data_banner, has_era5_data
+    ERA5_UTILS_AVAILABLE = True
+except ImportError:
+    ERA5_UTILS_AVAILABLE = False
 
 st.set_page_config(page_title="Solar Power Calculator", page_icon="☀️", layout="wide")
 
@@ -29,6 +38,14 @@ st.markdown("""
 Convert solar irradiance and temperature forecasts to PV power output.
 This runs the actual `SolarPowerConverter` class from the repository.
 """)
+
+# Show data source banner
+if ERA5_UTILS_AVAILABLE:
+    banner = get_era5_data_banner()
+    if "Demo Mode" in banner or "⚠️" in banner:
+        st.info(f"📊 {banner} - ERA5 does not include solar radiation; using synthetic irradiance data.")
+    else:
+        st.info(f"📊 {banner} - Note: ERA5 temperature data can be used; solar radiation uses synthetic data.")
 
 # Sidebar configuration
 st.sidebar.header("PV System Configuration")

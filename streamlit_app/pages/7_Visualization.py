@@ -2,6 +2,7 @@
 Weather Visualization Tools
 
 Uses the actual WeatherVisualizer class from weatherflow/utils/visualization.py
+Supports ERA5 data visualization or demo mode with synthetic data.
 """
 
 import streamlit as st
@@ -14,6 +15,7 @@ from pathlib import Path
 # Add parent directory to path
 ROOT_DIR = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(ROOT_DIR))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Try to import visualization utilities
 try:
@@ -22,6 +24,13 @@ try:
 except ImportError:
     VIS_AVAILABLE = False
 
+# Import ERA5 utilities
+try:
+    from era5_utils import get_era5_data_banner, has_era5_data
+    ERA5_UTILS_AVAILABLE = True
+except ImportError:
+    ERA5_UTILS_AVAILABLE = False
+
 st.set_page_config(page_title="Weather Visualization", page_icon="📊", layout="wide")
 
 st.title("📊 Weather Visualization")
@@ -29,6 +38,14 @@ st.markdown("""
 Interactive visualization tools for weather data. Generate maps, flow fields,
 error distributions, and animations.
 """)
+
+# Show data source banner
+if ERA5_UTILS_AVAILABLE:
+    banner = get_era5_data_banner()
+    if "Demo Mode" in banner or "⚠️" in banner:
+        st.info(f"📊 {banner} - Visualizations use synthetic data patterns.")
+    else:
+        st.success(f"📊 {banner} - Use the Data Manager to preview and visualize real ERA5 data.")
 
 # Variable configurations
 VAR_LABELS = {
