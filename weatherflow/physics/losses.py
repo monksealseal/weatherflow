@@ -26,10 +26,10 @@ class PhysicsLossCalculator(nn.Module):
     def __init__(
         self,
         earth_radius: float = 6371e3,  # meters
-        gravity: float = 9.81,         # m/s^2
-        omega: float = 7.292e-5,       # Earth's angular velocity (rad/s)
-        f0: float = 1e-4,              # Reference Coriolis parameter (s^-1)
-        beta: float = 1.6e-11,         # Beta parameter (m^-1 s^-1)
+        gravity: float = 9.81,  # m/s^2
+        omega: float = 7.292e-5,  # Earth's angular velocity (rad/s)
+        f0: float = 1e-4,  # Reference Coriolis parameter (s^-1)
+        beta: float = 1.6e-11,  # Beta parameter (m^-1 s^-1)
         reference_pressure: float = 500.0,  # hPa for PV calculations
         stratification: float = 1e-4,  # N^2, Brunt-Väisälä frequency squared
     ):
@@ -92,8 +92,10 @@ class PhysicsLossCalculator(nn.Module):
         device = u.device
 
         # Create latitude grid (radians)
-        lat_grid = torch.linspace(-np.pi/2, np.pi/2, lat_dim, device=device, dtype=u.dtype)
-        lon_grid = torch.linspace(0, 2*np.pi, lon_dim, device=device, dtype=u.dtype)
+        lat_grid = torch.linspace(
+            -np.pi / 2, np.pi / 2, lat_dim, device=device, dtype=u.dtype
+        )
+        lon_grid = torch.linspace(0, 2 * np.pi, lon_dim, device=device, dtype=u.dtype)
 
         # Spatial spacing
         dlat = np.pi / (lat_dim - 1)
@@ -125,7 +127,7 @@ class PhysicsLossCalculator(nn.Module):
             # Vertical vorticity gradient (simplified stretching term)
             # In QG theory: f₀²/N² · ∂²ψ/∂p²
             # Approximate with vorticity vertical derivative
-            dp = torch.diff(pressure_levels, dim=1).mean() * 100  # hPa to Pa
+            dp = float(torch.diff(pressure_levels, dim=1).mean() * 100)  # hPa to Pa
 
             if n_levels >= 3:
                 # Second derivative in pressure coordinates
@@ -182,8 +184,8 @@ class PhysicsLossCalculator(nn.Module):
         ke_mean = ke.mean(dim=(0, 1))  # [lat, lon]
 
         # 2D FFT
-        ke_fft = torch.fft.rfft2(ke_mean, norm='ortho')
-        power_spectrum = torch.abs(ke_fft)**2
+        ke_fft = torch.fft.rfft2(ke_mean, norm="ortho")
+        power_spectrum = torch.abs(ke_fft) ** 2
 
         # Compute radial spectrum (azimuthally averaged)
         freq_y = torch.fft.fftfreq(lat_dim, d=1.0, device=u.device)
@@ -201,10 +203,10 @@ class PhysicsLossCalculator(nn.Module):
         valid_bins = []
 
         for i in range(len(k_bins) - 1):
-            mask = (k_radial >= k_bins[i]) & (k_radial < k_bins[i+1])
+            mask = (k_radial >= k_bins[i]) & (k_radial < k_bins[i + 1])
             if mask.sum() > 0:
                 radial_spectrum.append(power_spectrum[mask].mean())
-                valid_bins.append((k_bins[i] + k_bins[i+1]) / 2)
+                valid_bins.append((k_bins[i] + k_bins[i + 1]) / 2)
 
         if len(radial_spectrum) < 3:
             # Not enough bins for meaningful slope
@@ -223,12 +225,12 @@ class PhysicsLossCalculator(nn.Module):
         log_spectrum_mean = log_spectrum.mean()
 
         numerator = ((log_k - log_k_mean) * (log_spectrum - log_spectrum_mean)).sum()
-        denominator = ((log_k - log_k_mean)**2).sum()
+        denominator = ((log_k - log_k_mean) ** 2).sum()
 
         slope = numerator / (denominator + 1e-8)
 
         # Penalize deviation from target slope
-        slope_loss = (slope - target_slope)**2
+        slope_loss = (slope - target_slope) ** 2
 
         return slope_loss
 
@@ -259,7 +261,9 @@ class PhysicsLossCalculator(nn.Module):
         device = u.device
 
         # Latitude/longitude spacing
-        lat_grid = torch.linspace(-np.pi/2, np.pi/2, lat_dim, device=device, dtype=u.dtype)
+        lat_grid = torch.linspace(
+            -np.pi / 2, np.pi / 2, lat_dim, device=device, dtype=u.dtype
+        )
         dlat = np.pi / (lat_dim - 1)
         dlon = 2 * np.pi / lon_dim
 
@@ -294,7 +298,7 @@ class PhysicsLossCalculator(nn.Module):
                 # Interior points
                 weights[:, 0] = dp[:, 0] / 2
                 for i in range(1, n_levels - 1):
-                    weights[:, i] = (dp[:, i-1] + dp[:, i]) / 2
+                    weights[:, i] = (dp[:, i - 1] + dp[:, i]) / 2
                 weights[:, -1] = dp[:, -1] / 2
 
             # Normalize weights
@@ -338,7 +342,9 @@ class PhysicsLossCalculator(nn.Module):
         device = u.device
 
         # Latitude grid and Coriolis parameter
-        lat_grid = torch.linspace(-np.pi/2, np.pi/2, lat_dim, device=device, dtype=u.dtype)
+        lat_grid = torch.linspace(
+            -np.pi / 2, np.pi / 2, lat_dim, device=device, dtype=u.dtype
+        )
         f = self.coriolis_parameter(lat_grid).view(1, 1, lat_dim, 1)
 
         # Spatial derivatives
@@ -383,38 +389,42 @@ class PhysicsLossCalculator(nn.Module):
         """
         if loss_weights is None:
             loss_weights = {
-                'pv_conservation': 0.1,
-                'energy_spectra': 0.01,
-                'mass_divergence': 1.0,
-                'geostrophic_balance': 0.1,
+                "pv_conservation": 0.1,
+                "energy_spectra": 0.01,
+                "mass_divergence": 1.0,
+                "geostrophic_balance": 0.1,
             }
 
         losses = {}
         total_loss = torch.tensor(0.0, device=u.device, dtype=u.dtype)
 
         # PV conservation
-        if loss_weights.get('pv_conservation', 0) > 0:
-            pv_loss = self.compute_pv_conservation_loss(u, v, geopotential, pressure_levels)
-            losses['pv_conservation'] = pv_loss
-            total_loss = total_loss + loss_weights['pv_conservation'] * pv_loss
+        if loss_weights.get("pv_conservation", 0) > 0:
+            pv_loss = self.compute_pv_conservation_loss(
+                u, v, geopotential, pressure_levels
+            )
+            losses["pv_conservation"] = pv_loss
+            total_loss = total_loss + loss_weights["pv_conservation"] * pv_loss
 
         # Energy spectra
-        if loss_weights.get('energy_spectra', 0) > 0:
+        if loss_weights.get("energy_spectra", 0) > 0:
             spectra_loss = self.compute_energy_spectra_loss(u, v)
-            losses['energy_spectra'] = spectra_loss
-            total_loss = total_loss + loss_weights['energy_spectra'] * spectra_loss
+            losses["energy_spectra"] = spectra_loss
+            total_loss = total_loss + loss_weights["energy_spectra"] * spectra_loss
 
         # Mass-weighted divergence
-        if loss_weights.get('mass_divergence', 0) > 0:
-            mass_loss = self.compute_mass_weighted_divergence_loss(u, v, pressure_levels)
-            losses['mass_divergence'] = mass_loss
-            total_loss = total_loss + loss_weights['mass_divergence'] * mass_loss
+        if loss_weights.get("mass_divergence", 0) > 0:
+            mass_loss = self.compute_mass_weighted_divergence_loss(
+                u, v, pressure_levels
+            )
+            losses["mass_divergence"] = mass_loss
+            total_loss = total_loss + loss_weights["mass_divergence"] * mass_loss
 
         # Geostrophic balance
-        if geopotential is not None and loss_weights.get('geostrophic_balance', 0) > 0:
+        if geopotential is not None and loss_weights.get("geostrophic_balance", 0) > 0:
             balance_loss = self.compute_geostrophic_balance_loss(u, v, geopotential)
-            losses['geostrophic_balance'] = balance_loss
-            total_loss = total_loss + loss_weights['geostrophic_balance'] * balance_loss
+            losses["geostrophic_balance"] = balance_loss
+            total_loss = total_loss + loss_weights["geostrophic_balance"] * balance_loss
 
-        losses['physics_total'] = total_loss
+        losses["physics_total"] = total_loss
         return losses
