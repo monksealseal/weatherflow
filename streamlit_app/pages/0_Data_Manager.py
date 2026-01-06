@@ -18,18 +18,18 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 st.set_page_config(
-    page_title="Data Manager - WeatherFlow",
-    page_icon="📊",
-    layout="wide"
+    page_title="Data Manager - WeatherFlow", page_icon="📊", layout="wide"
 )
 
 st.title("📊 Data Manager")
 
-st.markdown("""
+st.markdown(
+    """
 **Real ERA5 Reanalysis Data** from the European Centre for Medium-Range Weather Forecasts (ECMWF).
 
 This page downloads and manages actual atmospheric observations - no synthetic data.
-""")
+"""
+)
 
 # Data paths
 DATA_DIR = Path(__file__).parent.parent / "data"
@@ -59,9 +59,7 @@ def load_era5_from_weatherbench2():
     # Method 1: Direct zarr with anonymous GCS access
     try:
         ds = xr.open_zarr(
-            WEATHERBENCH2_URL,
-            storage_options={'anon': True},
-            consolidated=True
+            WEATHERBENCH2_URL, storage_options={"anon": True}, consolidated=True
         )
         method_used = "GCS Anonymous"
     except Exception as e1:
@@ -70,7 +68,8 @@ def load_era5_from_weatherbench2():
         # Method 2: via gcsfs
         try:
             import gcsfs
-            fs = gcsfs.GCSFileSystem(token='anon')
+
+            fs = gcsfs.GCSFileSystem(token="anon")
             mapper = fs.get_mapper(WEATHERBENCH2_URL)
             ds = xr.open_zarr(mapper, consolidated=True)
             method_used = "gcsfs"
@@ -80,8 +79,11 @@ def load_era5_from_weatherbench2():
             # Method 3: HTTP fallback
             try:
                 import fsspec
-                http_url = WEATHERBENCH2_URL.replace('gs://', 'https://storage.googleapis.com/')
-                fs = fsspec.filesystem('http')
+
+                http_url = WEATHERBENCH2_URL.replace(
+                    "gs://", "https://storage.googleapis.com/"
+                )
+                fs = fsspec.filesystem("http")
                 mapper = fs.get_mapper(http_url)
                 ds = xr.open_zarr(mapper, consolidated=True)
                 method_used = "HTTP"
@@ -100,13 +102,13 @@ def load_era5_from_weatherbench2():
             "available_variables": list(ds.data_vars)[:20],
             "time_range": {
                 "start": str(ds.time.values[0]),
-                "end": str(ds.time.values[-1])
+                "end": str(ds.time.values[-1]),
             },
             "grid": {
                 "latitude": int(ds.latitude.size),
-                "longitude": int(ds.longitude.size)
+                "longitude": int(ds.longitude.size),
             },
-            "citation": "Hersbach et al. (2020). The ERA5 global reanalysis. Q J R Meteorol Soc."
+            "citation": "Hersbach et al. (2020). The ERA5 global reanalysis. Q J R Meteorol Soc.",
         }
 
         return ds, metadata
@@ -117,10 +119,7 @@ def load_era5_from_weatherbench2():
 @st.cache_data
 def load_subset(_ds, variables, levels, start_date, end_date):
     """Load a specific subset of the ERA5 data."""
-    subset = _ds[variables].sel(
-        time=slice(start_date, end_date),
-        level=levels
-    )
+    subset = _ds[variables].sel(time=slice(start_date, end_date), level=levels)
     return subset.load()
 
 
@@ -128,26 +127,29 @@ def load_subset(_ds, variables, levels, start_date, end_date):
 ds, metadata = load_era5_from_weatherbench2()
 
 if ds is None:
-    st.error("""
+    st.error(
+        """
     ❌ Could not connect to WeatherBench2.
 
     This app requires internet access to download real ERA5 data.
 
     **If running locally**, ensure you have network access and try:
     ```bash
-    pip install gcsfs xarray zarr
+    pip install xarray zarr gcsfs fsspec requests aiohttp
     ```
 
     **If on Streamlit Cloud**, this should work automatically.
     Please check your connection and refresh the page.
-    """)
+    """
+    )
     st.stop()
 
 # Data loaded successfully
 st.success("✅ Connected to REAL ERA5 data from WeatherBench2")
 
 # Show data source prominently
-st.markdown("""
+st.markdown(
+    """
 ---
 ### Data Source Verification
 
@@ -157,15 +159,13 @@ st.markdown("""
 | **Type** | REAL atmospheric reanalysis |
 | **Synthetic** | ❌ NO |
 | **License** | Copernicus Climate Data Store |
-""")
+"""
+)
 
 # Tabs for different views
-tab1, tab2, tab3, tab4 = st.tabs([
-    "📋 Overview",
-    "🔍 Preview Data",
-    "⚙️ Select Subset",
-    "📈 Statistics"
-])
+tab1, tab2, tab3, tab4 = st.tabs(
+    ["📋 Overview", "🔍 Preview Data", "⚙️ Select Subset", "📈 Statistics"]
+)
 
 with tab1:
     st.header("ERA5 Dataset Overview")
@@ -174,7 +174,8 @@ with tab1:
 
     with col1:
         st.subheader("About ERA5")
-        st.markdown("""
+        st.markdown(
+            """
         **ERA5** is the fifth generation ECMWF atmospheric reanalysis of the global climate.
 
         - Produced by the Copernicus Climate Change Service (C3S)
@@ -184,17 +185,22 @@ with tab1:
 
         **This is NOT synthetic data** - these are actual atmospheric observations
         combined with numerical weather prediction models.
-        """)
+        """
+        )
 
-        st.markdown(f"""
+        st.markdown(
+            f"""
         **Citation:**
         > {metadata.get('citation', 'Hersbach et al. (2020)')}
-        """)
+        """
+        )
 
     with col2:
         st.subheader("Available in this Dataset")
 
-        st.markdown(f"**Grid Size:** {metadata['grid']['latitude']} × {metadata['grid']['longitude']}")
+        st.markdown(
+            f"**Grid Size:** {metadata['grid']['latitude']} × {metadata['grid']['longitude']}"
+        )
 
         # Show available variables
         st.markdown("**Variables:**")
@@ -207,7 +213,7 @@ with tab1:
             st.write(f"... and {len(available_vars) - 15} more")
 
         # Show levels if available
-        if 'level' in ds.coords:
+        if "level" in ds.coords:
             st.markdown(f"**Pressure Levels:** {list(ds.level.values)} hPa")
 
 with tab2:
@@ -218,16 +224,16 @@ with tab2:
     with col1:
         preview_var = st.selectbox(
             "Variable",
-            options=[v for v in ds.data_vars if 'level' in ds[v].dims],
-            index=0
+            options=[v for v in ds.data_vars if "level" in ds[v].dims],
+            index=0,
         )
 
     with col2:
-        if 'level' in ds.coords:
+        if "level" in ds.coords:
             preview_level = st.selectbox(
                 "Pressure Level (hPa)",
                 options=sorted([int(l) for l in ds.level.values]),
-                index=2  # Default to 500 hPa region
+                index=2,  # Default to 500 hPa region
             )
         else:
             preview_level = None
@@ -241,7 +247,7 @@ with tab2:
             "Date",
             value=pd.Timestamp("2023-01-15"),
             min_value=min_time.date(),
-            max_value=max_time.date()
+            max_value=max_time.date(),
         )
 
     if st.button("Load Preview", type="primary"):
@@ -251,25 +257,32 @@ with tab2:
                 time_str = preview_date.strftime("%Y-%m-%d")
 
                 if preview_level:
-                    data_slice = ds[preview_var].sel(
-                        time=time_str,
-                        level=preview_level,
-                        method='nearest'
-                    ).isel(time=0).load()
+                    data_slice = (
+                        ds[preview_var]
+                        .sel(time=time_str, level=preview_level, method="nearest")
+                        .isel(time=0)
+                        .load()
+                    )
                 else:
-                    data_slice = ds[preview_var].sel(
-                        time=time_str,
-                        method='nearest'
-                    ).isel(time=0).load()
+                    data_slice = (
+                        ds[preview_var]
+                        .sel(time=time_str, method="nearest")
+                        .isel(time=0)
+                        .load()
+                    )
 
                 # Create plot
-                fig = go.Figure(data=go.Heatmap(
-                    z=data_slice.values,
-                    x=ds.longitude.values,
-                    y=ds.latitude.values,
-                    colorscale='RdBu_r' if 'temperature' in preview_var else 'Viridis',
-                    colorbar=dict(title=preview_var)
-                ))
+                fig = go.Figure(
+                    data=go.Heatmap(
+                        z=data_slice.values,
+                        x=ds.longitude.values,
+                        y=ds.latitude.values,
+                        colorscale=(
+                            "RdBu_r" if "temperature" in preview_var else "Viridis"
+                        ),
+                        colorbar=dict(title=preview_var),
+                    )
+                )
 
                 title = f"REAL ERA5: {preview_var}"
                 if preview_level:
@@ -280,12 +293,14 @@ with tab2:
                     title=title,
                     xaxis_title="Longitude",
                     yaxis_title="Latitude",
-                    height=500
+                    height=500,
                 )
 
                 st.plotly_chart(fig, use_container_width=True)
 
-                st.info(f"📊 This is REAL ERA5 data - atmospheric observations from {time_str}")
+                st.info(
+                    f"📊 This is REAL ERA5 data - atmospheric observations from {time_str}"
+                )
 
             except Exception as e:
                 st.error(f"Error loading data: {e}")
@@ -293,10 +308,12 @@ with tab2:
 with tab3:
     st.header("Select Data Subset")
 
-    st.markdown("""
+    st.markdown(
+        """
     Configure which data to use across the app. This selection will be stored
     and used by other pages (Wind Power, Flow Matching, etc.).
-    """)
+    """
+    )
 
     col1, col2 = st.columns(2)
 
@@ -304,15 +321,11 @@ with tab3:
         st.subheader("Time Range")
 
         start_date = st.date_input(
-            "Start Date",
-            value=pd.Timestamp("2023-01-01"),
-            key="start"
+            "Start Date", value=pd.Timestamp("2023-01-01"), key="start"
         )
 
         end_date = st.date_input(
-            "End Date",
-            value=pd.Timestamp("2023-02-28"),
-            key="end"
+            "End Date", value=pd.Timestamp("2023-02-28"), key="end"
         )
 
         # Calculate time steps
@@ -324,41 +337,42 @@ with tab3:
         st.subheader("Variables")
 
         # Common ML variables
-        default_vars = ['temperature', 'geopotential', 'u_component_of_wind', 'v_component_of_wind']
+        default_vars = [
+            "temperature",
+            "geopotential",
+            "u_component_of_wind",
+            "v_component_of_wind",
+        ]
         available = [v for v in default_vars if v in ds.data_vars]
 
         selected_vars = st.multiselect(
-            "Select Variables",
-            options=list(ds.data_vars),
-            default=available
+            "Select Variables", options=list(ds.data_vars), default=available
         )
 
         st.subheader("Pressure Levels")
 
-        if 'level' in ds.coords:
+        if "level" in ds.coords:
             all_levels = sorted([int(l) for l in ds.level.values])
             default_levels = [l for l in [1000, 850, 500, 200] if l in all_levels]
 
             selected_levels = st.multiselect(
-                "Select Levels (hPa)",
-                options=all_levels,
-                default=default_levels
+                "Select Levels (hPa)", options=all_levels, default=default_levels
             )
         else:
             selected_levels = []
 
     if st.button("💾 Save Selection for App", type="primary"):
-        st.session_state['era5_selection'] = {
-            'start_date': str(start_date),
-            'end_date': str(end_date),
-            'variables': selected_vars,
-            'levels': selected_levels,
-            'source': 'WeatherBench2 ERA5 (REAL DATA)'
+        st.session_state["era5_selection"] = {
+            "start_date": str(start_date),
+            "end_date": str(end_date),
+            "variables": selected_vars,
+            "levels": selected_levels,
+            "source": "WeatherBench2 ERA5 (REAL DATA)",
         }
         st.success("✅ Selection saved! Other pages will use this real ERA5 data.")
 
         # Show what was saved
-        st.json(st.session_state['era5_selection'])
+        st.json(st.session_state["era5_selection"])
 
 with tab4:
     st.header("Data Statistics")
@@ -367,24 +381,27 @@ with tab4:
 
     stat_var = st.selectbox(
         "Select Variable for Statistics",
-        options=[v for v in ds.data_vars if 'level' in ds[v].dims][:10],
-        key="stat_var"
+        options=[v for v in ds.data_vars if "level" in ds[v].dims][:10],
+        key="stat_var",
     )
 
     stat_level = st.selectbox(
         "Select Level (hPa)",
-        options=sorted([int(l) for l in ds.level.values]) if 'level' in ds.coords else [0],
-        key="stat_level"
+        options=(
+            sorted([int(l) for l in ds.level.values]) if "level" in ds.coords else [0]
+        ),
+        key="stat_level",
     )
 
     if st.button("Compute Statistics (samples 2023)"):
         with st.spinner("Computing statistics from real ERA5 data..."):
             try:
                 # Sample a year of data
-                sample = ds[stat_var].sel(
-                    time=slice('2023-01-01', '2023-12-31'),
-                    level=stat_level
-                ).load()
+                sample = (
+                    ds[stat_var]
+                    .sel(time=slice("2023-01-01", "2023-12-31"), level=stat_level)
+                    .load()
+                )
 
                 values = sample.values.flatten()
                 values = values[~np.isnan(values)]
@@ -396,11 +413,15 @@ with tab4:
                 col4.metric("Max", f"{np.max(values):.2f}")
 
                 # Histogram
-                fig = go.Figure(data=go.Histogram(x=np.random.choice(values, min(50000, len(values))), nbinsx=50))
+                fig = go.Figure(
+                    data=go.Histogram(
+                        x=np.random.choice(values, min(50000, len(values))), nbinsx=50
+                    )
+                )
                 fig.update_layout(
                     title=f"Distribution of {stat_var} at {stat_level} hPa (Real ERA5 Data)",
                     xaxis_title="Value",
-                    yaxis_title="Count"
+                    yaxis_title="Count",
                 )
                 st.plotly_chart(fig, use_container_width=True)
 
@@ -411,7 +432,8 @@ with tab4:
 # Sidebar
 st.sidebar.header("Data Source")
 st.sidebar.success("✅ REAL ERA5 Data")
-st.sidebar.markdown(f"""
+st.sidebar.markdown(
+    f"""
 **Source:** WeatherBench2
 
 **Provider:** ECMWF
@@ -425,4 +447,5 @@ st.sidebar.markdown(f"""
 This is actual atmospheric data from
 satellite observations, weather stations,
 and numerical weather prediction models.
-""")
+"""
+)
