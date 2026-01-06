@@ -187,7 +187,7 @@ with tab1:
         )
 
         fig.update_xaxes(title_text='Longitude (°)')
-        fig.update_yaxes(title_text='Latitude (°)', row=1, col=1)
+        fig.update_yaxes(title_text='Latitude (°)')
         fig.update_layout(height=350)
         st.plotly_chart(fig, use_container_width=True)
 
@@ -310,7 +310,7 @@ with tab2:
         )
 
         fig.update_xaxes(title_text='Longitude (°)')
-        fig.update_yaxes(title_text='Latitude (°)', row=1, col=1)
+        fig.update_yaxes(title_text='Latitude (°)')
         fig.update_layout(height=350)
         st.plotly_chart(fig, use_container_width=True)
 
@@ -565,8 +565,7 @@ with tab4:
         )
 
         fig.update_xaxes(title_text='Longitude (°)')
-        fig.update_yaxes(title_text='Latitude (°)', row=1, col=1)
-        fig.update_yaxes(title_text='Latitude (°)', row=2, col=1)
+        fig.update_yaxes(title_text='Latitude (°)')
         fig.update_layout(height=600)
         st.plotly_chart(fig, use_container_width=True)
 
