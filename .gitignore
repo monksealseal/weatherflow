@@ -58,3 +58,8 @@ server.pid
 # Visualization outputs
 examples/visualizations_output/
 
+# Streamlit app data (generated locally, too large for git)
+streamlit_app/data/*.nc
+streamlit_app/data/*.h5
+streamlit_app/data/*.zarr/
+
