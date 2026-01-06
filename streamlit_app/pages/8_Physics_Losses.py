@@ -109,6 +109,10 @@ with tab1:
         lats = np.linspace(-np.pi/2, np.pi/2, lat_dim)
         lons = np.linspace(0, 2*np.pi, lon_dim)
         lat_grid, lon_grid = np.meshgrid(lats, lons, indexing='ij')
+        
+        # Create degree coordinates for plotting
+        lats_deg = np.degrees(lats)
+        lons_deg = np.degrees(lons)
 
         if div_type == "Nondivergent (Rotational)":
             # Pure rotational flow (geostrophic-like)
@@ -167,21 +171,23 @@ with tab1:
         )
 
         fig.add_trace(
-            go.Heatmap(z=u, colorscale='RdBu_r', zmid=0, showscale=True,
+            go.Heatmap(z=u, x=lons_deg, y=lats_deg, colorscale='RdBu_r', zmid=0, showscale=True,
                       colorbar=dict(title='m/s', x=0.28)),
             row=1, col=1
         )
         fig.add_trace(
-            go.Heatmap(z=v, colorscale='RdBu_r', zmid=0, showscale=True,
+            go.Heatmap(z=v, x=lons_deg, y=lats_deg, colorscale='RdBu_r', zmid=0, showscale=True,
                       colorbar=dict(title='m/s', x=0.63)),
             row=1, col=2
         )
         fig.add_trace(
-            go.Heatmap(z=divergence * 1e5, colorscale='RdBu_r', zmid=0, showscale=True,
+            go.Heatmap(z=divergence * 1e5, x=lons_deg, y=lats_deg, colorscale='RdBu_r', zmid=0, showscale=True,
                       colorbar=dict(title='×10⁻⁵ s⁻¹')),
             row=1, col=3
         )
 
+        fig.update_xaxes(title_text='Longitude (°)')
+        fig.update_yaxes(title_text='Latitude (°)', row=1, col=1)
         fig.update_layout(height=350)
         st.plotly_chart(fig, use_container_width=True)
 
@@ -227,6 +233,10 @@ with tab2:
         lats = np.linspace(-np.pi/2, np.pi/2, lat_dim)
         lons = np.linspace(0, 2*np.pi, lon_dim)
         lat_grid, lon_grid = np.meshgrid(lats, lons, indexing='ij')
+        
+        # Create degree coordinates for plotting
+        lats_deg = np.degrees(lats)
+        lons_deg = np.degrees(lons)
 
         amp = vorticity_amplitude * 1e-5
 
@@ -280,13 +290,13 @@ with tab2:
         )
 
         fig.add_trace(
-            go.Heatmap(z=psi, colorscale='RdBu_r', showscale=True,
+            go.Heatmap(z=psi, x=lons_deg, y=lats_deg, colorscale='RdBu_r', showscale=True,
                       colorbar=dict(title='ψ', x=0.28)),
             row=1, col=1
         )
 
         fig.add_trace(
-            go.Heatmap(z=vorticity * 1e5, colorscale='RdBu_r', zmid=0, showscale=True,
+            go.Heatmap(z=vorticity * 1e5, x=lons_deg, y=lats_deg, colorscale='RdBu_r', zmid=0, showscale=True,
                       colorbar=dict(title='ζ×10⁵', x=0.63)),
             row=1, col=2
         )
@@ -294,11 +304,13 @@ with tab2:
         f = 2 * calculator.omega * np.sin(lat_grid)
         abs_vort = vorticity + f + calculator.beta * lat_grid * calculator.earth_radius
         fig.add_trace(
-            go.Heatmap(z=abs_vort * 1e5, colorscale='Viridis', showscale=True,
+            go.Heatmap(z=abs_vort * 1e5, x=lons_deg, y=lats_deg, colorscale='Viridis', showscale=True,
                       colorbar=dict(title='q×10⁵')),
             row=1, col=3
         )
 
+        fig.update_xaxes(title_text='Longitude (°)')
+        fig.update_yaxes(title_text='Latitude (°)', row=1, col=1)
         fig.update_layout(height=350)
         st.plotly_chart(fig, use_container_width=True)
 
@@ -408,6 +420,9 @@ with tab3:
             row=1, col=1
         )
 
+        fig.update_xaxes(title_text='Grid X', row=1, col=1)
+        fig.update_yaxes(title_text='Grid Y', row=1, col=1)
+
         fig.add_trace(
             go.Scatter(x=np.log10(k_centers), y=np.log10(radial_spectrum),
                       mode='markers+lines', name='Actual',
@@ -471,6 +486,10 @@ with tab4:
         lats = np.linspace(-np.pi/4, np.pi/4, lat_dim)  # Mid-latitudes
         lons = np.linspace(0, 2*np.pi, lon_dim)
         lat_grid, lon_grid = np.meshgrid(lats, lons, indexing='ij')
+        
+        # Create degree coordinates for plotting
+        lats_deg = np.degrees(lats)
+        lons_deg = np.degrees(lons)
 
         # Geopotential field
         phi = 50000 + 2000 * np.sin(lat_grid * 2) * np.cos(lon_grid * 3)
@@ -520,31 +539,34 @@ with tab4:
         )
 
         fig.add_trace(
-            go.Heatmap(z=phi, colorscale='viridis', showscale=True,
+            go.Heatmap(z=phi, x=lons_deg, y=lats_deg, colorscale='viridis', showscale=True,
                       colorbar=dict(title='Φ', x=0.45, y=0.78, len=0.4)),
             row=1, col=1
         )
 
         wind_speed = np.sqrt(u**2 + v**2)
         fig.add_trace(
-            go.Heatmap(z=wind_speed, colorscale='YlOrRd', showscale=True,
+            go.Heatmap(z=wind_speed, x=lons_deg, y=lats_deg, colorscale='YlOrRd', showscale=True,
                       colorbar=dict(title='m/s', x=1.0, y=0.78, len=0.4)),
             row=1, col=2
         )
 
         geo_speed = np.sqrt(u_geo**2 + v_geo**2)
         fig.add_trace(
-            go.Heatmap(z=geo_speed, colorscale='YlOrRd', showscale=True,
+            go.Heatmap(z=geo_speed, x=lons_deg, y=lats_deg, colorscale='YlOrRd', showscale=True,
                       colorbar=dict(title='m/s', x=0.45, y=0.22, len=0.4)),
             row=2, col=1
         )
 
         fig.add_trace(
-            go.Heatmap(z=ageo_mag, colorscale='Reds', showscale=True,
+            go.Heatmap(z=ageo_mag, x=lons_deg, y=lats_deg, colorscale='Reds', showscale=True,
                       colorbar=dict(title='m/s', x=1.0, y=0.22, len=0.4)),
             row=2, col=2
         )
 
+        fig.update_xaxes(title_text='Longitude (°)')
+        fig.update_yaxes(title_text='Latitude (°)', row=1, col=1)
+        fig.update_yaxes(title_text='Latitude (°)', row=2, col=1)
         fig.update_layout(height=600)
         st.plotly_chart(fig, use_container_width=True)
 
