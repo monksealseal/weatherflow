@@ -59,7 +59,8 @@ function DashboardView() {
             <ul>
               <li>Renewable energy converters (<code>applications/renewable_energy/*</code>)</li>
               <li>Extreme event detectors (<code>applications/extreme_event_analysis/detectors.py</code>)</li>
-              <li>ERA5 data exploration (<code>weatherflow/data/era5.py</code>)</li>
+              <li>ERA5 data exploration and persistence baselines (<code>weatherflow/data/era5.py</code>)</li>
+              <li>Flow visualisation with toy tensors (<code>weatherflow/models/flow_matching.py</code>)</li>
               <li>FastAPI smoke tests (<code>run_experiment.py</code> → <code>weatherflow/server/app.py</code>)</li>
             </ul>
           </div>
@@ -70,6 +71,59 @@ function DashboardView() {
               <li>Experiment visualizations powered by <code>WeatherFlowODE</code></li>
               <li>Evaluation dashboards using <code>weatherflow/training/metrics.py</code></li>
               <li>Remote/Hugging Face runs for heavier training jobs</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section className="integration-section">
+        <div className="readiness-header">
+          <h2>🔌 Wire navigation items to existing Python</h2>
+          <p>Keep the UI useful even when you do not want to start a long training job.</p>
+        </div>
+        <div className="integration-grid">
+          <div className="integration-card">
+            <div className="integration-card-header">
+              <h3>Model Zoo & Flow Matching</h3>
+              <span className="pill">Checkpoints preferred</span>
+            </div>
+            <ul>
+              <li><strong>Backend files:</strong> <code>model_zoo/train_model.py</code>, <code>model_zoo/download_model.py</code>, <code>weatherflow/models/flow_matching.py</code></li>
+              <li><strong>Instant path:</strong> Load an archived checkpoint with <code>download_model.py</code> and render configs/metadata even before inference runs.</li>
+              <li><strong>Training path:</strong> Push <code>train_model.py</code> to a remote runner (Hugging Face, cluster) and drop the *.pt + model_card.json back into <code>model_zoo/</code>.</li>
+            </ul>
+          </div>
+          <div className="integration-card">
+            <div className="integration-card-header">
+              <h3>Data + Detectors</h3>
+              <span className="pill">No training needed</span>
+            </div>
+            <ul>
+              <li><strong>Backend files:</strong> <code>weatherflow/data/era5.py</code>, <code>applications/extreme_event_analysis/detectors.py</code>, <code>applications/renewable_energy/*</code></li>
+              <li><strong>UI targets:</strong> ERA5 Browser, Extreme Events, Renewable Energy, Evaluation baselines.</li>
+              <li><strong>Workflow:</strong> Use ERA5 loaders to feed detectors or calculators, then render maps and tables without waiting for ML checkpoints.</li>
+            </ul>
+          </div>
+          <div className="integration-card">
+            <div className="integration-card-header">
+              <h3>Experiment API & Metrics</h3>
+              <span className="pill">Short runs OK</span>
+            </div>
+            <ul>
+              <li><strong>Backend files:</strong> <code>run_experiment.py</code>, <code>weatherflow/server/app.py</code>, <code>weatherflow/training/metrics.py</code></li>
+              <li><strong>Instant path:</strong> Trigger the FastAPI smoke run to populate Experiment History and Evaluation cards with sample metrics.</li>
+              <li><strong>Training path:</strong> Swap the endpoint to a remote host that is training longer jobs; the UI ingests the same payloads.</li>
+            </ul>
+          </div>
+          <div className="integration-card">
+            <div className="integration-card-header">
+              <h3>Education & Notebooks</h3>
+              <span className="pill">Reuse scripts</span>
+            </div>
+            <ul>
+              <li><strong>Backend files:</strong> <code>examples/flow_matching/simple_example.py</code>, <code>examples/flow_matching/era5_strict_training_loop.py</code>, <code>weatherflow/education/graduate_tool.py</code></li>
+              <li><strong>Instant path:</strong> Surface the prewritten examples and notebook runners; users can run locally without editing Python.</li>
+              <li><strong>Training path:</strong> Point the notebook/gallery to a pre-trained checkpoint to unlock richer visualizations.</li>
             </ul>
           </div>
         </div>
