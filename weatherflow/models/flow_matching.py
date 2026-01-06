@@ -591,6 +591,20 @@ class WeatherFlowODE(nn.Module):
     This model wraps a flow matching model and uses it with an ODE solver
     to generate weather predictions over time.
     """
+    _TORCHDIFFEQ_METHODS = {
+        "adams",
+        "bdf",
+        "dopri5",
+        "euler",
+        "explicit_adams",
+        "implicit_adams",
+        "midpoint",
+        "rk4",
+    }
+
+    _METHOD_ALIASES = {
+        "heun": "midpoint",
+    }
     def __init__(
         self,
         flow_model: nn.Module,
@@ -605,6 +619,29 @@ class WeatherFlowODE(nn.Module):
         self.rtol = rtol
         self.atol = atol
         self.fast_mode = fast_mode
+
+    def _resolve_solver_method(self) -> str:
+        """Return a torchdiffeq-compatible solver name.
+
+        Torchdiffeq does not implement Heun integration. When requested, we
+        map it to the 2nd-order midpoint solver, which offers similar behavior
+        while keeping the configuration meaningful for users. Any other
+        unsupported solver results in a clear validation error before calling
+        the backend integrator.
+        """
+
+        method = self.solver_method.lower() if isinstance(self.solver_method, str) else ""
+        method = self._METHOD_ALIASES.get(method, method)
+
+        if method not in self._TORCHDIFFEQ_METHODS:
+            valid = sorted(self._TORCHDIFFEQ_METHODS)
+            aliases = sorted(self._METHOD_ALIASES)
+            raise ValueError(
+                f"Invalid solver method '{self.solver_method}'. "
+                f"Supported methods: {valid}. Aliases: {aliases}."
+            )
+
+        return method
         
     def forward(
         self,
@@ -647,11 +684,12 @@ class WeatherFlowODE(nn.Module):
                 t_batch = t.expand(x.shape[0])
                 return self.flow_model(x, t_batch, static=static, forcing=forcing)
             
+            method = self._resolve_solver_method()
             predictions = odeint(
                 ode_func,
                 x0,
                 times,
-                method=self.solver_method,
+                method=method,
                 rtol=self.rtol,
                 atol=self.atol
             )
