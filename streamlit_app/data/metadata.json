@@ -1,0 +1,21 @@
+{
+  "source": "WeatherBench2 ERA5 (ECMWF Reanalysis)",
+  "is_synthetic": false,
+  "url": "gs://weatherbench2/datasets/era5/1959-2023_01_10-6h-64x32_equiangular_conservative.zarr",
+  "status": "PENDING_DOWNLOAD",
+  "note": "Run 'python streamlit_app/prepare_data.py' to download REAL ERA5 data, or deploy to Streamlit Cloud where data will be fetched automatically from WeatherBench2.",
+  "variables": [
+    "temperature",
+    "geopotential",
+    "u_component_of_wind",
+    "v_component_of_wind"
+  ],
+  "pressure_levels": [1000, 850, 700, 500, 300, 200],
+  "grid": {
+    "latitude": 32,
+    "longitude": 64,
+    "resolution": "64x32"
+  },
+  "license": "Copernicus Climate Data Store License",
+  "citation": "Hersbach et al. (2020). The ERA5 global reanalysis. Q J R Meteorol Soc."
+}
