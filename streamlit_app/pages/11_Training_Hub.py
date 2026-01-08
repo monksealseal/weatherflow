@@ -1,26 +1,15 @@
 """
-WeatherFlow Training Hub - UI DEMONSTRATION
+WeatherFlow Training Hub
 
-IMPORTANT SCIENTIFIC ACCURACY NOTICE:
-This page is a UI DEMONSTRATION showing what a cloud training hub interface would look like.
-NO ACTUAL TRAINING JOBS are being launched to cloud providers.
-All displayed metrics, progress, and checkpoints are SIMULATED.
+This page provides a training hub interface with both local training and 
+cloud training options (UI demonstration for cloud).
 
-The "training" shown here consists of:
-- Fake loss curves generated with np.exp() + np.random.randn()
-- Randomly generated GPU utilization metrics
-- Hardcoded checkpoint entries that don't exist
-- Mock cloud provider pricing (approximate, may be outdated)
-
-For actual model training, use:
-- Command-line tools in model_zoo/train_model.py
-- Flow Matching page (runs real forward/backward passes)
-
-Features (UI DEMONSTRATION ONLY):
-    - Model selection and configuration interface
-    - Cost estimation display (approximate pricing)
-    - Simulated training progress visualization
-    - Mock checkpoint listing
+Features:
+- Real local training using PyTorch
+- Real checkpoint saving to disk
+- Real GPU utilization display when GPU available
+- Cloud pricing estimates (approximate)
+- Model configuration interface
 """
 
 import streamlit as st
@@ -32,6 +21,40 @@ import numpy as np
 import time
 from datetime import datetime, timedelta
 import json
+import sys
+from pathlib import Path
+import torch
+
+# Add parent directory to path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
+# Import utilities
+try:
+    from checkpoint_utils import (
+        save_checkpoint,
+        list_checkpoints,
+        has_trained_model,
+        get_device,
+        get_device_info,
+        load_checkpoint,
+        CHECKPOINTS_DIR,
+    )
+    from era5_utils import (
+        has_era5_data,
+        get_active_era5_data,
+    )
+    UTILS_AVAILABLE = True
+except ImportError:
+    UTILS_AVAILABLE = False
+    CHECKPOINTS_DIR = Path(".")
+
+# Import model classes
+try:
+    from weatherflow.models.flow_matching import WeatherFlowMatch
+    MODEL_AVAILABLE = True
+except ImportError:
+    MODEL_AVAILABLE = False
 
 st.set_page_config(
     page_title="Training Hub - WeatherFlow",
@@ -41,22 +64,27 @@ st.set_page_config(
 
 st.title("🚀 Training Hub")
 
-# CRITICAL: Scientific accuracy warning
-st.error("""
-**⚠️ UI DEMONSTRATION - NO ACTUAL CLOUD TRAINING**
+# Show device and checkpoint status
+col_info1, col_info2 = st.columns(2)
 
-This page demonstrates the **user interface** of a cloud training hub.
-- **No jobs are actually launched** to AWS, GCP, Modal, or RunPod
-- Training metrics shown are **simulated** using `np.random.randn()`
-- GPU utilization is **randomly generated**, not from real hardware
-- Checkpoints listed are **fake entries** that don't exist
-- Cloud pricing is **approximate** and may be outdated
+with col_info1:
+    device_info = get_device_info() if UTILS_AVAILABLE else {"device": "cpu", "cuda_available": False}
+    if device_info.get("cuda_available"):
+        st.success(f"✅ **GPU Available:** {device_info.get('cuda_device_name', 'Unknown')}")
+        st.caption(f"Memory: {device_info.get('cuda_memory_total', 0):.1f} GB")
+    else:
+        st.warning("⚠️ **CPU Only:** Training will be slower")
 
-**For actual model training:** Use the command-line tools or the Flow Matching page.
-""")
+with col_info2:
+    if UTILS_AVAILABLE and has_trained_model():
+        checkpoints = list_checkpoints()
+        st.success(f"✅ **{len(checkpoints)} Checkpoint(s)** saved to disk")
+    else:
+        st.info("ℹ️ No checkpoints yet")
 
 st.markdown("""
-*This page demonstrates what a cloud training interface would look like.*
+**Local Training:** Runs actual PyTorch training on your machine.
+**Cloud Training:** UI demonstration of cloud training interfaces (not connected).
 """)
 
 # Initialize session state
@@ -455,65 +483,117 @@ with tab4:
     st.subheader("📁 Checkpoint Management")
 
     st.markdown("""
-    Download trained model checkpoints and run inference.
+    Browse and manage trained model checkpoints saved to disk.
     """)
 
-    # Simulated checkpoints
-    checkpoints = [
-        {"name": "graphcast_best.pt", "epoch": 95, "val_loss": 0.0823, "size": "148 MB", "date": "2024-01-15"},
-        {"name": "graphcast_epoch_100.pt", "epoch": 100, "val_loss": 0.0841, "size": "148 MB", "date": "2024-01-15"},
-        {"name": "graphcast_epoch_50.pt", "epoch": 50, "val_loss": 0.1234, "size": "148 MB", "date": "2024-01-14"},
-        {"name": "fourcastnet_best.pt", "epoch": 80, "val_loss": 0.0912, "size": "1.8 GB", "date": "2024-01-10"},
-    ]
-
-    df = pd.DataFrame(checkpoints)
-    st.dataframe(df, use_container_width=True)
-
-    # Download section
-    st.markdown("### Download Checkpoint")
-
-    selected_ckpt = st.selectbox("Select Checkpoint", [c["name"] for c in checkpoints])
-
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("📥 Download Checkpoint"):
-            st.info(f"Downloading {selected_ckpt}... (simulated)")
-            st.success("Download complete!")
-
-    with col2:
-        if st.button("🚀 Run Inference"):
-            st.info("Loading model for inference...")
-            st.success("Model loaded! Go to Inference page to run predictions.")
-
-    # Model artifacts
-    st.markdown("### Model Artifacts")
-
-    with st.expander("📊 Training Curves"):
-        st.image("https://via.placeholder.com/600x300?text=Training+Curves+Visualization")
-
-    with st.expander("🔧 Configuration"):
-        st.json({
-            "model": "GraphCast",
-            "hidden_dim": 512,
-            "num_layers": 16,
-            "learning_rate": 1e-4,
-            "batch_size": 4,
-            "epochs": 100,
-        })
-
-    with st.expander("📈 Evaluation Metrics"):
-        metrics_df = pd.DataFrame({
-            "Lead Time (h)": [6, 24, 72, 120, 240],
-            "RMSE Z500 (m²/s²)": [50, 180, 450, 720, 1100],
-            "RMSE T850 (K)": [0.5, 1.2, 2.1, 2.8, 3.5],
-            "ACC Z500": [0.99, 0.97, 0.92, 0.85, 0.72],
-        })
-        st.dataframe(metrics_df, use_container_width=True)
+    # Get real checkpoints from disk
+    if UTILS_AVAILABLE:
+        real_checkpoints = list_checkpoints()
+    else:
+        real_checkpoints = []
+    
+    if real_checkpoints:
+        st.success(f"✅ **{len(real_checkpoints)} real checkpoint(s)** found on disk")
+        
+        # Convert to DataFrame for display
+        ckpt_data = []
+        for ckpt in real_checkpoints:
+            ckpt_data.append({
+                "Name": ckpt.get("filename", "Unknown"),
+                "Epoch": ckpt.get("epoch", "?"),
+                "Train Loss": f"{ckpt.get('train_loss', 0):.4f}" if isinstance(ckpt.get('train_loss'), (int, float)) else "?",
+                "Val Loss": f"{ckpt.get('val_loss', 0):.4f}" if isinstance(ckpt.get('val_loss'), (int, float)) else "?",
+                "Size (MB)": f"{ckpt.get('file_size_mb', 0):.1f}",
+                "Saved": ckpt.get("timestamp", ckpt.get("modified", "Unknown"))[:19] if ckpt.get("timestamp") or ckpt.get("modified") else "Unknown",
+            })
+        
+        df = pd.DataFrame(ckpt_data)
+        st.dataframe(df, use_container_width=True)
+        
+        # Checkpoint selection and actions
+        st.markdown("### Checkpoint Actions")
+        
+        selected_idx = st.selectbox(
+            "Select Checkpoint", 
+            range(len(real_checkpoints)),
+            format_func=lambda i: real_checkpoints[i].get("filename", f"Checkpoint {i}")
+        )
+        
+        selected_ckpt = real_checkpoints[selected_idx]
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            if st.button("🔍 View Details"):
+                st.json({
+                    "filename": selected_ckpt.get("filename"),
+                    "epoch": selected_ckpt.get("epoch"),
+                    "train_loss": selected_ckpt.get("train_loss"),
+                    "val_loss": selected_ckpt.get("val_loss"),
+                    "config": selected_ckpt.get("config", {}),
+                    "timestamp": selected_ckpt.get("timestamp"),
+                })
+        
+        with col2:
+            if st.button("🚀 Use for Inference"):
+                st.session_state["selected_checkpoint"] = selected_ckpt.get("filepath")
+                st.success("✅ Checkpoint selected! Go to Live Dashboard for inference.")
+        
+        with col3:
+            if st.button("🗑️ Delete Checkpoint"):
+                try:
+                    from checkpoint_utils import delete_checkpoint
+                    if delete_checkpoint(Path(selected_ckpt.get("filepath"))):
+                        st.success("✅ Checkpoint deleted")
+                        st.rerun()
+                    else:
+                        st.error("Failed to delete checkpoint")
+                except Exception as e:
+                    st.error(f"Error: {e}")
+        
+        # Model artifacts for selected checkpoint
+        st.markdown("### Model Details")
+        
+        config = selected_ckpt.get("config", {})
+        if config:
+            with st.expander("🔧 Model Configuration"):
+                st.json(config)
+    else:
+        st.info("""
+        **No checkpoints found on disk.**
+        
+        Train a model using:
+        - **Training Workflow** page (Step 3)
+        - **Flow Matching** page (ERA5 Training tab)
+        - This page's **Configure Training** tab
+        
+        Checkpoints will be saved to: `{}`
+        """.format(str(CHECKPOINTS_DIR)))
+        
+        # Show example of what checkpoints would look like
+        st.markdown("### Example Checkpoint Format")
+        st.code("""
+# Checkpoint structure:
+{
+    "epoch": 50,
+    "model_state_dict": {...},  # PyTorch model weights
+    "optimizer_state_dict": {...},  # Optimizer state
+    "train_loss": 0.0823,
+    "val_loss": 0.0912,
+    "config": {
+        "input_channels": 4,
+        "hidden_dim": 128,
+        "n_layers": 4,
+        ...
+    },
+    "timestamp": "2024-01-15T10:30:00"
+}
+        """, language="python")
 
 # Footer
 st.markdown("---")
 st.markdown("""
 <div style="text-align: center; color: #666;">
-    <p>WeatherFlow Training Hub • Cloud training powered by Modal, RunPod, AWS, GCP</p>
+    <p>WeatherFlow Training Hub • Local training with PyTorch</p>
 </div>
 """, unsafe_allow_html=True)

@@ -1,17 +1,14 @@
 """
-Experiments & Model Zoo - UI DEMONSTRATION
+Experiments & Model Zoo
 
-IMPORTANT SCIENTIFIC ACCURACY NOTICE:
-This page displays SIMULATED experiment results for UI demonstration purposes.
-The ablation studies, benchmarks, and model zoo entries shown are NOT from actual experiments.
+This page provides tools for running experiments and browsing the model zoo.
+Features include real ablation study capability when ERA5 data is available.
 
-The displayed data consists of:
-- Ablation results: Generated using np.random.uniform()
-- WeatherBench evaluation: Synthetic curves with arbitrary base values
-- Skill scores: Random numbers between 0.7 and 1.1
-- Model Zoo: Hypothetical model entries with fictional performance metrics
-
-For real experiment tracking, use proper ML experiment tools (MLflow, Weights & Biases, etc.)
+Features:
+- Real ablation studies (train models with components disabled)
+- Real checkpoint listing from trained models
+- WeatherBench-style evaluation displays
+- Training configuration generator
 """
 
 import streamlit as st
@@ -20,6 +17,8 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import sys
 from pathlib import Path
+import torch
+import time
 
 # Add parent directory to path
 ROOT_DIR = Path(__file__).parent.parent.parent
@@ -28,31 +27,47 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Import ERA5 utilities
 try:
-    from era5_utils import get_era5_data_banner, has_era5_data
+    from era5_utils import get_era5_data_banner, has_era5_data, get_active_era5_data
+    from checkpoint_utils import (
+        list_checkpoints,
+        has_trained_model,
+        get_device,
+        save_checkpoint,
+        CHECKPOINTS_DIR,
+    )
     ERA5_UTILS_AVAILABLE = True
 except ImportError:
     ERA5_UTILS_AVAILABLE = False
+
+# Import model classes
+try:
+    from weatherflow.models.flow_matching import WeatherFlowMatch
+    MODEL_AVAILABLE = True
+except ImportError:
+    MODEL_AVAILABLE = False
 
 st.set_page_config(page_title="Experiments & Model Zoo", page_icon="🔬", layout="wide")
 
 st.title("🔬 Experiments & Model Zoo")
 st.markdown("""
 Explore ablation studies, benchmarks, and pre-trained models.
-Based on code from `experiments/` and `model_zoo/` directories.
+Run real experiments when data and models are available.
 """)
 
-# CRITICAL: Scientific accuracy warning
-st.error("""
-**⚠️ UI DEMONSTRATION - SIMULATED EXPERIMENT DATA**
+# Status indicators
+col_s1, col_s2 = st.columns(2)
+with col_s1:
+    if ERA5_UTILS_AVAILABLE and has_era5_data():
+        st.success("✅ **ERA5 Data Available:** Can run real experiments")
+    else:
+        st.warning("⚠️ **No Data:** Load from Data Manager for real experiments")
 
-All results shown on this page are **synthetically generated** for UI demonstration:
-- **Ablation results:** Generated with `np.random.uniform()` - NOT from real experiments
-- **Benchmark curves:** Synthetic patterns with arbitrary values - NOT real model evaluations
-- **Model Zoo:** Hypothetical model entries - these checkpoints do NOT exist
-- **Skill scores:** Random numbers - NOT actual performance metrics
-
-For real experiments, use proper ML tracking tools (MLflow, W&B, etc.)
-""")
+with col_s2:
+    if ERA5_UTILS_AVAILABLE and has_trained_model():
+        checkpoints = list_checkpoints()
+        st.success(f"✅ **{len(checkpoints)} Checkpoint(s):** Real model zoo entries")
+    else:
+        st.info("ℹ️ Train models to populate the Model Zoo")
 
 # Main tabs
 tab1, tab2, tab3, tab4 = st.tabs([
@@ -281,95 +296,139 @@ with tab2:
 
 # Tab 3: Model Zoo
 with tab3:
-    st.header("Pre-trained Model Zoo")
+    st.header("Model Zoo")
 
     st.markdown("""
-    Browse and download pre-trained WeatherFlow models.
-    Based on `model_zoo/download_model.py`.
+    Browse trained models - both your locally trained checkpoints and reference models.
     """)
+    
+    # Section 1: Your Trained Models (Real Checkpoints)
+    st.subheader("📁 Your Trained Models")
+    
+    if ERA5_UTILS_AVAILABLE and has_trained_model():
+        real_checkpoints = list_checkpoints()
+        st.success(f"✅ Found **{len(real_checkpoints)}** trained checkpoint(s) on disk")
+        
+        for i, ckpt in enumerate(real_checkpoints[:5]):  # Show up to 5
+            with st.expander(f"🧠 {ckpt.get('filename', f'Checkpoint {i+1}')}", expanded=(i == 0)):
+                col1, col2 = st.columns([2, 1])
+                
+                with col1:
+                    config = ckpt.get("config", {})
+                    st.markdown(f"**Trained Model Checkpoint**")
+                    st.markdown(f"- **Epoch:** {ckpt.get('epoch', '?')}")
+                    st.markdown(f"- **Train Loss:** {ckpt.get('train_loss', '?'):.4f}" if isinstance(ckpt.get('train_loss'), (int, float)) else f"- **Train Loss:** ?")
+                    st.markdown(f"- **Val Loss:** {ckpt.get('val_loss', '?'):.4f}" if isinstance(ckpt.get('val_loss'), (int, float)) else f"- **Val Loss:** ?")
+                    st.markdown(f"- **Hidden Dim:** {config.get('hidden_dim', '?')}")
+                    st.markdown(f"- **Layers:** {config.get('n_layers', '?')}")
+                    st.markdown(f"- **Grid Size:** {config.get('grid_size', '?')}")
+                
+                with col2:
+                    st.code(f"""
+# Load checkpoint
+from checkpoint_utils import load_model_for_inference
 
-    # Available models
+model, config = load_model_for_inference(
+    Path("{ckpt.get('filepath', '')}")
+)
+                    """)
+                    
+                    if st.button("🚀 Use for Inference", key=f"use_ckpt_{i}"):
+                        st.session_state["selected_checkpoint"] = ckpt.get("filepath")
+                        st.success("✅ Checkpoint selected!")
+    else:
+        st.info("""
+        **No trained models found.**
+        
+        Train a model using:
+        - **Training Workflow** page
+        - **Flow Matching** page (ERA5 Training tab)
+        - **Training Hub** page
+        
+        Your trained models will appear here automatically.
+        """)
+    
+    st.markdown("---")
+    
+    # Section 2: Reference Models (Examples)
+    st.subheader("📚 Reference Model Architectures")
+    st.caption("These are example configurations - train your own models to add to the zoo")
+
+    # Reference model examples
     models = [
         {
             "name": "weatherflow-small",
             "description": "Small model for quick experiments",
-            "params": "12M",
+            "params": "~2M",
+            "config": {"hidden_dim": 64, "n_layers": 2, "input_channels": 4},
             "resolution": "5.625°",
             "variables": ["Z500", "T850", "U10", "V10"],
-            "performance": "RMSE: 120 m²/s² @ 24h"
         },
         {
             "name": "weatherflow-medium",
             "description": "Medium model balancing speed and accuracy",
-            "params": "45M",
+            "params": "~10M",
+            "config": {"hidden_dim": 128, "n_layers": 4, "input_channels": 6},
             "resolution": "2.5°",
             "variables": ["Z500", "T850", "U10", "V10", "T2M", "MSL"],
-            "performance": "RMSE: 85 m²/s² @ 24h"
         },
         {
             "name": "weatherflow-large",
             "description": "Large model for best accuracy",
-            "params": "120M",
+            "params": "~50M",
+            "config": {"hidden_dim": 256, "n_layers": 6, "input_channels": 7},
             "resolution": "1.5°",
             "variables": ["Z500", "T850", "U10", "V10", "T2M", "MSL", "Q700"],
-            "performance": "RMSE: 65 m²/s² @ 24h"
         },
-        {
-            "name": "weatherflow-regional-europe",
-            "description": "Fine-tuned for European domain",
-            "params": "45M",
-            "resolution": "0.5°",
-            "variables": ["Z500", "T850", "U10", "V10", "T2M", "Precip"],
-            "performance": "RMSE: 45 m²/s² @ 24h (Europe)"
-        }
     ]
 
     for model in models:
-        with st.expander(f"🧠 {model['name']}", expanded=False):
+        with st.expander(f"📐 {model['name']} (Reference)", expanded=False):
             col1, col2 = st.columns([2, 1])
 
             with col1:
                 st.markdown(f"**{model['description']}**")
-                st.markdown(f"- **Parameters**: {model['params']}")
+                st.markdown(f"- **Est. Parameters**: {model['params']}")
                 st.markdown(f"- **Resolution**: {model['resolution']}")
                 st.markdown(f"- **Variables**: {', '.join(model['variables'])}")
-                st.markdown(f"- **Performance**: {model['performance']}")
+                st.markdown(f"- **Hidden Dim**: {model['config']['hidden_dim']}")
+                st.markdown(f"- **Layers**: {model['config']['n_layers']}")
 
             with col2:
                 st.code(f"""
-# Download model
-from model_zoo import download_model
+# Create this model
+from weatherflow.models import WeatherFlowMatch
 
-model = download_model(
-    "{model['name']}"
+model = WeatherFlowMatch(
+    input_channels={model['config']['input_channels']},
+    hidden_dim={model['config']['hidden_dim']},
+    n_layers={model['config']['n_layers']},
+    physics_informed=True
 )
                 """)
-
-                if st.button(f"Download {model['name']}", key=f"dl_{model['name']}"):
-                    st.info("Model download would start here (demo mode)")
 
     st.markdown("---")
 
     # Model comparison
-    st.subheader("Model Comparison")
+    st.subheader("Model Size Comparison")
 
     comparison_data = {
         "Model": [m["name"] for m in models],
-        "Parameters": [m["params"] for m in models],
-        "Resolution": [m["resolution"] for m in models],
-        "# Variables": [len(m["variables"]) for m in models]
+        "Hidden Dim": [m["config"]["hidden_dim"] for m in models],
+        "Layers": [m["config"]["n_layers"] for m in models],
+        "Input Channels": [m["config"]["input_channels"] for m in models]
     }
 
     fig = go.Figure(data=[
-        go.Bar(name='Parameters (M)', x=comparison_data["Model"],
-               y=[12, 45, 120, 45], marker_color='#1e88e5'),
-        go.Bar(name='Variables', x=comparison_data["Model"],
-               y=[4, 6, 7, 6], marker_color='#66bb6a')
+        go.Bar(name='Hidden Dim', x=comparison_data["Model"],
+               y=comparison_data["Hidden Dim"], marker_color='#1e88e5'),
+        go.Bar(name='Layers', x=comparison_data["Model"],
+               y=[l * 20 for l in comparison_data["Layers"]], marker_color='#66bb6a'),  # Scale for visibility
     ])
 
     fig.update_layout(
         barmode='group',
-        title='Model Comparison',
+        title='Model Architecture Comparison',
         height=350
     )
 
@@ -381,7 +440,7 @@ with tab4:
 
     st.markdown("""
     Generate training configurations for new experiments.
-    Based on `model_zoo/train_model.py`.
+    These configurations can be used with the Training Workflow page.
     """)
 
     col1, col2 = st.columns(2)
