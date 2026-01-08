@@ -182,7 +182,7 @@ MODEL_CATALOG = {
         "key_innovations": ["Flexible encoder-decoder", "Multi-scale attention", "Diverse pre-training"],
         "resolution": "0.1°-0.25°",
         "forecast_range": "10 days",
-        "variables": 100+,
+        "variables": "100+",
         "params_millions": 1300,
         "probabilistic": False,
         "pretrained": True,
