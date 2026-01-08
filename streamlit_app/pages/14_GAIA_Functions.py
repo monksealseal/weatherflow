@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import inspect
+import sys
 import tempfile
 from pathlib import Path
 from typing import Any, Callable
@@ -12,6 +13,10 @@ import pandas as pd
 import streamlit as st
 import torch
 import xarray as xr
+
+ROOT_DIR = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(ROOT_DIR))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from weatherflow.data.gaia.normalize import NormalizationStats
 from weatherflow.data.gaia.regrid import (
