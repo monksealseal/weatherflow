@@ -532,44 +532,56 @@ with tab3:
                 device_placeholder.info(f"🖥️ Training on: **{device}**")
 
                 # Prepare data
+                use_era5_data = False
                 if use_era5:
                     # Load real ERA5 data
                     data, metadata = get_active_era5_data()
-                    st.info(f"📊 Using ERA5 data: **{metadata.get('name', 'Unknown')}**")
                     
-                    # Get coordinate names
-                    if "latitude" in data.coords:
-                        lat_coord, lon_coord = "latitude", "longitude"
+                    # Validate loaded data has variables
+                    if data is not None and len(list(data.data_vars)) > 0:
+                        st.info(f"📊 Using ERA5 data: **{metadata.get('name', 'Unknown')}**")
+                        
+                        # Get coordinate names
+                        if "latitude" in data.coords:
+                            lat_coord, lon_coord = "latitude", "longitude"
+                        else:
+                            lat_coord, lon_coord = "lat", "lon"
+                        
+                        # Prepare data tensors
+                        var_data_list = []
+                        available_vars = list(data.data_vars)
+                        selected_vars = [v for v in input_vars if v in available_vars]
+                        
+                        if not selected_vars:
+                            selected_vars = available_vars[:min(4, len(available_vars))]
+                        
+                        for var in selected_vars:
+                            var_data = data[var]
+                            if "level" in var_data.dims:
+                                # Take first level
+                                var_data = var_data.isel(level=0)
+                            var_data_list.append(var_data.values)
+                        
+                        # Check if we have data to stack
+                        if var_data_list:
+                            # Stack: [time, n_vars, lat, lon]
+                            stacked_data = np.stack(var_data_list, axis=1)
+                            n_times, n_channels, lat_size, lon_size = stacked_data.shape
+                            
+                            # Normalize
+                            data_mean = np.mean(stacked_data)
+                            data_std = np.std(stacked_data)
+                            if data_std > 0:
+                                normalized_data = (stacked_data - data_mean) / data_std
+                            else:
+                                normalized_data = stacked_data
+                            use_era5_data = True
+                        else:
+                            st.warning("⚠️ No matching variables found in ERA5 data. Falling back to synthetic data.")
                     else:
-                        lat_coord, lon_coord = "lat", "lon"
-                    
-                    # Prepare data tensors
-                    var_data_list = []
-                    available_vars = list(data.data_vars)
-                    selected_vars = [v for v in input_vars if v in available_vars]
-                    
-                    if not selected_vars:
-                        selected_vars = available_vars[:min(4, len(available_vars))]
-                    
-                    for var in selected_vars:
-                        var_data = data[var]
-                        if "level" in var_data.dims:
-                            # Take first level
-                            var_data = var_data.isel(level=0)
-                        var_data_list.append(var_data.values)
-                    
-                    # Stack: [time, n_vars, lat, lon]
-                    stacked_data = np.stack(var_data_list, axis=1)
-                    n_times, n_channels, lat_size, lon_size = stacked_data.shape
-                    
-                    # Normalize
-                    data_mean = np.mean(stacked_data)
-                    data_std = np.std(stacked_data)
-                    if data_std > 0:
-                        normalized_data = (stacked_data - data_mean) / data_std
-                    else:
-                        normalized_data = stacked_data
-                else:
+                        st.warning("⚠️ ERA5 data is empty or invalid. Falling back to synthetic data.")
+                
+                if not use_era5_data:
                     # Use synthetic data for quick demo
                     st.info("📊 Using synthetic data for quick demo training")
                     lat_size, lon_size = 32, 64
