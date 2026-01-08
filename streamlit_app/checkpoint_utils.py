@@ -13,7 +13,6 @@ from typing import Dict, Optional, List, Tuple, Any
 import logging
 
 # Set up logging
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Checkpoint directory (consistent with data_storage.py)
@@ -135,7 +134,13 @@ def load_checkpoint(
     if device is None:
         device = get_device()
     
-    checkpoint = torch.load(filepath, map_location=device)
+    # Use weights_only=True for security when loading checkpoints
+    # This prevents arbitrary code execution from untrusted files
+    try:
+        checkpoint = torch.load(filepath, map_location=device, weights_only=True)
+    except TypeError:
+        # Fallback for older PyTorch versions that don't support weights_only
+        checkpoint = torch.load(filepath, map_location=device)
     
     if model is not None and "model_state_dict" in checkpoint:
         model.load_state_dict(checkpoint["model_state_dict"])
@@ -178,7 +183,11 @@ def list_checkpoints() -> List[Dict]:
         else:
             # Try to extract basic info from the checkpoint
             try:
-                checkpoint = torch.load(pt_file, map_location="cpu")
+                # Use weights_only=True for security
+                try:
+                    checkpoint = torch.load(pt_file, map_location="cpu", weights_only=True)
+                except TypeError:
+                    checkpoint = torch.load(pt_file, map_location="cpu")
                 info["epoch"] = checkpoint.get("epoch", "?")
                 info["train_loss"] = checkpoint.get("train_loss", "?")
                 info["val_loss"] = checkpoint.get("val_loss", "?")

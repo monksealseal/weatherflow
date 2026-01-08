@@ -188,24 +188,42 @@ if UTILS_AVAILABLE and has_trained_model():
         val_loss = ckpt.get('val_loss', None)
         
         if val_loss is not None and isinstance(val_loss, (int, float)):
-            # Add to benchmark data with estimated metrics based on val_loss
-            # This is an approximation - scaled from the training loss
+            # Estimate benchmark metrics from validation loss using empirical scaling
+            # These scalings are rough approximations based on typical relationships
+            # between normalized MSE loss and actual forecast skill metrics.
+            # 
+            # Note: These are estimates for visualization only. For accurate metrics,
+            # run proper evaluation on held-out test data with appropriate baselines.
+            #
+            # Scaling rationale:
+            # - RMSE scales approximately linearly with sqrt(loss) for Z500 (geopotential, m²/s²)
+            # - Temperature RMSE (K) scales similarly but with different magnitude
+            # - Lead time degradation: errors typically grow ~sqrt(lead_time/24)
+            # - ACC correlation: inversely related to normalized error
+            
+            # Base scaling factors (derived from typical model performance ranges)
+            Z500_BASE_RMSE = 50     # Best models achieve ~50 m²/s² at 24h
+            Z500_GROWTH = 500       # How much RMSE increases per unit val_loss
+            T850_BASE_RMSE = 0.5    # Best models achieve ~0.5 K at 24h  
+            T850_GROWTH = 2.0       # Temperature scaling
+            
             BENCHMARK_DATA[model_name] = {
-                "z500_rmse_24h": val_loss * 500 + 50,  # Scaled estimate
-                "z500_rmse_120h": val_loss * 1500 + 150,
-                "z500_rmse_240h": val_loss * 3000 + 300,
-                "t850_rmse_24h": val_loss * 2 + 0.5,
-                "t850_rmse_120h": val_loss * 6 + 1.5,
-                "t850_rmse_240h": val_loss * 10 + 2.5,
-                "t2m_rmse_24h": val_loss * 2.5 + 0.8,
-                "t2m_rmse_120h": val_loss * 7 + 1.8,
-                "t2m_rmse_240h": val_loss * 12 + 2.8,
-                "acc_z500_120h": max(0.5, 0.98 - val_loss * 0.3),
+                "z500_rmse_24h": val_loss * Z500_GROWTH + Z500_BASE_RMSE,
+                "z500_rmse_120h": val_loss * Z500_GROWTH * 3 + Z500_BASE_RMSE * 3,  # ~3x at 5 days
+                "z500_rmse_240h": val_loss * Z500_GROWTH * 6 + Z500_BASE_RMSE * 6,  # ~6x at 10 days
+                "t850_rmse_24h": val_loss * T850_GROWTH + T850_BASE_RMSE,
+                "t850_rmse_120h": val_loss * T850_GROWTH * 3 + T850_BASE_RMSE * 3,
+                "t850_rmse_240h": val_loss * T850_GROWTH * 5 + T850_BASE_RMSE * 5,
+                "t2m_rmse_24h": val_loss * T850_GROWTH * 1.2 + 0.8,  # Surface temp slightly higher
+                "t2m_rmse_120h": val_loss * T850_GROWTH * 3.5 + 1.8,
+                "t2m_rmse_240h": val_loss * T850_GROWTH * 6 + 2.8,
+                "acc_z500_120h": max(0.5, 0.98 - val_loss * 0.3),  # ACC decreases with error
                 "acc_z500_240h": max(0.3, 0.9 - val_loss * 0.5),
                 "inference_time_s": 1,
                 "params_m": ckpt.get('config', {}).get('hidden_dim', 128) * ckpt.get('config', {}).get('n_layers', 4) * 4 / 1000,
                 "training_days": 0.01,
                 "_is_user_model": True,
+                "_metrics_estimated": True,  # Flag indicating these are estimates
             }
             available_models.append(model_name)
             st.sidebar.markdown(f"✅ **{model_name[:25]}**")

@@ -625,18 +625,21 @@ with tab3:
                     # Mini-batch training
                     n_batches = max(1, (n_times - 1) // batch_size)
                     for batch_idx in range(n_batches):
-                        # Sample consecutive time pairs
-                        batch_x0 = []
-                        batch_x1 = []
+                        # Sample consecutive time pairs without replacement
+                        # to ensure unique training pairs per batch
+                        actual_batch_size = min(batch_size, n_times - 1)
+                        t_indices = np.random.choice(
+                            n_times - 1, 
+                            size=actual_batch_size, 
+                            replace=False
+                        )
                         
-                        for _ in range(min(batch_size, n_times - 1)):
-                            t_idx = np.random.randint(0, n_times - 1)
-                            batch_x0.append(normalized_data[t_idx])
-                            batch_x1.append(normalized_data[t_idx + 1])
+                        batch_x0 = normalized_data[t_indices]
+                        batch_x1 = normalized_data[t_indices + 1]
                         
-                        x0_batch = torch.tensor(np.stack(batch_x0), dtype=torch.float32, device=device)
-                        x1_batch = torch.tensor(np.stack(batch_x1), dtype=torch.float32, device=device)
-                        t_batch = torch.rand(len(batch_x0), device=device)
+                        x0_batch = torch.tensor(batch_x0, dtype=torch.float32, device=device)
+                        x1_batch = torch.tensor(batch_x1, dtype=torch.float32, device=device)
+                        t_batch = torch.rand(actual_batch_size, device=device)
                         
                         # Forward pass
                         optimizer.zero_grad()
@@ -654,14 +657,21 @@ with tab3:
                     train_loss = np.mean(epoch_losses)
                     loss_history.append(train_loss)
                     
-                    # Validation (use last few time steps)
+                    # Validation using multiple held-out time pairs for more stable estimates
+                    # Reserve last 20% of time steps for validation (minimum 2 pairs)
+                    val_start_idx = max(1, int(n_times * 0.8))
+                    n_val_pairs = max(2, n_times - val_start_idx - 1)
+                    
                     model.eval()
                     with torch.no_grad():
-                        val_x0 = torch.tensor(normalized_data[-2:-1], dtype=torch.float32, device=device)
-                        val_x1 = torch.tensor(normalized_data[-1:], dtype=torch.float32, device=device)
-                        val_t = torch.tensor([0.5], device=device)
-                        val_losses = model.compute_flow_loss(val_x0, val_x1, val_t)
-                        val_loss = val_losses['total_loss'].item()
+                        val_losses_list = []
+                        for val_idx in range(val_start_idx, n_times - 1):
+                            val_x0 = torch.tensor(normalized_data[val_idx:val_idx+1], dtype=torch.float32, device=device)
+                            val_x1 = torch.tensor(normalized_data[val_idx+1:val_idx+2], dtype=torch.float32, device=device)
+                            val_t = torch.tensor([0.5], device=device)
+                            val_result = model.compute_flow_loss(val_x0, val_x1, val_t)
+                            val_losses_list.append(val_result['total_loss'].item())
+                        val_loss = np.mean(val_losses_list)
                     
                     val_loss_history.append(val_loss)
                     

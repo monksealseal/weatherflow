@@ -611,7 +611,10 @@ with tab3:
                         with torch.no_grad():
                             predictions = ode_model(x0, times)
                         
-                        # Denormalize prediction
+                        # Denormalize prediction using global statistics
+                        # Note: For multi-variable models with different scales per channel,
+                        # proper denormalization should use per-channel statistics.
+                        # Here we use global stats as an approximation for visualization.
                         pred_output = predictions[-1, 0, 0].cpu().numpy() * data_std + data_mean
                         prediction = pred_output
                         
