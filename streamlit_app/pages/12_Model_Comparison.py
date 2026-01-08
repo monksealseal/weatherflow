@@ -1,13 +1,23 @@
 """
 WeatherFlow Model Comparison & Benchmarking
 
-Compare weather AI models on standardized benchmarks.
+IMPORTANT SCIENTIFIC ACCURACY NOTICE:
+This page displays HARDCODED APPROXIMATE benchmark values extracted from published papers.
+These metrics are NOT computed from actual model runs on this platform.
+
+The displayed values are:
+- Approximate figures based on WeatherBench2 papers and leaderboard
+- May not reflect the latest model versions or updates
+- Provided for reference and educational purposes only
+
+For official, up-to-date benchmark results, see:
+- https://sites.research.google/weatherbench/
+- Original papers for each model
 
 Features:
-    - Side-by-side model comparison
-    - WeatherBench2 evaluation metrics
+    - Side-by-side model comparison (using published metrics)
+    - WeatherBench2-style evaluation displays
     - Skill scores by variable and lead time
-    - Ensemble spread analysis
     - Computational efficiency comparison
 """
 
@@ -26,11 +36,21 @@ st.set_page_config(
 
 st.title("📊 Model Comparison & Benchmarking")
 
-st.markdown("""
-**Compare weather AI models on standardized benchmarks.**
+# CRITICAL: Scientific accuracy warning
+st.warning("""
+**📋 REFERENCE DATA FROM PUBLISHED PAPERS**
 
-Evaluate models using WeatherBench2 metrics, compare skill scores,
-and analyze trade-offs between accuracy and computational cost.
+The benchmark metrics shown on this page are **hardcoded approximate values** extracted from:
+- WeatherBench2 leaderboard and papers
+- Original research publications for each model
+
+**These are NOT computed from actual model runs on this platform.**
+Values may be outdated as models and benchmarks evolve. For official results, visit the
+[WeatherBench2 website](https://sites.research.google/weatherbench/).
+""")
+
+st.markdown("""
+*Compare published benchmark results from leading weather AI models.*
 """)
 
 # WeatherBench2 benchmark data (based on published results)

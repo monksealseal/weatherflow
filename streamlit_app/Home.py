@@ -1,10 +1,14 @@
 """
-WeatherFlow - The Weather AI Research Platform
+WeatherFlow - Weather AI Learning & Demonstration Platform
 
-The daily destination for weather AI researchers.
-Train real models on real data. See real results.
+An educational platform for exploring weather AI concepts.
 
-For researchers, by researchers.
+IMPORTANT: This platform includes both:
+- Real implementations (Flow Matching models, Physics Loss functions)
+- UI demonstrations (Live Dashboard, Training Hub, Experiments)
+
+Each page has a banner indicating whether it runs real code or displays simulated data.
+See individual page docstrings for details.
 """
 
 import streamlit as st
@@ -133,7 +137,27 @@ if UTILS_AVAILABLE:
 # HEADER
 # =============================================================================
 st.markdown('<p class="main-header">🌤️ WeatherFlow</p>', unsafe_allow_html=True)
-st.markdown('<p class="tagline">The Weather AI Research Platform</p>', unsafe_allow_html=True)
+st.markdown('<p class="tagline">Weather AI Learning & Demonstration Platform</p>', unsafe_allow_html=True)
+
+# Transparency notice
+with st.expander("ℹ️ **Important: About This Platform**", expanded=False):
+    st.markdown("""
+    ### What's Real vs. Simulated
+
+    **Pages with REAL model execution:**
+    - ✅ **Flow Matching** - Runs actual PyTorch forward/backward passes
+    - ✅ **Physics Losses** - Uses real PhysicsLossCalculator computations
+    - ✅ **Data Manager** - Downloads real ERA5 reanalysis data
+
+    **Pages with UI DEMONSTRATIONS (simulated data):**
+    - ⚠️ **Live Dashboard** - Synthetic weather patterns for UI demo
+    - ⚠️ **Training Hub** - Simulated training, no cloud jobs launched
+    - ⚠️ **Training Workflow** - UI demonstration with fake loss curves
+    - ⚠️ **Experiments** - Randomly generated ablation results
+    - ⚠️ **Model Comparison** - Hardcoded benchmark values from papers
+
+    Each page displays a prominent banner indicating its status.
+    """)
 
 # Data status banner
 if UTILS_AVAILABLE and has_era5_data():
@@ -158,27 +182,27 @@ col1, col2, col3 = st.columns(3)
 with col1:
     st.markdown("""
     <div class="value-prop">
-        <h2>🎯 Real Data</h2>
-        <p>Train on actual ERA5 reanalysis data from ECMWF.
-        No synthetic placeholders. Every visualization backed by real observations.</p>
+        <h2>🎯 ERA5 Data Access</h2>
+        <p>Access ERA5 reanalysis data samples from ECMWF.
+        Real atmospheric observations available through the Data Manager.</p>
     </div>
     """, unsafe_allow_html=True)
 
 with col2:
     st.markdown("""
     <div class="value-prop">
-        <h2>🧠 Real Models</h2>
-        <p>Access implementations of GraphCast, FourCastNet, Pangu-Weather, and more.
-        All based on published research with proper citations.</p>
+        <h2>🧠 Model Implementations</h2>
+        <p>Explore flow matching models and physics loss functions.
+        Based on published research with proper citations.</p>
     </div>
     """, unsafe_allow_html=True)
 
 with col3:
     st.markdown("""
     <div class="value-prop">
-        <h2>📊 Real Results</h2>
-        <p>Compare your models against official WeatherBench2 benchmarks.
-        Publication-quality visualizations ready for your papers.</p>
+        <h2>📊 Learning Platform</h2>
+        <p>Educational tools for understanding weather AI.
+        UI demonstrations and real physics computations.</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -238,18 +262,20 @@ with col2:
         st.switch_page("pages/12_Model_Comparison.py")
 
 # =============================================================================
-# REAL DATA EMPHASIS
+# DATA SOURCES AND TRANSPARENCY
 # =============================================================================
 st.markdown("""
 <div class="real-data-emphasis">
-    <h3>📋 Our Commitment to Real Data</h3>
-    <p><strong>Everything in WeatherFlow is backed by real, citable data sources:</strong></p>
+    <h3>📋 Data Sources & Transparency Notice</h3>
+    <p><strong>WeatherFlow uses the following data sources:</strong></p>
     <ul>
         <li><strong>ERA5 Reanalysis</strong> - ECMWF's gold-standard atmospheric dataset (Hersbach et al., 2020)</li>
         <li><strong>WeatherBench2</strong> - Google Research's standardized benchmark (Rasp et al., 2023)</li>
-        <li><strong>Published Metrics</strong> - All model comparisons cite original papers</li>
+        <li><strong>Published Metrics</strong> - Model comparison data extracted from original papers</li>
     </ul>
-    <p>When you see a number, you can trust it. When you download a visualization, it's publication-ready.</p>
+    <p><strong>⚠️ Important:</strong> Many pages show <em>UI demonstrations</em> with simulated data.
+    Look for warning banners on each page indicating whether data is real or simulated.
+    Pages running actual model code include: Flow Matching, Physics Losses.</p>
 </div>
 """, unsafe_allow_html=True)
 
