@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Iterable, Optional
 
 import torch
-import webdataset as wds
 
 
 def _collate(samples):
@@ -33,6 +32,8 @@ def create_webdataset_loader(
         shuffle: Whether to shuffle samples.
         resampled: Use RepeatedDataset for infinite shards.
     """
+    import webdataset as wds
+
     shards = shard_pattern
     if resampled:
         dataset = wds.ResampledShards(shards, deterministic=True)
