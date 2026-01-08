@@ -1,0 +1,13 @@
+variables:
+  temperature:
+    units: K
+    levels: [1000, 850, 700, 500]
+  humidity:
+    units: '%'
+    levels: [1000, 850, 700, 500]
+  wind_u:
+    units: m/s
+    levels: [1000, 850, 700, 500]
+  wind_v:
+    units: m/s
+    levels: [1000, 850, 700, 500]
