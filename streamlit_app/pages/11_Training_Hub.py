@@ -1,16 +1,26 @@
 """
-WeatherFlow Training Hub
+WeatherFlow Training Hub - UI DEMONSTRATION
 
-Configure and launch weather AI model training jobs.
+IMPORTANT SCIENTIFIC ACCURACY NOTICE:
+This page is a UI DEMONSTRATION showing what a cloud training hub interface would look like.
+NO ACTUAL TRAINING JOBS are being launched to cloud providers.
+All displayed metrics, progress, and checkpoints are SIMULATED.
 
-Features:
-    - Model selection and configuration
-    - Data pipeline setup
-    - Hyperparameter tuning
-    - Cloud compute cost estimation
-    - Training job submission
-    - Real-time training monitoring
-    - Checkpoint management
+The "training" shown here consists of:
+- Fake loss curves generated with np.exp() + np.random.randn()
+- Randomly generated GPU utilization metrics
+- Hardcoded checkpoint entries that don't exist
+- Mock cloud provider pricing (approximate, may be outdated)
+
+For actual model training, use:
+- Command-line tools in model_zoo/train_model.py
+- Flow Matching page (runs real forward/backward passes)
+
+Features (UI DEMONSTRATION ONLY):
+    - Model selection and configuration interface
+    - Cost estimation display (approximate pricing)
+    - Simulated training progress visualization
+    - Mock checkpoint listing
 """
 
 import streamlit as st
@@ -31,11 +41,22 @@ st.set_page_config(
 
 st.title("🚀 Training Hub")
 
-st.markdown("""
-**Train state-of-the-art weather AI models on cloud infrastructure.**
+# CRITICAL: Scientific accuracy warning
+st.error("""
+**⚠️ UI DEMONSTRATION - NO ACTUAL CLOUD TRAINING**
 
-Configure your model, estimate costs, and launch training jobs to cloud compute providers.
-Monitor training progress in real-time and download checkpoints when complete.
+This page demonstrates the **user interface** of a cloud training hub.
+- **No jobs are actually launched** to AWS, GCP, Modal, or RunPod
+- Training metrics shown are **simulated** using `np.random.randn()`
+- GPU utilization is **randomly generated**, not from real hardware
+- Checkpoints listed are **fake entries** that don't exist
+- Cloud pricing is **approximate** and may be outdated
+
+**For actual model training:** Use the command-line tools or the Flow Matching page.
+""")
+
+st.markdown("""
+*This page demonstrates what a cloud training interface would look like.*
 """)
 
 # Initialize session state
@@ -353,7 +374,8 @@ with tab3:
         col4.metric("GPUs", f"{job['num_gpus']}x {job['gpu']}")
 
         # Simulated training metrics
-        st.markdown("### Real-Time Metrics")
+        st.markdown("### Simulated Metrics (Demo)")
+        st.caption("⚠️ These metrics are randomly generated for UI demonstration purposes")
 
         # Generate fake training curve for demonstration
         num_epochs = job.get("config", {}).get("num_epochs", 100)

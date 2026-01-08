@@ -1,14 +1,24 @@
 """
-WeatherFlow Live Dashboard
+WeatherFlow Live Dashboard - DEMONSTRATION MODE
 
-The daily destination for weather AI researchers.
-See real-time model predictions, compare forecasts, and track model performance.
+IMPORTANT SCIENTIFIC ACCURACY NOTICE:
+This dashboard displays SIMULATED data for demonstration purposes only.
+All visualizations are generated using synthetic patterns and random noise.
+NO ACTUAL MODEL INFERENCE is being performed.
+NO REAL ERA5 DATA is being used for these visualizations.
 
-Features:
-- Current weather from multiple AI models
-- 7-day forecast comparison
-- Model vs Ground Truth verification
-- Performance tracking over time
+This page is designed to showcase the UI/UX of what a live dashboard would look like,
+not to display actual weather predictions.
+
+For real model training and inference, see:
+- Flow Matching page (runs actual model code)
+- Physics Losses page (uses real PhysicsLossCalculator)
+
+Features (DEMONSTRATION ONLY):
+- Simulated weather patterns with synthetic data
+- Example forecast comparisons (not real model outputs)
+- Mock verification displays (not real ERA5 data)
+- UI demonstration of performance tracking
 """
 
 import streamlit as st
@@ -87,9 +97,20 @@ st.markdown("""
 
 st.title("🌍 Live Weather AI Dashboard")
 
+# CRITICAL: Scientific accuracy warning
+st.error("""
+**⚠️ DEMONSTRATION MODE - SIMULATED DATA ONLY**
+
+This dashboard displays **synthetic visualizations** for UI demonstration purposes.
+- All weather patterns are **generated using numpy random functions**, not real model predictions
+- "Ground truth" comparisons are **simulated**, not actual ERA5 reanalysis data
+- No actual AI model inference is being performed on this page
+
+For real model execution, visit the **Flow Matching** or **Physics Losses** pages.
+""")
+
 st.markdown("""
-Your daily destination for weather AI forecasts and model performance.
-Compare predictions from leading AI models and verify against ground truth data.
+*This page demonstrates the UI/UX of what a production weather dashboard would look like.*
 """)
 
 # Auto-load data if available
@@ -388,9 +409,10 @@ with tab2:
 with tab3:
     st.header("Model vs Ground Truth Verification")
 
-    st.markdown("""
-    **Critical for research:** Compare model predictions against actual observations.
-    All ground truth data is from ERA5 reanalysis (not synthetic).
+    st.warning("""
+    **⚠️ SIMULATED DATA:** This verification display uses **synthetically generated patterns**
+    to demonstrate the UI. Both "model predictions" and "ground truth" shown here are
+    generated using mathematical functions and random noise, NOT real ERA5 data or actual model outputs.
     """)
 
     col1, col2 = st.columns([1, 2])

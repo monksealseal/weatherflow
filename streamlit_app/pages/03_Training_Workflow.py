@@ -1,15 +1,25 @@
 """
-WeatherFlow Training Workflow
+WeatherFlow Training Workflow - UI DEMONSTRATION
 
-End-to-end workflow for training weather AI models on real data.
-Guides users through: Data Selection -> Model Config -> Training -> Evaluation
+IMPORTANT SCIENTIFIC ACCURACY NOTICE:
+This page provides a UI DEMONSTRATION of a training workflow interface.
+The "training" shown here is SIMULATED using time.sleep() and randomly generated loss curves.
+NO ACTUAL MODEL TRAINING is being performed.
 
-Features:
-- Integrated data selection from ERA5 samples
-- Multiple model architectures
-- Real-time training visualization
-- Automatic evaluation and comparison
-- Export trained models
+The loss curves, metrics, and evaluation results are generated using:
+- np.exp() for smooth decay patterns
+- np.random.randn() for noise
+- Hardcoded benchmark values for comparisons
+
+For actual model training capabilities, see:
+- Flow Matching page (runs real forward/backward passes)
+- The command-line training scripts in model_zoo/
+
+Features (UI DEMONSTRATION ONLY):
+- Data selection interface (real ERA5 sample metadata)
+- Model configuration interface
+- Simulated training progress visualization
+- Mock evaluation displays with hardcoded benchmarks
 """
 
 import streamlit as st
@@ -91,11 +101,22 @@ st.markdown("""
 
 st.title("🏋️ Training Workflow")
 
-st.markdown("""
-**End-to-end workflow for training weather AI models.**
+# CRITICAL: Scientific accuracy warning
+st.error("""
+**⚠️ UI DEMONSTRATION - SIMULATED TRAINING**
 
-Follow the steps below to: select data, configure a model, train, and evaluate.
-All training uses **real ERA5 data** - no synthetic placeholders.
+This page demonstrates the **user interface** of a training workflow.
+- The "training" is **simulated** using `time.sleep()` with fake loss curves
+- Loss values are generated using `np.exp()` decay + random noise
+- Evaluation metrics are **randomly generated**, not from real model runs
+- Benchmark comparisons use **hardcoded values** from published papers
+
+**For actual model training:** Use the command-line tools in `model_zoo/train_model.py`
+or the Flow Matching page which runs real forward/backward passes.
+""")
+
+st.markdown("""
+*This page demonstrates the UI/UX of an end-to-end training workflow.*
 """)
 
 # Initialize session state for workflow

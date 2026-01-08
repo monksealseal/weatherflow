@@ -1,10 +1,17 @@
 """
-Experiments & Model Zoo
+Experiments & Model Zoo - UI DEMONSTRATION
 
-Demonstrates ablation studies, benchmarking, and model management
-from experiments/ and model_zoo/ directories.
+IMPORTANT SCIENTIFIC ACCURACY NOTICE:
+This page displays SIMULATED experiment results for UI demonstration purposes.
+The ablation studies, benchmarks, and model zoo entries shown are NOT from actual experiments.
 
-These are demonstration tools - actual training uses ERA5 data from Data Manager.
+The displayed data consists of:
+- Ablation results: Generated using np.random.uniform()
+- WeatherBench evaluation: Synthetic curves with arbitrary base values
+- Skill scores: Random numbers between 0.7 and 1.1
+- Model Zoo: Hypothetical model entries with fictional performance metrics
+
+For real experiment tracking, use proper ML experiment tools (MLflow, Weights & Biases, etc.)
 """
 
 import streamlit as st
@@ -34,11 +41,17 @@ Explore ablation studies, benchmarks, and pre-trained models.
 Based on code from `experiments/` and `model_zoo/` directories.
 """)
 
-# Show data source banner
-st.info("""
-📊 **Data Note:** This page shows experiment configuration and benchmark results.
-Actual model training uses ERA5 data from the Data Manager. Results shown here
-are representative examples from typical training runs.
+# CRITICAL: Scientific accuracy warning
+st.error("""
+**⚠️ UI DEMONSTRATION - SIMULATED EXPERIMENT DATA**
+
+All results shown on this page are **synthetically generated** for UI demonstration:
+- **Ablation results:** Generated with `np.random.uniform()` - NOT from real experiments
+- **Benchmark curves:** Synthetic patterns with arbitrary values - NOT real model evaluations
+- **Model Zoo:** Hypothetical model entries - these checkpoints do NOT exist
+- **Skill scores:** Random numbers - NOT actual performance metrics
+
+For real experiments, use proper ML tracking tools (MLflow, W&B, etc.)
 """)
 
 # Main tabs
