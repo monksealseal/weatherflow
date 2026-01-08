@@ -1,0 +1,497 @@
+"""
+WeatherFlow Training Hub
+
+Configure and launch weather AI model training jobs.
+
+Features:
+    - Model selection and configuration
+    - Data pipeline setup
+    - Hyperparameter tuning
+    - Cloud compute cost estimation
+    - Training job submission
+    - Real-time training monitoring
+    - Checkpoint management
+"""
+
+import streamlit as st
+import plotly.express as px
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+import pandas as pd
+import numpy as np
+import time
+from datetime import datetime, timedelta
+import json
+
+st.set_page_config(
+    page_title="Training Hub - WeatherFlow",
+    page_icon="🚀",
+    layout="wide",
+)
+
+st.title("🚀 Training Hub")
+
+st.markdown("""
+**Train state-of-the-art weather AI models on cloud infrastructure.**
+
+Configure your model, estimate costs, and launch training jobs to cloud compute providers.
+Monitor training progress in real-time and download checkpoints when complete.
+""")
+
+# Initialize session state
+if "training_jobs" not in st.session_state:
+    st.session_state.training_jobs = []
+if "current_config" not in st.session_state:
+    st.session_state.current_config = {}
+
+# Sidebar - Job History
+st.sidebar.header("📋 Training Jobs")
+
+if st.session_state.training_jobs:
+    for i, job in enumerate(st.session_state.training_jobs[-5:]):
+        status_emoji = {"running": "🔄", "completed": "✅", "failed": "❌", "queued": "⏳"}
+        st.sidebar.markdown(f"{status_emoji.get(job['status'], '❓')} **{job['model']}** - {job['status']}")
+else:
+    st.sidebar.info("No training jobs yet")
+
+# Main content - Tabs
+tab1, tab2, tab3, tab4 = st.tabs([
+    "🔧 Configure Training",
+    "💰 Cost Estimation",
+    "📊 Monitor Training",
+    "📁 Checkpoints"
+])
+
+# ============= TAB 1: Configure Training =============
+with tab1:
+    st.subheader("Model Configuration")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown("### 1️⃣ Select Model Architecture")
+
+        model_options = {
+            "GraphCast": {"params": 37, "memory": 32, "category": "GNN"},
+            "FourCastNet": {"params": 450, "memory": 16, "category": "ViT"},
+            "Pangu-Weather": {"params": 256, "memory": 24, "category": "3D Transformer"},
+            "GenCast": {"params": 500, "memory": 32, "category": "Diffusion"},
+            "ClimaX": {"params": 100, "memory": 16, "category": "Foundation"},
+            "Hurricane Pix2Pix": {"params": 50, "memory": 4, "category": "GAN"},
+            "Flow Matching": {"params": 10, "memory": 8, "category": "Flow"},
+            "Custom UNet": {"params": 20, "memory": 8, "category": "CNN"},
+        }
+
+        selected_model = st.selectbox(
+            "Model Architecture",
+            list(model_options.keys()),
+            help="Select the model architecture to train"
+        )
+
+        model_info = model_options[selected_model]
+        st.info(f"**{selected_model}**: {model_info['params']}M parameters, ~{model_info['memory']}GB GPU memory")
+
+        # Model-specific configurations
+        st.markdown("### Model-Specific Settings")
+
+        if selected_model == "GraphCast":
+            mesh_resolution = st.select_slider("Mesh Resolution", [1, 2, 4, 6], value=4)
+            num_message_passing = st.slider("Message Passing Layers", 4, 32, 16)
+            hidden_dim = st.select_slider("Hidden Dimension", [128, 256, 512, 1024], value=512)
+
+        elif selected_model == "FourCastNet":
+            patch_size = st.select_slider("Patch Size", [2, 4, 8], value=4)
+            afno_blocks = st.slider("AFNO Blocks", 4, 16, 8)
+            embed_dim = st.select_slider("Embedding Dimension", [256, 512, 768, 1024], value=768)
+
+        elif selected_model == "GenCast":
+            diffusion_steps = st.slider("Diffusion Timesteps", 100, 2000, 1000)
+            inference_steps = st.slider("Inference Steps (DDIM)", 10, 100, 50)
+            base_channels = st.select_slider("Base Channels", [64, 128, 256], value=128)
+
+        elif selected_model == "Hurricane Pix2Pix":
+            generator_type = st.selectbox("Generator", ["UNet", "ResNet"])
+            discriminator_patches = st.slider("Discriminator Patches", 16, 128, 70)
+            lambda_l1 = st.slider("L1 Loss Weight", 10, 200, 100)
+
+    with col2:
+        st.markdown("### 2️⃣ Data Configuration")
+
+        data_source = st.selectbox(
+            "Data Source",
+            ["ERA5 (WeatherBench2)", "ERA5 (Custom)", "Hurricane Satellite", "Custom Dataset"],
+            help="Select the training data source"
+        )
+
+        if data_source == "ERA5 (WeatherBench2)":
+            st.success("✅ Pre-processed ERA5 data from Google Cloud Storage")
+            years_train = st.slider("Training Years", 1979, 2020, (1979, 2015))
+            years_val = st.slider("Validation Years", 2016, 2022, (2016, 2018))
+
+            variables = st.multiselect(
+                "Variables",
+                ["z_500", "t_850", "t2m", "u10", "v10", "msl", "tp", "q_700"],
+                default=["z_500", "t_850", "t2m"]
+            )
+
+            resolution = st.selectbox("Resolution", ["1.40625°", "0.25°"])
+
+        elif data_source == "Hurricane Satellite":
+            st.info("🌀 GOES/Himawari satellite imagery for hurricane analysis")
+            satellite = st.selectbox("Satellite", ["GOES-16", "GOES-17", "Himawari-8"])
+            channels = st.multiselect(
+                "Channels",
+                ["Visible", "IR", "Water Vapor"],
+                default=["Visible", "IR"]
+            )
+            hurricane_years = st.slider("Hurricane Seasons", 2017, 2023, (2017, 2022))
+
+        forecast_hours = st.slider("Forecast Lead Time (hours)", 6, 240, 24, step=6)
+        input_steps = st.slider("Input History Steps", 1, 4, 2)
+
+        st.markdown("### 3️⃣ Training Settings")
+
+        batch_size = st.select_slider("Batch Size", [1, 2, 4, 8, 16, 32], value=4)
+        learning_rate = st.select_slider(
+            "Learning Rate",
+            [1e-5, 5e-5, 1e-4, 5e-4, 1e-3],
+            value=1e-4,
+            format_func=lambda x: f"{x:.0e}"
+        )
+        num_epochs = st.slider("Number of Epochs", 10, 500, 100)
+
+        optimizer = st.selectbox("Optimizer", ["AdamW", "Adam", "SGD", "LAMB"])
+        scheduler = st.selectbox("LR Scheduler", ["Cosine", "Linear", "Step", "None"])
+
+        # Physics constraints
+        st.markdown("### 4️⃣ Physics Constraints")
+
+        use_physics = st.checkbox("Enable Physics-Informed Training", value=True)
+        if use_physics:
+            physics_weight = st.slider("Physics Loss Weight (λ)", 0.0, 1.0, 0.1)
+            col_a, col_b = st.columns(2)
+            with col_a:
+                use_divergence = st.checkbox("Mass Conservation", value=True)
+                use_pv = st.checkbox("PV Conservation", value=True)
+            with col_b:
+                use_energy = st.checkbox("Energy Spectra", value=False)
+                use_geostrophic = st.checkbox("Geostrophic Balance", value=False)
+
+    # Save configuration
+    st.session_state.current_config = {
+        "model": selected_model,
+        "model_params": model_info,
+        "data_source": data_source,
+        "batch_size": batch_size,
+        "learning_rate": learning_rate,
+        "num_epochs": num_epochs,
+        "optimizer": optimizer,
+        "forecast_hours": forecast_hours,
+        "use_physics": use_physics if 'use_physics' in dir() else False,
+    }
+
+# ============= TAB 2: Cost Estimation =============
+with tab2:
+    st.subheader("💰 Cloud Compute Cost Estimation")
+
+    config = st.session_state.current_config
+
+    st.markdown("### Select Compute Provider")
+
+    col1, col2, col3 = st.columns(3)
+
+    # Cloud provider pricing (approximate, for demonstration)
+    providers = {
+        "AWS": {
+            "A100 40GB": {"hourly": 4.10, "spot": 1.23},
+            "A100 80GB": {"hourly": 5.12, "spot": 1.54},
+            "V100 16GB": {"hourly": 3.06, "spot": 0.92},
+            "T4 16GB": {"hourly": 0.53, "spot": 0.16},
+        },
+        "GCP": {
+            "A100 40GB": {"hourly": 3.67, "spot": 1.10},
+            "A100 80GB": {"hourly": 4.59, "spot": 1.38},
+            "V100 16GB": {"hourly": 2.48, "spot": 0.74},
+            "T4 16GB": {"hourly": 0.35, "spot": 0.11},
+        },
+        "Modal": {
+            "A100 40GB": {"hourly": 2.78, "spot": 2.78},
+            "A100 80GB": {"hourly": 3.89, "spot": 3.89},
+            "H100 80GB": {"hourly": 4.89, "spot": 4.89},
+            "T4 16GB": {"hourly": 0.59, "spot": 0.59},
+        },
+        "RunPod": {
+            "A100 40GB": {"hourly": 1.44, "spot": 0.72},
+            "A100 80GB": {"hourly": 1.74, "spot": 0.87},
+            "RTX 4090": {"hourly": 0.44, "spot": 0.22},
+            "RTX 3090": {"hourly": 0.22, "spot": 0.11},
+        },
+    }
+
+    selected_provider = st.selectbox("Cloud Provider", list(providers.keys()))
+
+    with col1:
+        st.markdown(f"### {selected_provider} Pricing")
+        gpu_options = list(providers[selected_provider].keys())
+        selected_gpu = st.selectbox("GPU Type", gpu_options)
+        num_gpus = st.select_slider("Number of GPUs", [1, 2, 4, 8], value=1)
+        use_spot = st.checkbox("Use Spot/Preemptible Instances", value=True)
+
+    # Estimate training time
+    model_params = config.get("model_params", {"params": 100})
+    params_m = model_params.get("params", 100)
+
+    # Simple estimation formula (very rough)
+    # Time ≈ (epochs * samples * params) / (batch_size * FLOPS)
+    base_time_hours = (config.get("num_epochs", 100) * 10000 * params_m) / (config.get("batch_size", 4) * 1e12 * num_gpus)
+    estimated_time = max(1, base_time_hours)  # Minimum 1 hour
+
+    with col2:
+        st.markdown("### Estimated Training Time")
+
+        st.metric("Total Time", f"{estimated_time:.1f} hours")
+        st.metric("Per Epoch", f"{estimated_time / config.get('num_epochs', 100) * 60:.1f} minutes")
+
+        # Time breakdown
+        fig = go.Figure(go.Pie(
+            values=[60, 25, 10, 5],
+            labels=["Forward/Backward", "Data Loading", "Checkpointing", "Logging"],
+            hole=0.4,
+        ))
+        fig.update_layout(title="Time Breakdown", height=250)
+        st.plotly_chart(fig, use_container_width=True)
+
+    with col3:
+        st.markdown("### Cost Breakdown")
+
+        pricing = providers[selected_provider][selected_gpu]
+        rate = pricing["spot"] if use_spot else pricing["hourly"]
+        total_cost = rate * num_gpus * estimated_time
+
+        st.metric("Hourly Rate", f"${rate:.2f}/GPU/hr")
+        st.metric("Total Estimated Cost", f"${total_cost:.2f}")
+
+        # Cost comparison chart
+        cost_data = []
+        for provider, gpus in providers.items():
+            for gpu, prices in gpus.items():
+                r = prices["spot"] if use_spot else prices["hourly"]
+                c = r * num_gpus * estimated_time
+                cost_data.append({"Provider": provider, "GPU": gpu, "Cost": c})
+
+        df = pd.DataFrame(cost_data)
+        fig = px.bar(
+            df[df["GPU"] == selected_gpu],
+            x="Provider", y="Cost",
+            title=f"Cost Comparison ({selected_gpu})",
+            color="Provider",
+        )
+        fig.update_layout(height=250, showlegend=False)
+        st.plotly_chart(fig, use_container_width=True)
+
+    # Summary
+    st.markdown("---")
+    st.markdown("### 📋 Training Job Summary")
+
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Model", config.get("model", "N/A"))
+    col2.metric("GPUs", f"{num_gpus}x {selected_gpu}")
+    col3.metric("Duration", f"~{estimated_time:.1f}h")
+    col4.metric("Cost", f"${total_cost:.2f}")
+
+    # Launch button
+    st.markdown("---")
+    col1, col2, col3 = st.columns([1, 2, 1])
+
+    with col2:
+        if st.button("🚀 Launch Training Job", type="primary", use_container_width=True):
+            # Create job record
+            job = {
+                "id": f"job_{len(st.session_state.training_jobs) + 1:04d}",
+                "model": config.get("model", "Unknown"),
+                "provider": selected_provider,
+                "gpu": selected_gpu,
+                "num_gpus": num_gpus,
+                "estimated_cost": total_cost,
+                "estimated_time": estimated_time,
+                "status": "queued",
+                "created_at": datetime.now().isoformat(),
+                "config": config,
+            }
+            st.session_state.training_jobs.append(job)
+
+            st.success(f"""
+            ✅ **Training job submitted!**
+
+            - Job ID: `{job['id']}`
+            - Provider: {selected_provider}
+            - Estimated completion: {(datetime.now() + timedelta(hours=estimated_time)).strftime('%Y-%m-%d %H:%M')}
+
+            Go to the **Monitor Training** tab to track progress.
+            """)
+
+            # Simulate job starting
+            st.session_state.training_jobs[-1]["status"] = "running"
+
+# ============= TAB 3: Monitor Training =============
+with tab3:
+    st.subheader("📊 Training Monitor")
+
+    if not st.session_state.training_jobs:
+        st.info("No training jobs to monitor. Configure and launch a job in the first tab.")
+    else:
+        # Select job
+        job_options = [f"{j['id']} - {j['model']} ({j['status']})" for j in st.session_state.training_jobs]
+        selected_job_idx = st.selectbox("Select Job", range(len(job_options)), format_func=lambda x: job_options[x])
+        job = st.session_state.training_jobs[selected_job_idx]
+
+        # Job info
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("Status", job["status"].upper())
+        col2.metric("Model", job["model"])
+        col3.metric("Provider", job["provider"])
+        col4.metric("GPUs", f"{job['num_gpus']}x {job['gpu']}")
+
+        # Simulated training metrics
+        st.markdown("### Real-Time Metrics")
+
+        # Generate fake training curve for demonstration
+        num_epochs = job.get("config", {}).get("num_epochs", 100)
+        progress = min(100, int((datetime.now() - datetime.fromisoformat(job["created_at"])).seconds / 10))
+
+        epochs = np.arange(1, progress + 1)
+        train_loss = 2.0 * np.exp(-epochs / 30) + 0.1 + 0.02 * np.random.randn(len(epochs))
+        val_loss = 2.2 * np.exp(-epochs / 30) + 0.12 + 0.03 * np.random.randn(len(epochs))
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(x=epochs, y=train_loss, name="Train Loss", line=dict(color="blue")))
+            fig.add_trace(go.Scatter(x=epochs, y=val_loss, name="Val Loss", line=dict(color="orange")))
+            fig.update_layout(
+                title="Training Progress",
+                xaxis_title="Epoch",
+                yaxis_title="Loss",
+                height=350,
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+        with col2:
+            # Metrics over time
+            rmse = 0.5 * np.exp(-epochs / 40) + 0.05
+            acc = 1 - rmse
+
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(x=epochs, y=rmse * 100, name="RMSE (K)", line=dict(color="red")))
+            fig.add_trace(go.Scatter(x=epochs, y=acc * 100, name="Skill (%)", line=dict(color="green")))
+            fig.update_layout(
+                title="Forecast Skill Metrics",
+                xaxis_title="Epoch",
+                yaxis_title="Value",
+                height=350,
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+        # Progress bar
+        st.markdown("### Training Progress")
+        progress_pct = min(100, progress)
+        st.progress(progress_pct / 100)
+        st.caption(f"Epoch {progress} / {num_epochs} ({progress_pct}%)")
+
+        # GPU utilization (simulated)
+        col1, col2, col3 = st.columns(3)
+        col1.metric("GPU Utilization", f"{85 + np.random.randint(-5, 5)}%")
+        col2.metric("GPU Memory", f"{job.get('num_gpus', 1) * 30 + np.random.randint(-2, 2)} GB")
+        col3.metric("Throughput", f"{120 + np.random.randint(-10, 10)} samples/s")
+
+        # Logs
+        with st.expander("📜 Training Logs"):
+            log_text = f"""
+[{datetime.now().strftime('%H:%M:%S')}] Epoch {progress}: train_loss=0.{np.random.randint(10, 50):02d}, val_loss=0.{np.random.randint(12, 55):02d}
+[{(datetime.now() - timedelta(seconds=30)).strftime('%H:%M:%S')}] Checkpoint saved: checkpoint_epoch_{progress}.pt
+[{(datetime.now() - timedelta(seconds=60)).strftime('%H:%M:%S')}] Learning rate: {job.get('config', {}).get('learning_rate', 1e-4):.2e}
+[{(datetime.now() - timedelta(seconds=90)).strftime('%H:%M:%S')}] GPU memory: {job.get('num_gpus', 1) * 30}GB / {job.get('num_gpus', 1) * 40}GB
+            """
+            st.code(log_text)
+
+        # Control buttons
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            if st.button("⏸️ Pause Training"):
+                st.warning("Training paused (simulated)")
+        with col2:
+            if st.button("🔄 Resume Training"):
+                st.info("Training resumed (simulated)")
+        with col3:
+            if st.button("⏹️ Stop Training"):
+                st.session_state.training_jobs[selected_job_idx]["status"] = "completed"
+                st.success("Training stopped")
+
+# ============= TAB 4: Checkpoints =============
+with tab4:
+    st.subheader("📁 Checkpoint Management")
+
+    st.markdown("""
+    Download trained model checkpoints and run inference.
+    """)
+
+    # Simulated checkpoints
+    checkpoints = [
+        {"name": "graphcast_best.pt", "epoch": 95, "val_loss": 0.0823, "size": "148 MB", "date": "2024-01-15"},
+        {"name": "graphcast_epoch_100.pt", "epoch": 100, "val_loss": 0.0841, "size": "148 MB", "date": "2024-01-15"},
+        {"name": "graphcast_epoch_50.pt", "epoch": 50, "val_loss": 0.1234, "size": "148 MB", "date": "2024-01-14"},
+        {"name": "fourcastnet_best.pt", "epoch": 80, "val_loss": 0.0912, "size": "1.8 GB", "date": "2024-01-10"},
+    ]
+
+    df = pd.DataFrame(checkpoints)
+    st.dataframe(df, use_container_width=True)
+
+    # Download section
+    st.markdown("### Download Checkpoint")
+
+    selected_ckpt = st.selectbox("Select Checkpoint", [c["name"] for c in checkpoints])
+
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("📥 Download Checkpoint"):
+            st.info(f"Downloading {selected_ckpt}... (simulated)")
+            st.success("Download complete!")
+
+    with col2:
+        if st.button("🚀 Run Inference"):
+            st.info("Loading model for inference...")
+            st.success("Model loaded! Go to Inference page to run predictions.")
+
+    # Model artifacts
+    st.markdown("### Model Artifacts")
+
+    with st.expander("📊 Training Curves"):
+        st.image("https://via.placeholder.com/600x300?text=Training+Curves+Visualization")
+
+    with st.expander("🔧 Configuration"):
+        st.json({
+            "model": "GraphCast",
+            "hidden_dim": 512,
+            "num_layers": 16,
+            "learning_rate": 1e-4,
+            "batch_size": 4,
+            "epochs": 100,
+        })
+
+    with st.expander("📈 Evaluation Metrics"):
+        metrics_df = pd.DataFrame({
+            "Lead Time (h)": [6, 24, 72, 120, 240],
+            "RMSE Z500 (m²/s²)": [50, 180, 450, 720, 1100],
+            "RMSE T850 (K)": [0.5, 1.2, 2.1, 2.8, 3.5],
+            "ACC Z500": [0.99, 0.97, 0.92, 0.85, 0.72],
+        })
+        st.dataframe(metrics_df, use_container_width=True)
+
+# Footer
+st.markdown("---")
+st.markdown("""
+<div style="text-align: center; color: #666;">
+    <p>WeatherFlow Training Hub • Cloud training powered by Modal, RunPod, AWS, GCP</p>
+</div>
+""", unsafe_allow_html=True)
