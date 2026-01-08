@@ -48,7 +48,8 @@ def _bilinear_regrid(
     target_grid: TargetGrid,
     variable_names: Iterable[str],
 ) -> xr.Dataset:
-    return dataset[tuple(variable_names)].interp(
+    variable_list = list(variable_names)
+    return dataset[variable_list].interp(
         latitude=target_grid.latitude,
         longitude=target_grid.longitude,
         method="linear",
@@ -60,6 +61,7 @@ def _conservative_regrid(
     target_grid: TargetGrid,
     variable_names: Iterable[str],
 ) -> xr.Dataset:
+    variable_list = list(variable_names)
     lat = dataset["latitude"].values
     lon = dataset["longitude"].values
     target_lat = target_grid.latitude
@@ -71,32 +73,43 @@ def _conservative_regrid(
     _validate_alignment(lat, target_lat, lat_factor, "latitude", allow_block_mean=True)
     _validate_alignment(lon, target_lon, lon_factor, "longitude", allow_block_mean=True)
 
-    weights = _latitude_weights(dataset["latitude"])
+    if not variable_list:
+        return xr.Dataset()
+
+    weights = _latitude_weights(dataset["latitude"]).broadcast_like(
+        dataset[variable_list[0]]
+    )
+    target_lat_da = xr.DataArray(
+        target_lat, dims=("latitude",), coords={"latitude": target_lat}
+    )
+    target_lon_da = xr.DataArray(
+        target_lon, dims=("longitude",), coords={"longitude": target_lon}
+    )
+    target_weights = _latitude_weights(target_lat_da).broadcast_like(
+        xr.DataArray(
+            np.ones((target_lat_da.size, target_lon_da.size)),
+            coords={"latitude": target_lat_da, "longitude": target_lon_da},
+            dims=("latitude", "longitude"),
+        )
+    )
 
     regridded = xr.Dataset()
-    for name in variable_names:
+    for name in variable_list:
         data = dataset[name]
-        weighted_sum = (data * weights).coarsen(
-            latitude=lat_factor,
-            longitude=lon_factor,
-            boundary="trim",
-        ).sum()
-        weight_sum = weights.coarsen(
-            latitude=lat_factor,
-            longitude=lon_factor,
-            boundary="trim",
-        ).sum()
-        regridded[name] = weighted_sum / weight_sum
+        weighted_sum = (
+            (data * weights)
+            .coarsen(
+                latitude=lat_factor,
+                longitude=lon_factor,
+                boundary="trim",
+            )
+            .sum()
+        )
+        regridded[name] = weighted_sum / target_weights
 
     regridded = regridded.assign_coords(
-        latitude=dataset["latitude"].coarsen(
-            latitude=lat_factor,
-            boundary="trim",
-        ).mean(),
-        longitude=dataset["longitude"].coarsen(
-            longitude=lon_factor,
-            boundary="trim",
-        ).mean(),
+        latitude=target_lat,
+        longitude=target_lon,
     )
 
     _validate_alignment(regridded["latitude"].values, target_lat, 1, "latitude")

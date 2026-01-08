@@ -22,11 +22,12 @@ st.set_page_config(
     page_title="WeatherFlow - Weather AI Platform",
     page_icon="🌤️",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded",
 )
 
 # Custom CSS
-st.markdown("""
+st.markdown(
+    """
 <style>
     .main-header {
         font-size: 3.5rem;
@@ -81,18 +82,23 @@ st.markdown("""
         margin: 2px;
     }
 </style>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
 # Header
 st.markdown('<p class="main-header">🌤️ WeatherFlow</p>', unsafe_allow_html=True)
-st.markdown('<p class="sub-header">The Complete Weather AI Platform</p>', unsafe_allow_html=True)
+st.markdown(
+    '<p class="sub-header">The Complete Weather AI Platform</p>', unsafe_allow_html=True
+)
 
 st.markdown("---")
 
 # Hero section
 col1, col2, col3 = st.columns([1, 2, 1])
 with col2:
-    st.markdown("""
+    st.markdown(
+        """
     <div style="text-align: center; padding: 20px;">
         <h3>Train, Evaluate, and Deploy State-of-the-Art Weather AI Models</h3>
         <p style="color: #666; font-size: 1.1rem;">
@@ -100,10 +106,13 @@ with col2:
             <br>Real data. Real models. Publication-quality results.
         </p>
     </div>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )
 
 # Model badges
-st.markdown("""
+st.markdown(
+    """
 <div style="text-align: center; margin: 20px 0;">
     <span class="model-badge">GraphCast</span>
     <span class="model-badge">FourCastNet</span>
@@ -121,20 +130,25 @@ st.markdown("""
     <span class="org-badge">🏛️ Microsoft</span>
     <span class="org-badge">🔬 Google</span>
 </div>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
 # ERA5 Data Status
 sys.path.insert(0, str(Path(__file__).parent))
 try:
     from era5_utils import get_era5_data_banner, has_era5_data
+
     banner = get_era5_data_banner()
     if has_era5_data():
         st.success(f"🌍 **Real Data Active:** {banner}")
     else:
-        st.info("""
+        st.info(
+            """
         🌍 **Get Started:** Visit **📊 Data Manager** to download real ERA5 data.
         Choose from pre-defined weather events or download custom data.
-        """)
+        """
+        )
 except ImportError:
     pass
 
@@ -146,7 +160,8 @@ st.markdown("### 🚀 Core Platform Features")
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
-    st.markdown("""
+    st.markdown(
+        """
     <div class="feature-card">
         <h4>📚 Model Library</h4>
         <p>Browse ALL major weather AI architectures with detailed documentation</p>
@@ -157,12 +172,15 @@ with col1:
             <li>Image Translation GANs</li>
         </ul>
     </div>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )
     if st.button("Open Model Library →", key="lib"):
         st.switch_page("pages/10_Model_Library.py")
 
 with col2:
-    st.markdown("""
+    st.markdown(
+        """
     <div class="feature-card">
         <h4>🚀 Training Hub</h4>
         <p>Configure and launch training on cloud compute</p>
@@ -173,12 +191,15 @@ with col2:
             <li>Checkpoint management</li>
         </ul>
     </div>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )
     if st.button("Open Training Hub →", key="train"):
         st.switch_page("pages/11_Training_Hub.py")
 
 with col3:
-    st.markdown("""
+    st.markdown(
+        """
     <div class="feature-card">
         <h4>📊 Model Comparison</h4>
         <p>Compare models on standardized benchmarks</p>
@@ -189,12 +210,15 @@ with col3:
             <li>Pareto analysis</li>
         </ul>
     </div>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )
     if st.button("Compare Models →", key="compare"):
         st.switch_page("pages/12_Model_Comparison.py")
 
 with col4:
-    st.markdown("""
+    st.markdown(
+        """
     <div class="feature-card">
         <h4>📈 Publication Viz</h4>
         <p>Create publication-quality visualizations</p>
@@ -205,7 +229,9 @@ with col4:
             <li>Spectral analysis</li>
         </ul>
     </div>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )
     if st.button("Create Visualizations →", key="pubviz"):
         st.switch_page("pages/13_Publication_Visualizations.py")
 
@@ -215,7 +241,8 @@ st.markdown("### 🛠️ Analysis & Applications")
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
-    st.markdown("""
+    st.markdown(
+        """
     <div class="feature-card">
         <h4>🌬️ Wind Power</h4>
         <p>Wind-to-power conversion with real turbine models</p>
@@ -225,12 +252,15 @@ with col1:
             <li>Vestas-V90</li>
         </ul>
     </div>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )
     if st.button("Wind Power →", key="wind"):
         st.switch_page("pages/1_Wind_Power.py")
 
 with col2:
-    st.markdown("""
+    st.markdown(
+        """
     <div class="feature-card">
         <h4>☀️ Solar Power</h4>
         <p>PV system output estimation</p>
@@ -240,12 +270,15 @@ with col2:
             <li>Thin-film</li>
         </ul>
     </div>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )
     if st.button("Solar Power →", key="solar"):
         st.switch_page("pages/2_Solar_Power.py")
 
 with col3:
-    st.markdown("""
+    st.markdown(
+        """
     <div class="feature-card">
         <h4>🌡️ Extreme Events</h4>
         <p>Detect and analyze extreme weather</p>
@@ -255,12 +288,15 @@ with col3:
             <li>Extreme precipitation</li>
         </ul>
     </div>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )
     if st.button("Extreme Events →", key="extreme"):
         st.switch_page("pages/3_Extreme_Events.py")
 
 with col4:
-    st.markdown("""
+    st.markdown(
+        """
     <div class="feature-card">
         <h4>🌍 GCM Simulation</h4>
         <p>Full physics climate model</p>
@@ -270,7 +306,9 @@ with col4:
             <li>Cloud microphysics</li>
         </ul>
     </div>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )
     if st.button("GCM →", key="gcm"):
         st.switch_page("pages/5_GCM_Simulation.py")
 
@@ -278,7 +316,8 @@ with col4:
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
-    st.markdown("""
+    st.markdown(
+        """
     <div class="feature-card">
         <h4>🧠 Flow Matching</h4>
         <p>Train flow matching weather models</p>
@@ -288,12 +327,15 @@ with col1:
             <li>Real-time training</li>
         </ul>
     </div>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )
     if st.button("Flow Matching →", key="flow"):
         st.switch_page("pages/4_Flow_Matching.py")
 
 with col2:
-    st.markdown("""
+    st.markdown(
+        """
     <div class="feature-card">
         <h4>📚 Education</h4>
         <p>Graduate-level atmospheric dynamics</p>
@@ -303,12 +345,15 @@ with col2:
             <li>Potential vorticity</li>
         </ul>
     </div>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )
     if st.button("Education →", key="edu"):
         st.switch_page("pages/6_Education.py")
 
 with col3:
-    st.markdown("""
+    st.markdown(
+        """
     <div class="feature-card">
         <h4>🗺️ Visualization</h4>
         <p>Weather maps and analysis</p>
@@ -318,12 +363,15 @@ with col3:
             <li>Skew-T diagrams</li>
         </ul>
     </div>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )
     if st.button("Visualization →", key="viz"):
         st.switch_page("pages/7_Visualization.py")
 
 with col4:
-    st.markdown("""
+    st.markdown(
+        """
     <div class="feature-card">
         <h4>⚗️ Physics Losses</h4>
         <p>Physics-informed constraints</p>
@@ -333,9 +381,33 @@ with col4:
             <li>PV conservation</li>
         </ul>
     </div>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )
     if st.button("Physics Losses →", key="physics"):
         st.switch_page("pages/8_Physics_Losses.py")
+
+st.markdown("### 🧬 GAIA Platform")
+
+col1, col2, col3 = st.columns([1, 1, 2])
+
+with col1:
+    st.markdown(
+        """
+    <div class="feature-card">
+        <h4>🧬 GAIA Function Studio</h4>
+        <p>Every GAIA function, visualized and demo-ready</p>
+        <ul style="font-size: 0.9rem;">
+            <li>Model components</li>
+            <li>Data pipeline utilities</li>
+            <li>Training & evaluation tools</li>
+        </ul>
+    </div>
+    """,
+        unsafe_allow_html=True,
+    )
+    if st.button("Explore GAIA →", key="gaia"):
+        st.switch_page("pages/14_GAIA_Functions.py")
 
 st.markdown("---")
 
@@ -354,12 +426,15 @@ stats = [
 
 for col, (value, label) in zip(stat_cols, stats):
     with col:
-        st.markdown(f"""
+        st.markdown(
+            f"""
         <div class="stat-card">
             <h2 style="margin: 0; color: #4CAF50;">{value}</h2>
             <p style="margin: 0; color: #666;">{label}</p>
         </div>
-        """, unsafe_allow_html=True)
+        """,
+            unsafe_allow_html=True,
+        )
 
 st.markdown("---")
 
@@ -367,47 +442,56 @@ st.markdown("---")
 st.markdown("### 🏗️ Available Model Architectures")
 
 with st.expander("**Graph Neural Networks** - GraphCast style", expanded=False):
-    st.markdown("""
+    st.markdown(
+        """
     | Model | Organization | Key Features |
     |-------|--------------|--------------|
     | GraphCast | DeepMind | Multi-mesh GNN, 0.25° resolution, 10-day forecasts |
     | IcosahedralNet | WeatherFlow | Icosahedral graph structure, spherical geometry |
 
     **Implementation:** `weatherflow.model_library.architectures.graphcast`
-    """)
+    """
+    )
 
 with st.expander("**Vision Transformers** - FourCastNet style", expanded=False):
-    st.markdown("""
+    st.markdown(
+        """
     | Model | Organization | Key Features |
     |-------|--------------|--------------|
     | FourCastNet | NVIDIA | AFNO blocks, FFT-based attention, very fast |
     | SFNO | - | Spherical Fourier Neural Operator |
 
     **Implementation:** `weatherflow.model_library.architectures.fourcastnet`
-    """)
+    """
+    )
 
 with st.expander("**3D Transformers** - Pangu-Weather style", expanded=False):
-    st.markdown("""
+    st.markdown(
+        """
     | Model | Organization | Key Features |
     |-------|--------------|--------------|
     | Pangu-Weather | Huawei | 3D Earth-Specific Transformer, 1h/3h/6h/24h models |
     | SwinTransformer3D | WeatherFlow | 3D window attention for atmospheric data |
 
     **Implementation:** `weatherflow.model_library.architectures.pangu`
-    """)
+    """
+    )
 
 with st.expander("**Diffusion Models** - GenCast style", expanded=False):
-    st.markdown("""
+    st.markdown(
+        """
     | Model | Organization | Key Features |
     |-------|--------------|--------------|
     | GenCast | DeepMind | Conditional diffusion, ensemble generation |
     | WeatherDiffusion | WeatherFlow | DDPM/DDIM schedulers, probabilistic forecasts |
 
     **Implementation:** `weatherflow.model_library.architectures.gencast`
-    """)
+    """
+    )
 
 with st.expander("**Image Translation** - Hurricane wind fields", expanded=False):
-    st.markdown("""
+    st.markdown(
+        """
     | Model | Original Paper | Application |
     |-------|----------------|-------------|
     | Pix2Pix | Isola et al. 2017 | Satellite → wind field (paired) |
@@ -415,21 +499,25 @@ with st.expander("**Image Translation** - Hurricane wind fields", expanded=False
     | HurricaneWindField | WeatherFlow | End-to-end hurricane analysis |
 
     **Implementation:** `weatherflow.model_library.architectures.image_translation`
-    """)
+    """
+    )
 
 with st.expander("**Foundation Models** - ClimaX style", expanded=False):
-    st.markdown("""
+    st.markdown(
+        """
     | Model | Organization | Key Features |
     |-------|--------------|--------------|
     | ClimaX | Microsoft | Variable tokenization, multi-task, fine-tunable |
     | Aurora | Microsoft | Large-scale foundation model for atmosphere |
 
     **Implementation:** `weatherflow.model_library.architectures.climax`
-    """)
+    """
+    )
 
 # Footer
 st.markdown("---")
-st.markdown("""
+st.markdown(
+    """
 <div style='text-align: center; color: #666; padding: 20px;'>
     <h4>WeatherFlow - The Complete Weather AI Platform</h4>
     <p>
@@ -441,4 +529,6 @@ st.markdown("""
         🌐 Real ERA5 data from ECMWF | ☁️ Cloud training on AWS, GCP, Modal, RunPod
     </p>
 </div>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
