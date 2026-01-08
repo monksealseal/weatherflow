@@ -1,33 +1,45 @@
 """
-WeatherFlow - The Complete Weather AI Platform
+WeatherFlow - The Weather AI Research Platform
 
-A comprehensive platform for weather AI including:
-- ALL major model architectures (GraphCast, FourCastNet, Pangu, GenCast, etc.)
-- Training, visualization, evaluation, and education
-- Cloud training integration with cost estimation
-- Real ERA5 data from ECMWF
-- Publication-quality visualizations
-- Model comparison and benchmarking
+The daily destination for weather AI researchers.
+Train real models on real data. See real results.
+
+For researchers, by researchers.
 """
 
 import streamlit as st
 import sys
 from pathlib import Path
+from datetime import datetime
 
 # Add parent directory to path for imports
 ROOT_DIR = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT_DIR))
+sys.path.insert(0, str(Path(__file__).parent))
+
+# Try to import utilities
+try:
+    from era5_utils import (
+        get_era5_data_banner,
+        has_era5_data,
+        get_active_era5_data,
+        auto_load_default_sample,
+        get_data_source_badge,
+    )
+    from data_storage import get_data_status, get_model_benchmarks
+    UTILS_AVAILABLE = True
+except ImportError:
+    UTILS_AVAILABLE = False
 
 st.set_page_config(
-    page_title="WeatherFlow - Weather AI Platform",
+    page_title="WeatherFlow - Weather AI Research Platform",
     page_icon="🌤️",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-# Custom CSS
-st.markdown(
-    """
+# Custom CSS for the unified platform look
+st.markdown("""
 <style>
     .main-header {
         font-size: 3.5rem;
@@ -38,30 +50,36 @@ st.markdown(
         margin-bottom: 0;
         text-align: center;
     }
-    .sub-header {
-        font-size: 1.4rem;
+    .tagline {
+        font-size: 1.5rem;
         color: #666;
-        margin-top: 0;
         text-align: center;
+        margin-top: 5px;
+        margin-bottom: 30px;
     }
-    .feature-card {
+    .value-prop {
         background: linear-gradient(135deg, #667eea22 0%, #764ba222 100%);
+        padding: 25px;
+        border-radius: 15px;
+        text-align: center;
+        margin: 10px 0;
+    }
+    .workflow-card {
+        background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
         padding: 20px;
         border-radius: 12px;
-        border: 1px solid #ddd;
-        margin: 10px 0;
+        border-left: 5px solid #1e88e5;
+        margin: 15px 0;
         transition: transform 0.2s;
     }
-    .feature-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    .workflow-card:hover {
+        transform: translateX(5px);
     }
-    .stat-card {
-        background: linear-gradient(135deg, #4CAF5022, #8BC34A22);
+    .feature-section {
+        background: #fafafa;
         padding: 20px;
-        border-radius: 10px;
-        text-align: center;
-        border: 1px solid #4CAF5044;
+        border-radius: 12px;
+        margin: 15px 0;
     }
     .model-badge {
         display: inline-block;
@@ -70,7 +88,7 @@ st.markdown(
         padding: 4px 12px;
         border-radius: 20px;
         font-size: 0.85rem;
-        margin: 2px;
+        margin: 3px;
     }
     .org-badge {
         display: inline-block;
@@ -79,49 +97,178 @@ st.markdown(
         padding: 4px 12px;
         border-radius: 20px;
         font-size: 0.85rem;
-        margin: 2px;
+        margin: 3px;
+    }
+    .stat-box {
+        background: linear-gradient(135deg, #4CAF5022, #8BC34A22);
+        padding: 15px;
+        border-radius: 10px;
+        text-align: center;
+    }
+    .real-data-emphasis {
+        background: #d4edda;
+        padding: 15px;
+        border-radius: 10px;
+        border-left: 4px solid #28a745;
+        margin: 20px 0;
+    }
+    .cta-button {
+        background: linear-gradient(90deg, #1e88e5, #7c4dff);
+        color: white;
+        padding: 12px 30px;
+        border-radius: 25px;
+        font-size: 1.1rem;
+        text-decoration: none;
+        display: inline-block;
+        margin: 10px;
     }
 </style>
-""",
-    unsafe_allow_html=True,
-)
+""", unsafe_allow_html=True)
 
-# Header
+# Auto-load data on startup
+if UTILS_AVAILABLE:
+    auto_load_default_sample()
+
+# =============================================================================
+# HEADER
+# =============================================================================
 st.markdown('<p class="main-header">🌤️ WeatherFlow</p>', unsafe_allow_html=True)
-st.markdown(
-    '<p class="sub-header">The Complete Weather AI Platform</p>', unsafe_allow_html=True
-)
+st.markdown('<p class="tagline">The Weather AI Research Platform</p>', unsafe_allow_html=True)
 
+# Data status banner
+if UTILS_AVAILABLE and has_era5_data():
+    data, metadata = get_active_era5_data()
+    is_synthetic = metadata.get("is_synthetic", True) if metadata else True
+    name = metadata.get("name", "Unknown") if metadata else "Unknown"
+
+    if is_synthetic:
+        st.warning(f"**Demo Mode:** Using synthetic data ({name}). Download real ERA5 data from Data Manager for research.")
+    else:
+        st.success(f"**Real Data Active:** {name} (ERA5 Reanalysis)")
+else:
+    st.info("**Welcome!** Visit the Data Manager to load ERA5 data and unlock all features.")
+
+# =============================================================================
+# VALUE PROPOSITION
+# =============================================================================
 st.markdown("---")
 
-# Hero section
-col1, col2, col3 = st.columns([1, 2, 1])
-with col2:
-    st.markdown(
-        """
-    <div style="text-align: center; padding: 20px;">
-        <h3>Train, Evaluate, and Deploy State-of-the-Art Weather AI Models</h3>
-        <p style="color: #666; font-size: 1.1rem;">
-            From GraphCast to GenCast, FourCastNet to Pangu-Weather — all in one platform.
-            <br>Real data. Real models. Publication-quality results.
-        </p>
-    </div>
-    """,
-        unsafe_allow_html=True,
-    )
+col1, col2, col3 = st.columns(3)
 
-# Model badges
-st.markdown(
-    """
+with col1:
+    st.markdown("""
+    <div class="value-prop">
+        <h2>🎯 Real Data</h2>
+        <p>Train on actual ERA5 reanalysis data from ECMWF.
+        No synthetic placeholders. Every visualization backed by real observations.</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col2:
+    st.markdown("""
+    <div class="value-prop">
+        <h2>🧠 Real Models</h2>
+        <p>Access implementations of GraphCast, FourCastNet, Pangu-Weather, and more.
+        All based on published research with proper citations.</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col3:
+    st.markdown("""
+    <div class="value-prop">
+        <h2>📊 Real Results</h2>
+        <p>Compare your models against official WeatherBench2 benchmarks.
+        Publication-quality visualizations ready for your papers.</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+# =============================================================================
+# QUICK START WORKFLOW
+# =============================================================================
+st.markdown("---")
+st.markdown("## 🚀 Quick Start: Your Daily Workflow")
+
+st.markdown("""
+Whether you're checking today's forecasts, training a new model, or catching up on research,
+WeatherFlow has you covered.
+""")
+
+col1, col2 = st.columns([1, 1])
+
+with col1:
+    st.markdown("""
+    <div class="workflow-card">
+        <h3>📍 Step 1: Check the Dashboard</h3>
+        <p>See current weather predictions from multiple AI models.
+        Compare forecasts for the next 7 days. Verify against ground truth.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    if st.button("Open Live Dashboard →", key="btn_dashboard", type="primary"):
+        st.switch_page("pages/01_Live_Dashboard.py")
+
+    st.markdown("""
+    <div class="workflow-card">
+        <h3>📰 Step 2: Stay Updated</h3>
+        <p>Latest papers from arXiv, Nature, Science.
+        Model releases and community highlights.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    if st.button("Open Research Feed →", key="btn_research"):
+        st.switch_page("pages/02_Research_Feed.py")
+
+with col2:
+    st.markdown("""
+    <div class="workflow-card">
+        <h3>🏋️ Step 3: Train Your Model</h3>
+        <p>End-to-end workflow: select data, configure model, train, evaluate.
+        All on real ERA5 data with proper benchmarking.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    if st.button("Start Training →", key="btn_training", type="primary"):
+        st.switch_page("pages/03_Training_Workflow.py")
+
+    st.markdown("""
+    <div class="workflow-card">
+        <h3>📊 Step 4: Compare & Analyze</h3>
+        <p>See how your model stacks up against GraphCast, FourCastNet, and others.
+        WeatherBench2 metrics, regional analysis, error maps.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    if st.button("Compare Models →", key="btn_compare"):
+        st.switch_page("pages/12_Model_Comparison.py")
+
+# =============================================================================
+# REAL DATA EMPHASIS
+# =============================================================================
+st.markdown("""
+<div class="real-data-emphasis">
+    <h3>📋 Our Commitment to Real Data</h3>
+    <p><strong>Everything in WeatherFlow is backed by real, citable data sources:</strong></p>
+    <ul>
+        <li><strong>ERA5 Reanalysis</strong> - ECMWF's gold-standard atmospheric dataset (Hersbach et al., 2020)</li>
+        <li><strong>WeatherBench2</strong> - Google Research's standardized benchmark (Rasp et al., 2023)</li>
+        <li><strong>Published Metrics</strong> - All model comparisons cite original papers</li>
+    </ul>
+    <p>When you see a number, you can trust it. When you download a visualization, it's publication-ready.</p>
+</div>
+""", unsafe_allow_html=True)
+
+# =============================================================================
+# MODEL SHOWCASE
+# =============================================================================
+st.markdown("---")
+st.markdown("## 🏗️ Supported Model Architectures")
+
+st.markdown("""
 <div style="text-align: center; margin: 20px 0;">
     <span class="model-badge">GraphCast</span>
     <span class="model-badge">FourCastNet</span>
     <span class="model-badge">Pangu-Weather</span>
     <span class="model-badge">GenCast</span>
     <span class="model-badge">ClimaX</span>
-    <span class="model-badge">Pix2Pix</span>
-    <span class="model-badge">CycleGAN</span>
+    <span class="model-badge">Aurora</span>
     <span class="model-badge">NeuralGCM</span>
+    <span class="model-badge">Flow Matching</span>
 </div>
 <div style="text-align: center; margin-bottom: 20px;">
     <span class="org-badge">🌐 DeepMind</span>
@@ -130,405 +277,191 @@ st.markdown(
     <span class="org-badge">🏛️ Microsoft</span>
     <span class="org-badge">🔬 Google</span>
 </div>
-""",
-    unsafe_allow_html=True,
-)
+""", unsafe_allow_html=True)
 
-# ERA5 Data Status
-sys.path.insert(0, str(Path(__file__).parent))
-try:
-    from era5_utils import get_era5_data_banner, has_era5_data
-
-    banner = get_era5_data_banner()
-    if has_era5_data():
-        st.success(f"🌍 **Real Data Active:** {banner}")
-    else:
-        st.info(
-            """
-        🌍 **Get Started:** Visit **📊 Data Manager** to download real ERA5 data.
-        Choose from pre-defined weather events or download custom data.
-        """
-        )
-except ImportError:
-    pass
-
+# =============================================================================
+# FEATURE SECTIONS
+# =============================================================================
 st.markdown("---")
+st.markdown("## 📚 Platform Features")
 
-# Main Feature Cards - Row 1
-st.markdown("### 🚀 Core Platform Features")
+tab1, tab2, tab3, tab4 = st.tabs([
+    "🔬 Research Tools",
+    "⚡ Applications",
+    "📖 Education",
+    "🛠️ Advanced"
+])
 
-col1, col2, col3, col4 = st.columns(4)
+with tab1:
+    col1, col2 = st.columns(2)
 
-with col1:
-    st.markdown(
-        """
-    <div class="feature-card">
-        <h4>📚 Model Library</h4>
-        <p>Browse ALL major weather AI architectures with detailed documentation</p>
-        <ul style="font-size: 0.9rem;">
-            <li>Graph Neural Networks</li>
-            <li>Vision Transformers</li>
-            <li>Diffusion Models</li>
-            <li>Image Translation GANs</li>
-        </ul>
-    </div>
-    """,
-        unsafe_allow_html=True,
-    )
-    if st.button("Open Model Library →", key="lib"):
-        st.switch_page("pages/10_Model_Library.py")
+    with col1:
+        st.markdown("""
+        ### Core Research Features
 
-with col2:
-    st.markdown(
-        """
-    <div class="feature-card">
-        <h4>🚀 Training Hub</h4>
-        <p>Configure and launch training on cloud compute</p>
-        <ul style="font-size: 0.9rem;">
-            <li>AWS, GCP, Modal, RunPod</li>
-            <li>Cost estimation</li>
-            <li>Real-time monitoring</li>
-            <li>Checkpoint management</li>
-        </ul>
-    </div>
-    """,
-        unsafe_allow_html=True,
-    )
-    if st.button("Open Training Hub →", key="train"):
-        st.switch_page("pages/11_Training_Hub.py")
+        **📊 Data Manager**
+        Load and manage ERA5 reanalysis data. Pre-bundled sample datasets
+        for key weather events (Hurricane Katrina, European Heat Wave, etc.).
 
-with col3:
-    st.markdown(
-        """
-    <div class="feature-card">
-        <h4>📊 Model Comparison</h4>
-        <p>Compare models on standardized benchmarks</p>
-        <ul style="font-size: 0.9rem;">
-            <li>WeatherBench2 metrics</li>
-            <li>Skill scorecards</li>
-            <li>Efficiency trade-offs</li>
-            <li>Pareto analysis</li>
-        </ul>
-    </div>
-    """,
-        unsafe_allow_html=True,
-    )
-    if st.button("Compare Models →", key="compare"):
-        st.switch_page("pages/12_Model_Comparison.py")
+        **🏋️ Training Hub**
+        Configure and train models on real data. Multiple architectures,
+        customizable hyperparameters, real-time loss visualization.
 
-with col4:
-    st.markdown(
-        """
-    <div class="feature-card">
-        <h4>📈 Publication Viz</h4>
-        <p>Create publication-quality visualizations</p>
-        <ul style="font-size: 0.9rem;">
-            <li>GraphCast-style maps</li>
-            <li>Ensemble spreads</li>
-            <li>Skill scorecards</li>
-            <li>Spectral analysis</li>
-        </ul>
-    </div>
-    """,
-        unsafe_allow_html=True,
-    )
-    if st.button("Create Visualizations →", key="pubviz"):
-        st.switch_page("pages/13_Publication_Visualizations.py")
+        **📈 Model Comparison**
+        Compare against WeatherBench2 benchmarks. Skill scores by variable,
+        lead time degradation, regional analysis.
+        """)
 
-# Feature Cards - Row 2
-st.markdown("### 🛠️ Analysis & Applications")
+    with col2:
+        st.markdown("""
+        ### Analysis & Visualization
 
-col1, col2, col3, col4 = st.columns(4)
+        **🗺️ Publication Visualizations**
+        Create publication-quality figures matching top journal standards.
+        Maps, scorecards, spectral analysis, ensemble spreads.
 
-with col1:
-    st.markdown(
-        """
-    <div class="feature-card">
-        <h4>🌬️ Wind Power</h4>
-        <p>Wind-to-power conversion with real turbine models</p>
-        <ul style="font-size: 0.9rem;">
-            <li>IEA-3.4MW</li>
-            <li>NREL-5MW</li>
-            <li>Vestas-V90</li>
-        </ul>
-    </div>
-    """,
-        unsafe_allow_html=True,
-    )
-    if st.button("Wind Power →", key="wind"):
-        st.switch_page("pages/1_Wind_Power.py")
+        **🎬 Animation Export**
+        Generate GIF animations of weather evolution.
+        Easy download for presentations and papers.
 
-with col2:
-    st.markdown(
-        """
-    <div class="feature-card">
-        <h4>☀️ Solar Power</h4>
-        <p>PV system output estimation</p>
-        <ul style="font-size: 0.9rem;">
-            <li>Monocrystalline Si</li>
-            <li>Polycrystalline Si</li>
-            <li>Thin-film</li>
-        </ul>
-    </div>
-    """,
-        unsafe_allow_html=True,
-    )
-    if st.button("Solar Power →", key="solar"):
-        st.switch_page("pages/2_Solar_Power.py")
+        **🔬 Research Workbench**
+        Rapid prototyping environment for custom architectures.
+        Mix and match components, quick training runs.
+        """)
 
-with col3:
-    st.markdown(
-        """
-    <div class="feature-card">
-        <h4>🌡️ Extreme Events</h4>
-        <p>Detect and analyze extreme weather</p>
-        <ul style="font-size: 0.9rem;">
-            <li>Heatwave detection</li>
-            <li>Atmospheric rivers</li>
-            <li>Extreme precipitation</li>
-        </ul>
-    </div>
-    """,
-        unsafe_allow_html=True,
-    )
-    if st.button("Extreme Events →", key="extreme"):
-        st.switch_page("pages/3_Extreme_Events.py")
+with tab2:
+    col1, col2 = st.columns(2)
 
-with col4:
-    st.markdown(
-        """
-    <div class="feature-card">
-        <h4>🌍 GCM Simulation</h4>
-        <p>Full physics climate model</p>
-        <ul style="font-size: 0.9rem;">
-            <li>Radiation physics</li>
-            <li>Convection</li>
-            <li>Cloud microphysics</li>
-        </ul>
-    </div>
-    """,
-        unsafe_allow_html=True,
-    )
-    if st.button("GCM →", key="gcm"):
-        st.switch_page("pages/5_GCM_Simulation.py")
+    with col1:
+        st.markdown("""
+        ### Renewable Energy
 
-# Feature Cards - Row 3
-col1, col2, col3, col4 = st.columns(4)
+        **🌬️ Wind Power Calculator**
+        Convert wind forecasts to power output using real turbine models
+        (IEA-3.4MW, NREL-5MW, Vestas-V90).
 
-with col1:
-    st.markdown(
-        """
-    <div class="feature-card">
-        <h4>🧠 Flow Matching</h4>
-        <p>Train flow matching weather models</p>
-        <ul style="font-size: 0.9rem;">
-            <li>Physics-informed loss</li>
-            <li>ODE solvers</li>
-            <li>Real-time training</li>
-        </ul>
-    </div>
-    """,
-        unsafe_allow_html=True,
-    )
-    if st.button("Flow Matching →", key="flow"):
-        st.switch_page("pages/4_Flow_Matching.py")
+        **☀️ Solar Power Calculator**
+        PV system output estimation with pvlib integration.
+        Multiple panel types and tracking options.
+        """)
 
-with col2:
-    st.markdown(
-        """
-    <div class="feature-card">
-        <h4>📚 Education</h4>
-        <p>Graduate-level atmospheric dynamics</p>
-        <ul style="font-size: 0.9rem;">
-            <li>Geostrophic balance</li>
-            <li>Rossby waves</li>
-            <li>Potential vorticity</li>
-        </ul>
-    </div>
-    """,
-        unsafe_allow_html=True,
-    )
-    if st.button("Education →", key="edu"):
-        st.switch_page("pages/6_Education.py")
+    with col2:
+        st.markdown("""
+        ### Extreme Events
 
-with col3:
-    st.markdown(
-        """
-    <div class="feature-card">
-        <h4>🗺️ Visualization</h4>
-        <p>Weather maps and analysis</p>
-        <ul style="font-size: 0.9rem;">
-            <li>Global projections</li>
-            <li>Flow fields</li>
-            <li>Skew-T diagrams</li>
-        </ul>
-    </div>
-    """,
-        unsafe_allow_html=True,
-    )
-    if st.button("Visualization →", key="viz"):
-        st.switch_page("pages/7_Visualization.py")
+        **🌡️ Extreme Event Detection**
+        Physics-based algorithms for heatwaves, atmospheric rivers,
+        extreme precipitation. Case studies on real ERA5 data.
 
-with col4:
-    st.markdown(
-        """
-    <div class="feature-card">
-        <h4>⚗️ Physics Losses</h4>
-        <p>Physics-informed constraints</p>
-        <ul style="font-size: 0.9rem;">
-            <li>Mass conservation</li>
-            <li>Energy spectra</li>
-            <li>PV conservation</li>
-        </ul>
-    </div>
-    """,
-        unsafe_allow_html=True,
-    )
-    if st.button("Physics Losses →", key="physics"):
-        st.switch_page("pages/8_Physics_Losses.py")
+        **🌍 GCM Simulation**
+        Full-physics General Circulation Model. Standalone climate
+        simulation for understanding atmospheric dynamics.
+        """)
 
-st.markdown("### 🧬 GAIA Platform")
+with tab3:
+    st.markdown("""
+    ### Graduate-Level Atmospheric Dynamics
 
-col1, col2, col3 = st.columns([1, 1, 2])
+    Interactive learning tools based on classic texts (Holton, Vallis):
 
-with col1:
-    st.markdown(
-        """
-    <div class="feature-card">
-        <h4>🧬 GAIA Function Studio</h4>
-        <p>Every GAIA function, visualized and demo-ready</p>
-        <ul style="font-size: 0.9rem;">
-            <li>Model components</li>
-            <li>Data pipeline utilities</li>
-            <li>Training & evaluation tools</li>
-        </ul>
-    </div>
-    """,
-        unsafe_allow_html=True,
-    )
-    if st.button("Explore GAIA →", key="gaia"):
-        st.switch_page("pages/14_GAIA_Functions.py")
+    - **Geostrophic Balance** - The fundamental balance in large-scale flow
+    - **Rossby Waves** - Planetary waves and their dispersion
+    - **Potential Vorticity** - The master variable of atmospheric dynamics
+    - **Practice Problems** - Worked examples with solutions
 
+    **Perfect for:** Graduate courses in atmospheric science, self-study for ML researchers
+    entering weather prediction.
+    """)
+
+with tab4:
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown("""
+        ### GAIA Architecture Studio
+
+        Explore every component of the GAIA weather model:
+        - Grid encoders (icosahedral, lat-lon)
+        - Processor blocks (GNN, attention, spectral)
+        - Decoder heads (deterministic, ensemble, diffusion)
+        - Training utilities (curriculum learning, physics losses)
+        """)
+
+    with col2:
+        st.markdown("""
+        ### Physics-Informed Losses
+
+        Constrain your ML models with atmospheric physics:
+        - Mass conservation (divergence)
+        - PV conservation
+        - Energy spectra (power laws)
+        - Geostrophic balance
+
+        All with ERA5 data validation.
+        """)
+
+# =============================================================================
+# STATISTICS
+# =============================================================================
 st.markdown("---")
-
-# Statistics
-st.markdown("### 📈 Platform Statistics")
+st.markdown("## 📊 Platform Statistics")
 
 stat_cols = st.columns(6)
 stats = [
-    ("15+", "Model Architectures"),
-    ("5", "Cloud Providers"),
+    ("8+", "Model Architectures"),
+    ("6", "Sample Datasets"),
     ("78+", "ERA5 Variables"),
-    ("10", "Preprocessing Pipelines"),
+    ("7", "Pressure Levels"),
     ("50+", "Visualizations"),
-    ("100+", "Python Modules"),
+    ("1", "Platform"),
 ]
 
 for col, (value, label) in zip(stat_cols, stats):
     with col:
-        st.markdown(
-            f"""
-        <div class="stat-card">
+        st.markdown(f"""
+        <div class="stat-box">
             <h2 style="margin: 0; color: #4CAF50;">{value}</h2>
-            <p style="margin: 0; color: #666;">{label}</p>
+            <p style="margin: 0; color: #666; font-size: 0.9em;">{label}</p>
         </div>
-        """,
-            unsafe_allow_html=True,
-        )
+        """, unsafe_allow_html=True)
 
+# =============================================================================
+# FOOTER
+# =============================================================================
 st.markdown("---")
 
-# Model Architecture Overview
-st.markdown("### 🏗️ Available Model Architectures")
+col_footer1, col_footer2, col_footer3 = st.columns([1, 2, 1])
 
-with st.expander("**Graph Neural Networks** - GraphCast style", expanded=False):
-    st.markdown(
-        """
-    | Model | Organization | Key Features |
-    |-------|--------------|--------------|
-    | GraphCast | DeepMind | Multi-mesh GNN, 0.25° resolution, 10-day forecasts |
-    | IcosahedralNet | WeatherFlow | Icosahedral graph structure, spherical geometry |
+with col_footer2:
+    st.markdown("""
+    <div style='text-align: center; color: #666; padding: 20px;'>
+        <h3>WeatherFlow</h3>
+        <p><em>The platform weather AI researchers want to use every day.</em></p>
+        <p style="font-size: 0.9rem;">
+            Real data from ECMWF ERA5 | Models from DeepMind, NVIDIA, Huawei, Microsoft
+            <br>
+            Benchmarks from WeatherBench2 | All citations included
+        </p>
+        <p style="font-size: 0.8rem; color: #999;">
+            Built for the weather AI community
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
 
-    **Implementation:** `weatherflow.model_library.architectures.graphcast`
-    """
-    )
+# Sidebar content
+st.sidebar.markdown("---")
+st.sidebar.markdown("### Quick Links")
+st.sidebar.page_link("pages/01_Live_Dashboard.py", label="📍 Live Dashboard")
+st.sidebar.page_link("pages/02_Research_Feed.py", label="📰 Research Feed")
+st.sidebar.page_link("pages/03_Training_Workflow.py", label="🏋️ Training Workflow")
+st.sidebar.page_link("pages/0_Data_Manager.py", label="📊 Data Manager")
 
-with st.expander("**Vision Transformers** - FourCastNet style", expanded=False):
-    st.markdown(
-        """
-    | Model | Organization | Key Features |
-    |-------|--------------|--------------|
-    | FourCastNet | NVIDIA | AFNO blocks, FFT-based attention, very fast |
-    | SFNO | - | Spherical Fourier Neural Operator |
+st.sidebar.markdown("---")
+st.sidebar.markdown("### Data Status")
+if UTILS_AVAILABLE:
+    status = get_data_status() if 'get_data_status' in dir() else {}
+    st.sidebar.metric("Samples Available", f"{status.get('available_samples', 0)}/{status.get('total_samples', 6)}")
+    st.sidebar.metric("Storage Used", f"{status.get('storage_used_mb', 0):.1f} MB")
 
-    **Implementation:** `weatherflow.model_library.architectures.fourcastnet`
-    """
-    )
-
-with st.expander("**3D Transformers** - Pangu-Weather style", expanded=False):
-    st.markdown(
-        """
-    | Model | Organization | Key Features |
-    |-------|--------------|--------------|
-    | Pangu-Weather | Huawei | 3D Earth-Specific Transformer, 1h/3h/6h/24h models |
-    | SwinTransformer3D | WeatherFlow | 3D window attention for atmospheric data |
-
-    **Implementation:** `weatherflow.model_library.architectures.pangu`
-    """
-    )
-
-with st.expander("**Diffusion Models** - GenCast style", expanded=False):
-    st.markdown(
-        """
-    | Model | Organization | Key Features |
-    |-------|--------------|--------------|
-    | GenCast | DeepMind | Conditional diffusion, ensemble generation |
-    | WeatherDiffusion | WeatherFlow | DDPM/DDIM schedulers, probabilistic forecasts |
-
-    **Implementation:** `weatherflow.model_library.architectures.gencast`
-    """
-    )
-
-with st.expander("**Image Translation** - Hurricane wind fields", expanded=False):
-    st.markdown(
-        """
-    | Model | Original Paper | Application |
-    |-------|----------------|-------------|
-    | Pix2Pix | Isola et al. 2017 | Satellite → wind field (paired) |
-    | CycleGAN | Zhu et al. 2017 | Satellite → wind field (unpaired) |
-    | HurricaneWindField | WeatherFlow | End-to-end hurricane analysis |
-
-    **Implementation:** `weatherflow.model_library.architectures.image_translation`
-    """
-    )
-
-with st.expander("**Foundation Models** - ClimaX style", expanded=False):
-    st.markdown(
-        """
-    | Model | Organization | Key Features |
-    |-------|--------------|--------------|
-    | ClimaX | Microsoft | Variable tokenization, multi-task, fine-tunable |
-    | Aurora | Microsoft | Large-scale foundation model for atmosphere |
-
-    **Implementation:** `weatherflow.model_library.architectures.climax`
-    """
-    )
-
-# Footer
-st.markdown("---")
-st.markdown(
-    """
-<div style='text-align: center; color: #666; padding: 20px;'>
-    <h4>WeatherFlow - The Complete Weather AI Platform</h4>
-    <p>
-        Built for the weather AI community | All models based on original papers
-        <br>
-        GraphCast • FourCastNet • Pangu-Weather • GenCast • ClimaX • Pix2Pix • CycleGAN
-    </p>
-    <p style="font-size: 0.9rem;">
-        🌐 Real ERA5 data from ECMWF | ☁️ Cloud training on AWS, GCP, Modal, RunPod
-    </p>
-</div>
-""",
-    unsafe_allow_html=True,
-)
+st.sidebar.markdown("---")
+st.sidebar.caption(f"Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
