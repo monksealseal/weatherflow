@@ -51,11 +51,26 @@ try:
         get_device,
         get_device_info,
     )
+    from dataset_context import render_dataset_banner
     UTILS_AVAILABLE = True
 except ImportError:
     UTILS_AVAILABLE = False
     SAMPLE_DATASETS = {}
     MODELS_DIR = Path(".")
+
+# Import cloud cost utilities
+try:
+    from cloud_cost_utils import (
+        estimate_training_cost,
+        estimate_memory_requirements,
+        recommend_gpu,
+        format_cost_estimate,
+        GCP_GPU_CONFIGS,
+        QUICK_COST_REFERENCE,
+    )
+    COST_UTILS_AVAILABLE = True
+except ImportError:
+    COST_UTILS_AVAILABLE = False
 
 # Import the real model classes
 try:
@@ -137,6 +152,13 @@ if not MODEL_AVAILABLE:
     """)
     st.stop()
 
+# Show dataset banner
+if UTILS_AVAILABLE:
+    try:
+        render_dataset_banner()
+    except:
+        pass
+
 st.markdown("""
 **Real Training:** This page performs actual PyTorch training using the `WeatherFlowMatch` model.
 Checkpoints are saved to disk and can be used for inference on other pages.
@@ -171,9 +193,10 @@ for i, (col, step) in enumerate(zip(cols, steps)):
 st.markdown("---")
 
 # Main workflow tabs
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "📦 1. Data Selection",
     "🧠 2. Model Config",
+    "💰 Cost Estimate",
     "🏃 3. Training",
     "📊 4. Evaluation",
     "💾 5. Export & Share"
@@ -456,8 +479,124 @@ with tab2:
             st.rerun()
 
 
-# =================== STEP 3: Training ===================
+# =================== Cloud Cost Estimation ===================
 with tab3:
+    st.header("💰 Cloud Cost Estimation")
+
+    st.markdown("""
+    **Know exactly what training will cost BEFORE you start!**
+
+    Get estimates for training on Google Cloud Platform (GCP) with different GPU configurations.
+    """)
+
+    if not COST_UTILS_AVAILABLE:
+        st.warning("Cost estimation utilities not available.")
+    else:
+        col1, col2 = st.columns([1, 1])
+
+        with col1:
+            st.subheader("Training Configuration")
+
+            # Model size
+            model_params = st.select_slider(
+                "Model Parameters",
+                options=[1_000_000, 5_000_000, 10_000_000, 50_000_000, 100_000_000, 500_000_000],
+                value=10_000_000,
+                format_func=lambda x: f"{x/1_000_000:.0f}M",
+                help="Approximate number of model parameters"
+            )
+
+            # Dataset size
+            dataset_size = st.select_slider(
+                "Training Samples",
+                options=[100, 500, 1000, 5000, 10000, 50000, 100000],
+                value=1000,
+                help="Number of training samples"
+            )
+
+            # Training config
+            cost_epochs = st.slider("Epochs", 10, 200, 50)
+            cost_batch_size = st.select_slider(
+                "Batch Size",
+                options=[8, 16, 32, 64, 128, 256],
+                value=32
+            )
+
+            # GPU selection
+            gpu_type = st.selectbox(
+                "GPU Type",
+                list(GCP_GPU_CONFIGS.keys()),
+                index=0,
+                help="Select GPU type for cost estimation"
+            )
+
+            num_gpus = st.select_slider(
+                "Number of GPUs",
+                options=[1, 2, 4, 8],
+                value=1
+            )
+
+        with col2:
+            st.subheader("Cost Estimate")
+
+            if st.button("💰 Calculate Cost", type="primary"):
+                estimate = estimate_training_cost(
+                    model_params=model_params,
+                    dataset_size=dataset_size,
+                    batch_size=cost_batch_size,
+                    epochs=cost_epochs,
+                    gpu_type=gpu_type,
+                    num_gpus=num_gpus
+                )
+
+                # Display estimate
+                st.markdown(f"""
+                ### Estimated Training Cost
+
+                | Item | Cost |
+                |------|------|
+                | **GPU** ({estimate['gpu_type']} x{estimate['num_gpus']}) | ${estimate['gpu_cost']:.2f} |
+                | **CPU** | ${estimate['cpu_cost']:.2f} |
+                | **Memory** | ${estimate['memory_cost']:.2f} |
+                | **Storage** | ${estimate['storage_cost']:.2f} |
+                | **Total** | **${estimate['total_cost']:.2f}** |
+
+                ### Time Estimate
+                - **Total Training Time:** {estimate['estimated_hours']:.1f} hours
+                - **Cost per Epoch:** ${estimate['cost_per_epoch']:.2f}
+                """)
+
+                if estimate['estimated_hours'] > 24:
+                    st.warning(f"⚠️ Training will take over a day. Consider using more GPUs or a faster GPU type.")
+
+                if estimate['total_cost'] > 100:
+                    st.info(f"💡 **Tip:** For large jobs, consider spot instances (up to 60% cheaper) or preemptible VMs.")
+
+        st.markdown("---")
+
+        # Quick reference
+        st.markdown(QUICK_COST_REFERENCE)
+
+        st.markdown("---")
+
+        st.markdown("""
+        ### GPU Comparison
+
+        | GPU | Memory | Hourly Cost | Best For |
+        |-----|--------|-------------|----------|
+        | **T4** | 16 GB | $0.35/hr | Small models, testing |
+        | **L4** | 24 GB | $0.73/hr | Medium models |
+        | **V100** | 16 GB | $2.48/hr | Legacy workloads |
+        | **A100 40GB** | 40 GB | $3.67/hr | Large models |
+        | **A100 80GB** | 80 GB | $4.89/hr | Very large models |
+        | **H100** | 80 GB | $10.80/hr | Maximum performance |
+
+        *Prices are approximate and subject to change.*
+        """)
+
+
+# =================== STEP 3: Training ===================
+with tab4:
     st.header("Step 3: Train Model")
 
     if st.session_state.workflow_step < 3:
@@ -792,7 +931,7 @@ with tab3:
 
 
 # =================== STEP 4: Evaluation ===================
-with tab4:
+with tab5:
     st.header("Step 4: Evaluate Model")
 
     if st.session_state.workflow_step < 4:
@@ -980,7 +1119,7 @@ with tab4:
 
 
 # =================== STEP 5: Export & Share ===================
-with tab5:
+with tab6:
     st.header("Step 5: Export & Share")
 
     if st.session_state.workflow_step < 5:
