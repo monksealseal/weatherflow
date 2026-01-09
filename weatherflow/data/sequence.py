@@ -1,4 +1,4 @@
-from typing import Dict, Iterable, Sequence
+from typing import Dict, Iterable, Optional, Sequence
 
 import torch
 
@@ -12,14 +12,17 @@ class MultiStepERA5Dataset(ERA5Dataset):
     This implementation reuses the normalization and loading logic from
     ``ERA5Dataset`` while providing temporally contiguous context/target
     slices for sequence modelling.
+
+    By default, uses a persistent cache directory (~/.weatherflow/datasets/era5/)
+    so you don't need to re-download data every time you log in.
     """
 
     def __init__(
         self,
-        root_dir: str,
         years: Iterable[int],
         variables: Sequence[str],
         levels: Iterable[int],
+        root_dir: Optional[str] = None,
         context_length: int = 4,
         pred_length: int = 4,
         stride: int = 1,
@@ -35,10 +38,10 @@ class MultiStepERA5Dataset(ERA5Dataset):
         self.years_seq = _coerce_years(years)
 
         super().__init__(
-            root_dir=root_dir,
             years=self.years_seq,
             variables=variables,
             levels=self.pressure_levels,
+            root_dir=root_dir,
             download=download,
         )
 

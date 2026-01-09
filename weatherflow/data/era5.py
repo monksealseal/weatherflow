@@ -1,12 +1,14 @@
 import json
 import os
-from typing import Dict, Iterable, Sequence, Tuple
+from typing import Dict, Iterable, Optional, Sequence, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import xarray as xr
 from torch.utils.data import DataLoader, Dataset
+
+from .cache import DatasetCache, get_default_cache, get_persistent_era5_path
 
 
 def _coerce_years(years: Iterable[int]) -> Sequence[int]:
@@ -29,28 +31,60 @@ class ERA5Dataset(Dataset):
     """
     A production-ready ERA5 data loader for Flow Matching models.
     Handles auto-downloading (CDSAPI), lazy-loading (Xarray), and normalization.
+
+    By default, uses a persistent cache directory (~/.weatherflow/datasets/era5/)
+    so you don't need to re-download data every time you log in.
+
+    Example:
+        # Uses persistent cache automatically
+        dataset = ERA5Dataset(
+            years=[2020, 2021],
+            variables=['temperature', 'u_component_of_wind'],
+            levels=[500, 850],
+            download=True
+        )
+
+        # Or specify a custom directory
+        dataset = ERA5Dataset(
+            root_dir="/custom/path",
+            years=[2020],
+            variables=['temperature'],
+            levels=[500],
+        )
     """
 
     def __init__(
         self,
-        root_dir: str,
         years: Iterable[int],
         variables: Sequence[str],
         levels: Iterable[int],
+        root_dir: Optional[str] = None,
         download: bool = False,
+        cache: Optional[DatasetCache] = None,
     ):
         """
         Args:
-            root_dir: Local cache folder for .nc files.
             years: Years to load (e.g. [2018, 2019]).
             variables: ERA5 variable names (e.g. ['u_component_of_wind']).
             levels: Pressure levels (e.g. [500, 850]).
+            root_dir: Local cache folder for .nc files. If None, uses the
+                persistent cache at ~/.weatherflow/datasets/era5/
             download: If True, auto-fetch missing data via CDSAPI.
+            cache: Optional DatasetCache instance. If None, uses the default.
         """
-        self.root_dir = os.fspath(root_dir)
         self.variables = list(variables)
         self.levels = _coerce_levels(levels)
         self.years = _coerce_years(years)
+
+        # Use persistent cache if no root_dir specified
+        if root_dir is None:
+            self._cache = cache or get_default_cache()
+            self.root_dir = str(self._cache.get_era5_path())
+            self._using_persistent_cache = True
+        else:
+            self.root_dir = os.fspath(root_dir)
+            self._cache = cache
+            self._using_persistent_cache = False
 
         if download:
             self._download_data()
@@ -62,9 +96,23 @@ class ERA5Dataset(Dataset):
                 parallel=True,
             )
         except OSError as exc:
-            raise FileNotFoundError(
-                f"No NetCDF files found in {self.root_dir}. Set download=True to fetch them."
-            ) from exc
+            cached_years = []
+            if self._using_persistent_cache and self._cache:
+                cached_years = self._cache.get_cached_era5_years()
+
+            if cached_years:
+                raise FileNotFoundError(
+                    f"No NetCDF files found in {self.root_dir} for years {self.years}.\n"
+                    f"Available cached years: {cached_years}\n"
+                    f"Set download=True to fetch missing data."
+                ) from exc
+            else:
+                raise FileNotFoundError(
+                    f"No NetCDF files found in {self.root_dir}.\n"
+                    f"Set download=True to fetch them, or check your cache with:\n"
+                    f"  from weatherflow.data.cache import print_cache_info\n"
+                    f"  print_cache_info()"
+                ) from exc
 
         self.ds = self.ds[self.variables].sel(
             level=self.levels,
@@ -72,6 +120,10 @@ class ERA5Dataset(Dataset):
         )
 
         self.stats = self._load_or_compute_stats()
+
+        # Update cache access time
+        if self._using_persistent_cache and self._cache:
+            self._cache.update_access_time("era5")
 
     def __len__(self) -> int:
         return self.ds.sizes["time"]
@@ -98,12 +150,16 @@ class ERA5Dataset(Dataset):
 
         os.makedirs(self.root_dir, exist_ok=True)
 
+        if self._using_persistent_cache:
+            print(f"📁 Using persistent cache: {self.root_dir}")
+
+        downloaded_any = False
         for year in self.years:
             fname = f"era5_{year}.nc"
             path = os.path.join(self.root_dir, fname)
 
             if os.path.exists(path):
-                print(f"✅ Found {fname}, skipping.")
+                print(f"✅ Found {fname} in cache, skipping download.")
                 continue
 
             print(f"⬇️ Requesting ERA5 data for {year}...")
@@ -121,6 +177,20 @@ class ERA5Dataset(Dataset):
                 },
                 path,
             )
+            downloaded_any = True
+            print(f"✅ Downloaded {fname} to persistent cache.")
+
+        # Register the dataset in the cache
+        if self._using_persistent_cache and self._cache and downloaded_any:
+            self._cache.register_dataset(
+                "era5",
+                {
+                    "years": list(self.years),
+                    "variables": self.variables,
+                    "levels": list(self.levels),
+                },
+            )
+            print(f"📦 Dataset registered in cache. View with: print_cache_info()")
 
     def _load_or_compute_stats(self) -> Dict[str, torch.Tensor]:
         """Computes mean/std once and caches them to JSON."""
@@ -169,11 +239,11 @@ class ERA5Dataset(Dataset):
 
 
 def create_data_loaders(
-    root_dir: str,
     train_years: Iterable[int],
     val_years: Iterable[int],
     variables: Sequence[str],
     levels: Iterable[int],
+    root_dir: Optional[str] = None,
     batch_size: int = 32,
     num_workers: int = 0,
     download: bool = False,
@@ -181,31 +251,45 @@ def create_data_loaders(
     """
     Convenience helper to build train/validation dataloaders.
 
+    By default, uses a persistent cache directory (~/.weatherflow/datasets/era5/)
+    so you don't need to re-download data every time you log in.
+
     Args:
-        root_dir: Directory containing (or to store) ERA5 NetCDF files.
         train_years: Years for training data.
         val_years: Years for validation data.
         variables: ERA5 variable names.
         levels: Pressure levels to include.
+        root_dir: Directory containing (or to store) ERA5 NetCDF files.
+            If None, uses the persistent cache at ~/.weatherflow/datasets/era5/
         batch_size: DataLoader batch size.
         num_workers: DataLoader worker processes.
         download: If True, fetch any missing files before loading.
 
     Returns:
         Tuple of (train_loader, val_loader).
+
+    Example:
+        # Uses persistent cache automatically
+        train_loader, val_loader = create_data_loaders(
+            train_years=[2018, 2019, 2020],
+            val_years=[2021],
+            variables=['temperature', 'u_component_of_wind'],
+            levels=[500, 850],
+            download=True,
+        )
     """
     train_ds = ERA5Dataset(
-        root_dir=root_dir,
         years=train_years,
         variables=variables,
         levels=levels,
+        root_dir=root_dir,
         download=download,
     )
     val_ds = ERA5Dataset(
-        root_dir=root_dir,
         years=val_years,
         variables=variables,
         levels=levels,
+        root_dir=root_dir,
         download=download,
     )
 

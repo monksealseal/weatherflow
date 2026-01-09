@@ -144,11 +144,11 @@ def save_checkpoint(model: nn.Module, checkpoint_dir: Path, epoch: int) -> Path:
 
 def run_training(cfg: TrainConfig) -> None:
     train_loader, val_loader = create_data_loaders(
-        root_dir=str(cfg.data_root),
         train_years=cfg.train_years,
         val_years=cfg.val_years,
         variables=cfg.variables,
         levels=cfg.levels,
+        root_dir=str(cfg.data_root),
         batch_size=cfg.batch_size,
         num_workers=cfg.num_workers,
         download=False,

@@ -40,10 +40,10 @@ def test_era5_dataset_normalizes_and_caches_stats(tmp_path, monkeypatch):
     monkeypatch.setattr(xr, "open_mfdataset", fake_open_mfdataset)
 
     dataset = ERA5Dataset(
-        root_dir=tmp_path,
         years=[2000, 2001],
         variables=["temperature"],
         levels=[500],
+        root_dir=tmp_path,
     )
 
     assert call_counter["count"] == 1
@@ -60,9 +60,9 @@ def test_era5_dataset_normalizes_and_caches_stats(tmp_path, monkeypatch):
 
     # Re-instantiating should reuse cached statistics without recomputation errors.
     dataset_second = ERA5Dataset(
-        root_dir=tmp_path,
         years=[2000, 2001],
         variables=["temperature"],
         levels=[500],
+        root_dir=tmp_path,
     )
     assert dataset_second.stats["mean"].shape == (1, 1, 1, 1)
