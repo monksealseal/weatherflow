@@ -37,10 +37,10 @@ def _build_dummy_sequence_dataset(
     monkeypatch.setattr(xr, "open_mfdataset", fake_open_mfdataset)
 
     dataset = MultiStepERA5Dataset(
-        root_dir=tmp_path,
         years=[2000, 2001],
         variables=["z"],
         levels=[500],
+        root_dir=tmp_path,
         context_length=context,
         pred_length=pred,
         stride=1,
