@@ -1,14 +1,13 @@
 """
-WeatherFlow - Weather AI Learning & Demonstration Platform
+WeatherFlow - Weather AI Platform
 
-An educational platform for exploring weather AI concepts.
+A unified platform for weather AI that makes it clear what users should do:
+1. Load Data (quick demo or real ERA5)
+2. Train Models (with cost estimates)
+3. Make Predictions (use trained models)
+4. Analyze Results (visualizations and evaluations)
 
-IMPORTANT: This platform includes both:
-- Real implementations (Flow Matching models, Physics Loss functions)
-- UI demonstrations (Live Dashboard, Training Hub, Experiments)
-
-Each page has a banner indicating whether it runs real code or displays simulated data.
-See individual page docstrings for details.
+This home page provides a clear journey through these steps.
 """
 
 import streamlit as st
@@ -24,471 +23,499 @@ sys.path.insert(0, str(Path(__file__).parent))
 # Try to import utilities
 try:
     from era5_utils import (
-        get_era5_data_banner,
         has_era5_data,
         get_active_era5_data,
         auto_load_default_sample,
-        get_data_source_badge,
     )
-    from data_storage import get_data_status, get_model_benchmarks
+    from data_storage import get_data_status
+    from checkpoint_utils import has_trained_model, list_checkpoints
+    from dataset_context import render_dataset_banner, get_dataset_summary, render_workflow_progress
     UTILS_AVAILABLE = True
 except ImportError:
     UTILS_AVAILABLE = False
 
 st.set_page_config(
-    page_title="WeatherFlow - Weather AI Research Platform",
+    page_title="WeatherFlow - Weather AI Platform",
     page_icon="🌤️",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-# Custom CSS for the unified platform look
+# Modern, clean CSS
 st.markdown("""
 <style>
-    .main-header {
-        font-size: 3.5rem;
-        font-weight: bold;
-        background: linear-gradient(90deg, #1e88e5, #7c4dff, #e91e63);
+    .main-title {
+        font-size: 3rem;
+        font-weight: 700;
+        background: linear-gradient(135deg, #1e88e5, #7c4dff);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        margin-bottom: 0;
         text-align: center;
+        margin-bottom: 0;
     }
-    .tagline {
-        font-size: 1.5rem;
+    .subtitle {
+        font-size: 1.3rem;
         color: #666;
         text-align: center;
-        margin-top: 5px;
         margin-bottom: 30px;
     }
-    .value-prop {
-        background: linear-gradient(135deg, #667eea22 0%, #764ba222 100%);
+    .journey-card {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-radius: 16px;
         padding: 25px;
-        border-radius: 15px;
-        text-align: center;
-        margin: 10px 0;
-    }
-    .workflow-card {
-        background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
-        padding: 20px;
-        border-radius: 12px;
+        margin: 15px 0;
         border-left: 5px solid #1e88e5;
-        margin: 15px 0;
-        transition: transform 0.2s;
+        transition: all 0.3s ease;
     }
-    .workflow-card:hover {
-        transform: translateX(5px);
+    .journey-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
     }
-    .feature-section {
-        background: #fafafa;
-        padding: 20px;
-        border-radius: 12px;
-        margin: 15px 0;
+    .journey-card.completed {
+        border-left-color: #4CAF50;
+        background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
     }
-    .model-badge {
+    .journey-card.active {
+        border-left-color: #ff9800;
+        background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
+    }
+    .step-number {
         display: inline-block;
+        width: 36px;
+        height: 36px;
         background: #1e88e5;
         color: white;
-        padding: 4px 12px;
-        border-radius: 20px;
-        font-size: 0.85rem;
-        margin: 3px;
-    }
-    .org-badge {
-        display: inline-block;
-        background: #7c4dff;
-        color: white;
-        padding: 4px 12px;
-        border-radius: 20px;
-        font-size: 0.85rem;
-        margin: 3px;
-    }
-    .stat-box {
-        background: linear-gradient(135deg, #4CAF5022, #8BC34A22);
-        padding: 15px;
-        border-radius: 10px;
+        border-radius: 50%;
         text-align: center;
+        line-height: 36px;
+        font-weight: bold;
+        margin-right: 12px;
     }
-    .real-data-emphasis {
-        background: #d4edda;
-        padding: 15px;
-        border-radius: 10px;
-        border-left: 4px solid #28a745;
+    .step-number.completed {
+        background: #4CAF50;
+    }
+    .step-number.active {
+        background: #ff9800;
+    }
+    .quick-action {
+        background: linear-gradient(135deg, #1e88e5, #1565c0);
+        color: white;
+        padding: 15px 25px;
+        border-radius: 12px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        margin: 10px 0;
+    }
+    .quick-action:hover {
+        transform: scale(1.02);
+        box-shadow: 0 4px 15px rgba(30, 136, 229, 0.4);
+    }
+    .status-pill {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.85em;
+        font-weight: 500;
+    }
+    .status-ready {
+        background: #4CAF50;
+        color: white;
+    }
+    .status-pending {
+        background: #ff9800;
+        color: white;
+    }
+    .status-none {
+        background: #9e9e9e;
+        color: white;
+    }
+    .feature-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
         margin: 20px 0;
     }
-    .cta-button {
-        background: linear-gradient(90deg, #1e88e5, #7c4dff);
-        color: white;
-        padding: 12px 30px;
-        border-radius: 25px;
-        font-size: 1.1rem;
-        text-decoration: none;
-        display: inline-block;
-        margin: 10px;
+    .feature-box {
+        background: white;
+        border: 1px solid #e0e0e0;
+        border-radius: 12px;
+        padding: 20px;
+        text-align: center;
+    }
+    .highlight-box {
+        background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+        border-radius: 12px;
+        padding: 20px;
+        margin: 20px 0;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# Auto-load data on startup
+# Auto-load data on startup if available
 if UTILS_AVAILABLE:
     auto_load_default_sample()
 
 # =============================================================================
 # HEADER
 # =============================================================================
-st.markdown('<p class="main-header">🌤️ WeatherFlow</p>', unsafe_allow_html=True)
-st.markdown('<p class="tagline">Weather AI Learning & Demonstration Platform</p>', unsafe_allow_html=True)
+st.markdown('<h1 class="main-title">🌤️ WeatherFlow</h1>', unsafe_allow_html=True)
+st.markdown('<p class="subtitle">Weather AI Made Simple: Load Data → Train Models → Predict Weather</p>', unsafe_allow_html=True)
 
-# Transparency notice
-with st.expander("ℹ️ **Important: About This Platform**", expanded=False):
-    st.markdown("""
-    ### What's Real vs. Simulated
+# =============================================================================
+# STATUS CHECK
+# =============================================================================
+# Determine current status
+has_data = False
+has_model = False
+data_name = "None"
 
-    **Pages with REAL model execution:**
-    - ✅ **Flow Matching** - Runs actual PyTorch forward/backward passes
-    - ✅ **Physics Losses** - Uses real PhysicsLossCalculator computations
-    - ✅ **Data Manager** - Downloads real ERA5 reanalysis data
+if UTILS_AVAILABLE:
+    has_data = has_era5_data()
+    has_model = has_trained_model()
+    if has_data:
+        _, meta = get_active_era5_data()
+        data_name = meta.get("name", "Unknown") if meta else "Unknown"
 
-    **Pages with UI DEMONSTRATIONS (simulated data):**
-    - ⚠️ **Live Dashboard** - Synthetic weather patterns for UI demo
-    - ⚠️ **Training Hub** - Simulated training, no cloud jobs launched
-    - ⚠️ **Training Workflow** - UI demonstration with fake loss curves
-    - ⚠️ **Experiments** - Randomly generated ablation results
-    - ⚠️ **Model Comparison** - Hardcoded benchmark values from papers
+# Show current status prominently
+st.markdown("### Your Current Status")
 
-    Each page displays a prominent banner indicating its status.
-    """)
+status_cols = st.columns(3)
 
-# Data status banner
-if UTILS_AVAILABLE and has_era5_data():
-    data, metadata = get_active_era5_data()
-    is_synthetic = metadata.get("is_synthetic", True) if metadata else True
-    name = metadata.get("name", "Unknown") if metadata else "Unknown"
-
-    if is_synthetic:
-        st.warning(f"**Demo Mode:** Using synthetic data ({name}). Download real ERA5 data from Data Manager for research.")
+with status_cols[0]:
+    if has_data:
+        st.markdown(f'<span class="status-pill status-ready">✅ Data Loaded</span> {data_name}', unsafe_allow_html=True)
     else:
-        st.success(f"**Real Data Active:** {name} (ERA5 Reanalysis)")
-else:
-    st.info("**Welcome!** Visit the Data Manager to load ERA5 data and unlock all features.")
+        st.markdown('<span class="status-pill status-none">📊 No Data</span> Load data to start', unsafe_allow_html=True)
+
+with status_cols[1]:
+    if has_model:
+        checkpoints = list_checkpoints() if UTILS_AVAILABLE else []
+        st.markdown(f'<span class="status-pill status-ready">✅ Model Trained</span> {len(checkpoints)} checkpoint(s)', unsafe_allow_html=True)
+    else:
+        st.markdown('<span class="status-pill status-none">🧠 No Model</span> Train a model', unsafe_allow_html=True)
+
+with status_cols[2]:
+    if has_model:
+        st.markdown('<span class="status-pill status-ready">✅ Ready to Predict</span>', unsafe_allow_html=True)
+    else:
+        st.markdown('<span class="status-pill status-pending">🔮 Needs Model</span>', unsafe_allow_html=True)
+
+st.markdown("---")
 
 # =============================================================================
-# VALUE PROPOSITION
+# MAIN USER JOURNEY
 # =============================================================================
-st.markdown("---")
+st.markdown("## 🚀 Your Journey")
+
+# Determine current step
+if not has_data:
+    current_step = 1
+elif not has_model:
+    current_step = 2
+else:
+    current_step = 3
+
+# Step 1: Load Data
+step1_class = "completed" if has_data else "active" if current_step == 1 else ""
+step1_num_class = "completed" if has_data else "active" if current_step == 1 else ""
+
+st.markdown(f"""
+<div class="journey-card {step1_class}">
+    <span class="step-number {step1_num_class}">1</span>
+    <strong style="font-size: 1.2em;">Load Your Data</strong>
+    {"<span class='status-pill status-ready' style='margin-left: 10px;'>✅ Complete</span>" if has_data else ""}
+    <p style="margin-top: 10px; color: #666;">
+        Start with instant demo data or download real ERA5 weather observations.
+        Upload your own images for GAN-style training.
+    </p>
+</div>
+""", unsafe_allow_html=True)
 
 col1, col2, col3 = st.columns(3)
-
 with col1:
-    st.markdown("""
-    <div class="value-prop">
-        <h2>🎯 ERA5 Data Access</h2>
-        <p>Access ERA5 reanalysis data samples from ECMWF.
-        Real atmospheric observations available through the Data Manager.</p>
-    </div>
-    """, unsafe_allow_html=True)
-
+    if st.button("🚀 Quick Demo (Instant)", type="primary" if current_step == 1 else "secondary", use_container_width=True):
+        st.switch_page("pages/0_Data_Manager.py")
 with col2:
-    st.markdown("""
-    <div class="value-prop">
-        <h2>🧠 Model Implementations</h2>
-        <p>Explore flow matching models and physics loss functions.
-        Based on published research with proper citations.</p>
-    </div>
-    """, unsafe_allow_html=True)
-
+    if st.button("🌍 Real ERA5 Data", use_container_width=True):
+        st.switch_page("pages/0_Data_Manager.py")
 with col3:
-    st.markdown("""
-    <div class="value-prop">
-        <h2>📊 Learning Platform</h2>
-        <p>Educational tools for understanding weather AI.
-        UI demonstrations and real physics computations.</p>
-    </div>
-    """, unsafe_allow_html=True)
+    if st.button("🖼️ Upload Images", use_container_width=True):
+        st.switch_page("pages/0_Data_Manager.py")
 
-# =============================================================================
-# QUICK START WORKFLOW
-# =============================================================================
-st.markdown("---")
-st.markdown("## 🚀 Quick Start: Your Daily Workflow")
+st.markdown("")
 
-st.markdown("""
-Whether you're checking today's forecasts, training a new model, or catching up on research,
-WeatherFlow has you covered.
-""")
+# Step 2: Train Model
+step2_class = "completed" if has_model else "active" if current_step == 2 else ""
+step2_num_class = "completed" if has_model else "active" if current_step == 2 else ""
 
-col1, col2 = st.columns([1, 1])
+st.markdown(f"""
+<div class="journey-card {step2_class}">
+    <span class="step-number {step2_num_class}">2</span>
+    <strong style="font-size: 1.2em;">Train Your Model</strong>
+    {"<span class='status-pill status-ready' style='margin-left: 10px;'>✅ Complete</span>" if has_model else ""}
+    <p style="margin-top: 10px; color: #666;">
+        Train weather AI models on your data. Choose from multiple architectures.
+        See estimated training time and cost before you start.
+    </p>
+</div>
+""", unsafe_allow_html=True)
 
+col1, col2, col3 = st.columns(3)
 with col1:
-    st.markdown("""
-    <div class="workflow-card">
-        <h3>📍 Step 1: Check the Dashboard</h3>
-        <p>See current weather predictions from multiple AI models.
-        Compare forecasts for the next 7 days. Verify against ground truth.</p>
-    </div>
-    """, unsafe_allow_html=True)
-    if st.button("Open Live Dashboard →", key="btn_dashboard", type="primary"):
-        st.switch_page("pages/01_Live_Dashboard.py")
-
-    st.markdown("""
-    <div class="workflow-card">
-        <h3>📰 Step 2: Stay Updated</h3>
-        <p>Latest papers from arXiv, Nature, Science.
-        Model releases and community highlights.</p>
-    </div>
-    """, unsafe_allow_html=True)
-    if st.button("Open Research Feed →", key="btn_research"):
-        st.switch_page("pages/02_Research_Feed.py")
-
+    if st.button("🏃 Quick Training (Demo)", type="primary" if current_step == 2 else "secondary", use_container_width=True, disabled=not has_data):
+        st.switch_page("pages/03_Training_Workflow.py")
 with col2:
-    st.markdown("""
-    <div class="workflow-card">
-        <h3>🏋️ Step 3: Train Your Model</h3>
-        <p>End-to-end workflow: select data, configure model, train, evaluate.
-        All on real ERA5 data with proper benchmarking.</p>
-    </div>
-    """, unsafe_allow_html=True)
-    if st.button("Start Training →", key="btn_training", type="primary"):
+    if st.button("⚙️ Full Training Config", use_container_width=True, disabled=not has_data):
+        st.switch_page("pages/03_Training_Workflow.py")
+with col3:
+    if st.button("💰 Estimate Cloud Cost", use_container_width=True):
         st.switch_page("pages/03_Training_Workflow.py")
 
-    st.markdown("""
-    <div class="workflow-card">
-        <h3>📊 Step 4: Compare & Analyze</h3>
-        <p>See how your model stacks up against GraphCast, FourCastNet, and others.
-        WeatherBench2 metrics, regional analysis, error maps.</p>
-    </div>
-    """, unsafe_allow_html=True)
-    if st.button("Compare Models →", key="btn_compare"):
+st.markdown("")
+
+# Step 3: Make Predictions
+step3_class = "active" if current_step == 3 else ""
+step3_num_class = "active" if current_step == 3 else ""
+
+st.markdown(f"""
+<div class="journey-card {step3_class}">
+    <span class="step-number {step3_num_class}">3</span>
+    <strong style="font-size: 1.2em;">Make Predictions</strong>
+    <p style="margin-top: 10px; color: #666;">
+        Use your trained model to forecast weather! See 7-day forecasts,
+        compare with observations, and export your predictions.
+    </p>
+</div>
+""", unsafe_allow_html=True)
+
+col1, col2, col3 = st.columns(3)
+with col1:
+    if st.button("🔮 Generate Forecast", type="primary" if current_step == 3 else "secondary", use_container_width=True, disabled=not has_model):
+        st.switch_page("pages/17_Weather_Prediction.py")
+with col2:
+    if st.button("📊 View Dashboard", use_container_width=True):
+        st.switch_page("pages/01_Live_Dashboard.py")
+with col3:
+    if st.button("📈 Compare Models", use_container_width=True):
         st.switch_page("pages/12_Model_Comparison.py")
 
 # =============================================================================
-# DATA SOURCES AND TRANSPARENCY
-# =============================================================================
-st.markdown("""
-<div class="real-data-emphasis">
-    <h3>📋 Data Sources & Transparency Notice</h3>
-    <p><strong>WeatherFlow uses the following data sources:</strong></p>
-    <ul>
-        <li><strong>ERA5 Reanalysis</strong> - ECMWF's gold-standard atmospheric dataset (Hersbach et al., 2020)</li>
-        <li><strong>WeatherBench2</strong> - Google Research's standardized benchmark (Rasp et al., 2023)</li>
-        <li><strong>Published Metrics</strong> - Model comparison data extracted from original papers</li>
-    </ul>
-    <p><strong>⚠️ Important:</strong> Many pages show <em>UI demonstrations</em> with simulated data.
-    Look for warning banners on each page indicating whether data is real or simulated.
-    Pages running actual model code include: Flow Matching, Physics Losses.</p>
-</div>
-""", unsafe_allow_html=True)
-
-# =============================================================================
-# MODEL SHOWCASE
+# QUICK START RECOMMENDATION
 # =============================================================================
 st.markdown("---")
-st.markdown("## 🏗️ Supported Model Architectures")
 
-st.markdown("""
-<div style="text-align: center; margin: 20px 0;">
-    <span class="model-badge">GraphCast</span>
-    <span class="model-badge">FourCastNet</span>
-    <span class="model-badge">Pangu-Weather</span>
-    <span class="model-badge">GenCast</span>
-    <span class="model-badge">ClimaX</span>
-    <span class="model-badge">Aurora</span>
-    <span class="model-badge">NeuralGCM</span>
-    <span class="model-badge">Flow Matching</span>
-</div>
-<div style="text-align: center; margin-bottom: 20px;">
-    <span class="org-badge">🌐 DeepMind</span>
-    <span class="org-badge">⚡ NVIDIA</span>
-    <span class="org-badge">🌍 Huawei</span>
-    <span class="org-badge">🏛️ Microsoft</span>
-    <span class="org-badge">🔬 Google</span>
-</div>
-""", unsafe_allow_html=True)
+st.markdown("### 💡 Recommended Next Step")
+
+if current_step == 1:
+    st.markdown("""
+    <div class="highlight-box">
+        <h3>👉 Load Demo Data Now!</h3>
+        <p>Get started instantly with synthetic weather data. Perfect for learning the platform.</p>
+        <p><strong>Time required:</strong> Instant (< 1 second)</p>
+    </div>
+    """, unsafe_allow_html=True)
+    if st.button("🚀 Load Demo Data & Get Started", type="primary"):
+        st.switch_page("pages/0_Data_Manager.py")
+
+elif current_step == 2:
+    st.markdown("""
+    <div class="highlight-box">
+        <h3>👉 Train Your First Model!</h3>
+        <p>You have data loaded. Now train a weather AI model on it.</p>
+        <p><strong>Quick demo training:</strong> ~2-5 minutes on CPU</p>
+    </div>
+    """, unsafe_allow_html=True)
+    if st.button("🏃 Start Quick Training", type="primary"):
+        st.switch_page("pages/03_Training_Workflow.py")
+
+else:
+    st.markdown("""
+    <div class="highlight-box">
+        <h3>👉 Make Your First Prediction!</h3>
+        <p>You have a trained model. Use it to forecast weather!</p>
+        <p><strong>Try it:</strong> Generate a 7-day forecast right now</p>
+    </div>
+    """, unsafe_allow_html=True)
+    if st.button("🔮 Generate Weather Forecast", type="primary"):
+        st.switch_page("pages/17_Weather_Prediction.py")
 
 # =============================================================================
-# FEATURE SECTIONS
+# FEATURES OVERVIEW
 # =============================================================================
 st.markdown("---")
 st.markdown("## 📚 Platform Features")
 
 tab1, tab2, tab3, tab4 = st.tabs([
-    "🔬 Research Tools",
-    "⚡ Applications",
-    "📖 Education",
-    "🛠️ Advanced"
+    "🔬 Data Sources",
+    "🧠 Models",
+    "📊 Visualizations",
+    "☁️ Cloud Training"
 ])
 
 with tab1:
     col1, col2 = st.columns(2)
-
     with col1:
         st.markdown("""
-        ### Core Research Features
+        ### Built-in Data Sources
+        - **Quick Demo Data** - Instant synthetic weather data
+        - **ERA5 Reanalysis** - Real ECMWF observations via WeatherBench2
+        - **Sample Datasets** - Hurricane Katrina, European Heat Wave, etc.
 
-        **📊 Data Manager**
-        Load and manage ERA5 reanalysis data. Pre-bundled sample datasets
-        for key weather events (Hurricane Katrina, European Heat Wave, etc.).
-
-        **🏋️ Training Hub**
-        Configure and train models on real data. Multiple architectures,
-        customizable hyperparameters, real-time loss visualization.
-
-        **📈 Model Comparison**
-        Compare against WeatherBench2 benchmarks. Skill scores by variable,
-        lead time degradation, regional analysis.
+        ### Custom Data
+        - **Image Upload** - Train on your own source/target image pairs
+        - **GAN Training** - Perfect for satellite-to-radar translation
         """)
-
     with col2:
         st.markdown("""
-        ### Analysis & Visualization
+        ### Data Sources Info
+        - **Dynamical.org** - Modern weather data infrastructure
+        - **WeatherBench2** - Google Research benchmark
+        - **ERA5 via Icechunk** - Advanced cloud-native access
 
-        **🗺️ Publication Visualizations**
-        Create publication-quality figures matching top journal standards.
-        Maps, scorecards, spectral analysis, ensemble spreads.
-
-        **🎬 Animation Export**
-        Generate GIF animations of weather evolution.
-        Easy download for presentations and papers.
-
-        **🔬 Research Workbench**
-        Rapid prototyping environment for custom architectures.
-        Mix and match components, quick training runs.
+        [Learn more about data sources →](https://dynamical.org/updates/)
         """)
 
 with tab2:
     col1, col2 = st.columns(2)
-
     with col1:
         st.markdown("""
-        ### Renewable Energy
+        ### Supported Architectures
+        - **Flow Matching** - State-of-the-art generative model
+        - **UNet** - Classic encoder-decoder
+        - **FourCastNet-style** - Fourier Neural Operators
+        - **GraphCast-style** - Graph Neural Networks
+        - **Vision Transformers** - Attention-based
 
-        **🌬️ Wind Power Calculator**
-        Convert wind forecasts to power output using real turbine models
-        (IEA-3.4MW, NREL-5MW, Vestas-V90).
-
-        **☀️ Solar Power Calculator**
-        PV system output estimation with pvlib integration.
-        Multiple panel types and tracking options.
+        All architectures work with both weather data AND image pairs!
         """)
-
     with col2:
         st.markdown("""
-        ### Extreme Events
-
-        **🌡️ Extreme Event Detection**
-        Physics-based algorithms for heatwaves, atmospheric rivers,
-        extreme precipitation. Case studies on real ERA5 data.
-
-        **🌍 GCM Simulation**
-        Full-physics General Circulation Model. Standalone climate
-        simulation for understanding atmospheric dynamics.
+        ### Model Features
+        - **Physics-Informed Losses** - Enforce atmospheric constraints
+        - **Multi-scale Training** - Start coarse, refine
+        - **Checkpointing** - Save and resume training
+        - **Export to ONNX** - Deploy anywhere
         """)
 
 with tab3:
-    st.markdown("""
-    ### Graduate-Level Atmospheric Dynamics
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("""
+        ### Weather Visualizations
+        - **7-Day Forecast Display** - Professional weather.com style
+        - **Global Maps** - Temperature, wind, precipitation
+        - **Animations** - Watch weather evolve
 
-    Interactive learning tools based on classic texts (Holton, Vallis):
+        ### Verification
+        - **Model vs Observations** - Compare predictions to truth
+        - **Error Metrics** - RMSE, MAE, Correlation
+        - **Skill Scores** - ACC by lead time
+        """)
+    with col2:
+        st.markdown("""
+        ### Publication Quality
+        - **Export to PNG/PDF** - High resolution
+        - **GIF Animations** - For presentations
+        - **Configurable Colormaps** - Match journal standards
 
-    - **Geostrophic Balance** - The fundamental balance in large-scale flow
-    - **Rossby Waves** - Planetary waves and their dispersion
-    - **Potential Vorticity** - The master variable of atmospheric dynamics
-    - **Practice Problems** - Worked examples with solutions
-
-    **Perfect for:** Graduate courses in atmospheric science, self-study for ML researchers
-    entering weather prediction.
-    """)
+        ### Benchmarking
+        - **WeatherBench2 Metrics** - Compare to published models
+        - **Leaderboard** - See where you stand
+        """)
 
 with tab4:
     col1, col2 = st.columns(2)
-
     with col1:
         st.markdown("""
-        ### GAIA Architecture Studio
+        ### Cost Estimation
+        Know exactly what training will cost BEFORE you start:
+        - **GPU Selection** - T4, A100, H100
+        - **Time Estimates** - Hours per epoch
+        - **Total Cost** - No surprises
 
-        Explore every component of the GAIA weather model:
-        - Grid encoders (icosahedral, lat-lon)
-        - Processor blocks (GNN, attention, spectral)
-        - Decoder heads (deterministic, ensemble, diffusion)
-        - Training utilities (curriculum learning, physics losses)
+        ### Example Costs (GCP)
+        | Job Size | Time | Cost |
+        |----------|------|------|
+        | Demo | 30 min | ~$0.20 |
+        | Medium | 4 hours | ~$15 |
+        | Large | 48 hours | ~$400 |
         """)
-
     with col2:
         st.markdown("""
-        ### Physics-Informed Losses
+        ### Multi-Node Training
+        - **Auto-configuration** - Optimal GPU count
+        - **Distributed Training** - Scale to 8+ GPUs
+        - **Cost Optimization** - Best price/performance
 
-        Constrain your ML models with atmospheric physics:
-        - Mass conservation (divergence)
-        - PV conservation
-        - Energy spectra (power laws)
-        - Geostrophic balance
-
-        All with ERA5 data validation.
+        ### Coming Soon
+        - **One-click GCP Deploy**
+        - **Job Monitoring Dashboard**
+        - **Auto-shutdown on completion**
         """)
-
-# =============================================================================
-# STATISTICS
-# =============================================================================
-st.markdown("---")
-st.markdown("## 📊 Platform Statistics")
-
-stat_cols = st.columns(6)
-stats = [
-    ("8+", "Model Architectures"),
-    ("6", "Sample Datasets"),
-    ("78+", "ERA5 Variables"),
-    ("7", "Pressure Levels"),
-    ("50+", "Visualizations"),
-    ("1", "Platform"),
-]
-
-for col, (value, label) in zip(stat_cols, stats):
-    with col:
-        st.markdown(f"""
-        <div class="stat-box">
-            <h2 style="margin: 0; color: #4CAF50;">{value}</h2>
-            <p style="margin: 0; color: #666; font-size: 0.9em;">{label}</p>
-        </div>
-        """, unsafe_allow_html=True)
 
 # =============================================================================
 # FOOTER
 # =============================================================================
 st.markdown("---")
 
-col_footer1, col_footer2, col_footer3 = st.columns([1, 2, 1])
+col_footer1, col_footer2, col_footer3 = st.columns(3)
+
+with col_footer1:
+    st.markdown("""
+    **Data Sources**
+    - ERA5 (ECMWF)
+    - WeatherBench2 (Google)
+    - Dynamical.org
+    """)
 
 with col_footer2:
     st.markdown("""
-    <div style='text-align: center; color: #666; padding: 20px;'>
-        <h3>WeatherFlow</h3>
-        <p><em>The platform weather AI researchers want to use every day.</em></p>
-        <p style="font-size: 0.9rem;">
-            Real data from ECMWF ERA5 | Models from DeepMind, NVIDIA, Huawei, Microsoft
-            <br>
-            <strong>WeatherBench2</strong>-compatible evaluation metrics | All citations included
-        </p>
-        <p style="font-size: 0.8rem; color: #999;">
-            Built for the weather AI community | Standardized benchmarking
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
+    **Models**
+    - GraphCast-style
+    - FourCastNet-style
+    - Flow Matching
+    """)
 
-# Sidebar content
+with col_footer3:
+    st.markdown("""
+    **Support**
+    - [Documentation](https://github.com/weatherflow)
+    - [GitHub Issues](https://github.com/weatherflow/issues)
+    """)
+
+st.markdown("---")
+st.caption(f"WeatherFlow v1.0 | Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+
+# =============================================================================
+# SIDEBAR
+# =============================================================================
+st.sidebar.markdown("## 🌤️ WeatherFlow")
 st.sidebar.markdown("---")
-st.sidebar.markdown("### Quick Links")
-st.sidebar.page_link("pages/01_Live_Dashboard.py", label="📍 Live Dashboard")
-st.sidebar.page_link("pages/02_Research_Feed.py", label="📰 Research Feed")
-st.sidebar.page_link("pages/03_Training_Workflow.py", label="🏋️ Training Workflow")
-st.sidebar.page_link("pages/16_WeatherBench2_Metrics.py", label="📊 WeatherBench2 Metrics")
-st.sidebar.page_link("pages/0_Data_Manager.py", label="📦 Data Manager")
+
+# Show dataset status in sidebar
+st.sidebar.markdown("### Current Status")
+
+if has_data:
+    st.sidebar.success(f"📊 **Data:** {data_name}")
+else:
+    st.sidebar.warning("📊 **Data:** Not loaded")
+
+if has_model:
+    st.sidebar.success("🧠 **Model:** Ready")
+else:
+    st.sidebar.warning("🧠 **Model:** Not trained")
 
 st.sidebar.markdown("---")
-st.sidebar.markdown("### Data Status")
-if UTILS_AVAILABLE:
-    status = get_data_status() if 'get_data_status' in dir() else {}
-    st.sidebar.metric("Samples Available", f"{status.get('available_samples', 0)}/{status.get('total_samples', 6)}")
-    st.sidebar.metric("Storage Used", f"{status.get('storage_used_mb', 0):.1f} MB")
+
+st.sidebar.markdown("### Quick Navigation")
+st.sidebar.page_link("pages/0_Data_Manager.py", label="📊 Load Data")
+st.sidebar.page_link("pages/03_Training_Workflow.py", label="🏃 Train Model")
+st.sidebar.page_link("pages/17_Weather_Prediction.py", label="🔮 Make Predictions")
+st.sidebar.page_link("pages/01_Live_Dashboard.py", label="📺 Dashboard")
 
 st.sidebar.markdown("---")
-st.sidebar.caption(f"Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+st.sidebar.markdown("### All Pages")
+st.sidebar.page_link("pages/12_Model_Comparison.py", label="📈 Model Comparison")
+st.sidebar.page_link("pages/04_Visualization_Studio.py", label="🎨 Visualizations")
+st.sidebar.page_link("pages/6_Education.py", label="📚 Education")
