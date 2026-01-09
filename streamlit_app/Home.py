@@ -466,10 +466,10 @@ with col_footer2:
         <p style="font-size: 0.9rem;">
             Real data from ECMWF ERA5 | Models from DeepMind, NVIDIA, Huawei, Microsoft
             <br>
-            Benchmarks from WeatherBench2 | All citations included
+            <strong>WeatherBench2</strong>-compatible evaluation metrics | All citations included
         </p>
         <p style="font-size: 0.8rem; color: #999;">
-            Built for the weather AI community
+            Built for the weather AI community | Standardized benchmarking
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -480,7 +480,8 @@ st.sidebar.markdown("### Quick Links")
 st.sidebar.page_link("pages/01_Live_Dashboard.py", label="📍 Live Dashboard")
 st.sidebar.page_link("pages/02_Research_Feed.py", label="📰 Research Feed")
 st.sidebar.page_link("pages/03_Training_Workflow.py", label="🏋️ Training Workflow")
-st.sidebar.page_link("pages/0_Data_Manager.py", label="📊 Data Manager")
+st.sidebar.page_link("pages/16_WeatherBench2_Metrics.py", label="📊 WeatherBench2 Metrics")
+st.sidebar.page_link("pages/0_Data_Manager.py", label="📦 Data Manager")
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("### Data Status")
