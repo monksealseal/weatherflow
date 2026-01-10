@@ -346,11 +346,12 @@ else:
 st.markdown("---")
 st.markdown("## 📚 Platform Features")
 
-tab1, tab2, tab3, tab4 = st.tabs([
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "🔬 Data Sources",
     "🧠 Models",
     "📊 Visualizations",
-    "☁️ Cloud Training"
+    "☁️ Cloud Training",
+    "🏢 Enterprise"
 ])
 
 with tab1:
@@ -454,6 +455,51 @@ with tab4:
         - **Auto-shutdown on completion**
         """)
 
+with tab5:
+    st.markdown("""
+    ### Enterprise Custom Models
+    **Build AI models that combine YOUR business data with weather intelligence.**
+
+    The only platform where enterprises can create decision-specific models
+    that leverage both proprietary data AND weather/climate patterns.
+    """)
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("""
+        ### For Retailers
+        - **Demand Forecasting** - Predict winter jacket sales
+        - **Inventory Optimization** - Weather-aware stock levels
+        - **Margin Protection** - Weather impact on pricing
+        - **Store Operations** - Traffic & staffing planning
+
+        **Key Insight:** Weather drives 30%+ of retail variance.
+        Now you can model it.
+        """)
+    with col2:
+        st.markdown("""
+        ### For Insurance Brokers
+        - **Risk Assessment** - Location-specific weather risk
+        - **Pricing Optimization** - Fair premiums for actual exposure
+        - **Claims Prediction** - Anticipate weather-driven claims
+        - **Portfolio Analysis** - Understand aggregate risk
+
+        **Key Insight:** Properly price weather/climate risk
+        at every location.
+        """)
+
+    st.markdown("---")
+    st.markdown("""
+    ### Why Enterprise Custom Models?
+    - **Solve two problems at once:** AI adoption + weather data utilization
+    - **Decision-specific:** Not generic forecasting - models for YOUR decisions
+    - **Unified architecture:** One model for weather AND business data
+    - **Quantified uncertainty:** Know the confidence in predictions
+    """)
+
+    if st.button("🏢 Build Your Enterprise Model", type="primary", use_container_width=True):
+        st.switch_page("pages/18_Enterprise_Custom_Models.py")
+
 # =============================================================================
 # FOOTER
 # =============================================================================
@@ -513,6 +559,7 @@ st.sidebar.page_link("pages/0_Data_Manager.py", label="📊 Load Data")
 st.sidebar.page_link("pages/03_Training_Workflow.py", label="🏃 Train Model")
 st.sidebar.page_link("pages/17_Weather_Prediction.py", label="🔮 Make Predictions")
 st.sidebar.page_link("pages/01_Live_Dashboard.py", label="📺 Dashboard")
+st.sidebar.page_link("pages/18_Enterprise_Custom_Models.py", label="🏢 Enterprise Models")
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("### All Pages")

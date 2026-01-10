@@ -47,6 +47,15 @@ _lazy_exports: Dict[str, Tuple[str, str]] = {
     "Sphere": ("weatherflow.manifolds.sphere", "Sphere"),
     # Solvers (optional)
     "WeatherODESolver": ("weatherflow.solvers.ode_solver", "WeatherODESolver"),
+    # Enterprise Custom Models
+    "EnterpriseModelBuilder": ("weatherflow.enterprise.model_builder", "EnterpriseModelBuilder"),
+    "EnterpriseModelConfig": ("weatherflow.enterprise.model_builder", "EnterpriseModelConfig"),
+    "EnterpriseWeatherModel": ("weatherflow.enterprise.model_builder", "EnterpriseWeatherModel"),
+    "IndustryVertical": ("weatherflow.enterprise.model_builder", "IndustryVertical"),
+    "ModelPurpose": ("weatherflow.enterprise.model_builder", "ModelPurpose"),
+    "RetailModelTemplates": ("weatherflow.enterprise.retail", "RetailModelTemplates"),
+    "InsuranceModelTemplates": ("weatherflow.enterprise.insurance", "InsuranceModelTemplates"),
+    "build_enterprise_model": ("weatherflow.enterprise.model_builder", "build_enterprise_model"),
 }
 
 __all__ = ["__version__", "get_version", "__author__", "__license__"] + list(_lazy_exports.keys())
