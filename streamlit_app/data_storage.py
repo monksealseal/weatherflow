@@ -376,6 +376,8 @@ def download_real_data_from_github(source_key: str) -> Optional[xr.Dataset]:
             pass
         
         # Add metadata about the real source
+        # Note: netCDF4 doesn't support boolean attributes, so we use string "1"
+        # JSON metadata files and session state can use boolean True
         ds.attrs["original_source"] = source_info["source"]
         ds.attrs["citation"] = source_info["citation"]
         ds.attrs["is_real_data"] = "1"  # String for netCDF compatibility

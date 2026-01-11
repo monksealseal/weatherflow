@@ -651,7 +651,14 @@ with tab4:
         # Real training implementation
         if start_training:
             # Check if real data is loaded
-            if not (UTILS_AVAILABLE and has_era5_data()):
+            data_available = False
+            if UTILS_AVAILABLE:
+                try:
+                    data_available = has_era5_data()
+                except Exception:
+                    data_available = False
+            
+            if not data_available:
                 st.error("⚠️ No real data loaded. Please go to Data Manager and load real weather data first.")
                 st.stop()
             
