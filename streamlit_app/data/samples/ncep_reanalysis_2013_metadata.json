@@ -1,0 +1,20 @@
+{
+  "name": "NCEP Reanalysis Air Temperature (2013-2014)",
+  "description": "Real NCEP/NCAR Reanalysis air temperature data at sigma level 0.995",
+  "start_date": "2013-01-01",
+  "end_date": "2014-12-31",
+  "region": "North America / Pacific (15\u00b0N-75\u00b0N, 200\u00b0E-330\u00b0E)",
+  "variables": [
+    "air"
+  ],
+  "pressure_levels": [
+    995
+  ],
+  "citation": "Kalnay et al. (1996). The NCEP/NCAR 40-Year Reanalysis Project. Bull. Amer. Meteor. Soc.",
+  "scientific_interest": "Temperature variability, seasonal cycles, weather patterns",
+  "data_source": "ncep_air_temperature",
+  "is_real_data": true,
+  "downloaded_at": "2026-01-11T23:46:28.206902",
+  "source": "NCEP/NCAR Reanalysis",
+  "file_size_mb": 7.41151237487793
+}
