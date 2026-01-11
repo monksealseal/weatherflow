@@ -682,54 +682,50 @@ with tab4:
                 
                 # Validate loaded data has variables
                 if data is not None and len(list(data.data_vars)) > 0:
-                        st.info(f"📊 Using ERA5 data: **{metadata.get('name', 'Unknown')}**")
-                        
-                        # Get coordinate names
-                        if "latitude" in data.coords:
-                            lat_coord, lon_coord = "latitude", "longitude"
-                        else:
-                            lat_coord, lon_coord = "lat", "lon"
-                        
-                        # Prepare data tensors
-                        var_data_list = []
-                        available_vars = list(data.data_vars)
-                        selected_vars = [v for v in input_vars if v in available_vars]
-                        
-                        if not selected_vars:
-                            selected_vars = available_vars[:min(4, len(available_vars))]
-                        
-                        for var in selected_vars:
-                            var_data = data[var]
-                            if "level" in var_data.dims:
-                                # Take first level
-                                var_data = var_data.isel(level=0)
-                            var_data_list.append(var_data.values)
-                        
-                        # Check if we have data to stack
-                        if var_data_list:
-                            # Stack: [time, n_vars, lat, lon]
-                            stacked_data = np.stack(var_data_list, axis=1)
-                            n_times, n_channels, lat_size, lon_size = stacked_data.shape
-                            
-                            # Normalize
-                            data_mean = np.mean(stacked_data)
-                            data_std = np.std(stacked_data)
-                            if data_std > 0:
-                                normalized_data = (stacked_data - data_mean) / data_std
-                            else:
-                                normalized_data = stacked_data
-                            
-                            st.success(f"✅ Using REAL data: {n_times} time steps, {n_channels} variables, {lat_size}x{lon_size} grid")
-                        else:
-                            st.error("⚠️ No matching variables found in loaded data. Please load data with matching variables.")
-                            st.session_state.training_in_progress = False
-                            st.stop()
+                    st.info(f"📊 Using ERA5 data: **{metadata.get('name', 'Unknown')}**")
+                    
+                    # Get coordinate names
+                    if "latitude" in data.coords:
+                        lat_coord, lon_coord = "latitude", "longitude"
                     else:
-                        st.error("⚠️ Loaded data is empty or invalid. Please reload data from Data Manager.")
+                        lat_coord, lon_coord = "lat", "lon"
+                    
+                    # Prepare data tensors
+                    var_data_list = []
+                    available_vars = list(data.data_vars)
+                    selected_vars = [v for v in input_vars if v in available_vars]
+                    
+                    if not selected_vars:
+                        selected_vars = available_vars[:min(4, len(available_vars))]
+                    
+                    for var in selected_vars:
+                        var_data = data[var]
+                        if "level" in var_data.dims:
+                            # Take first level
+                            var_data = var_data.isel(level=0)
+                        var_data_list.append(var_data.values)
+                    
+                    # Check if we have data to stack
+                    if var_data_list:
+                        # Stack: [time, n_vars, lat, lon]
+                        stacked_data = np.stack(var_data_list, axis=1)
+                        n_times, n_channels, lat_size, lon_size = stacked_data.shape
+                        
+                        # Normalize
+                        data_mean = np.mean(stacked_data)
+                        data_std = np.std(stacked_data)
+                        if data_std > 0:
+                            normalized_data = (stacked_data - data_mean) / data_std
+                        else:
+                            normalized_data = stacked_data
+                        
+                        st.success(f"✅ Using REAL data: {n_times} time steps, {n_channels} variables, {lat_size}x{lon_size} grid")
+                    else:
+                        st.error("⚠️ No matching variables found in loaded data. Please load data with matching variables.")
                         st.session_state.training_in_progress = False
                         st.stop()
                 else:
-                    st.error("⚠️ No real data loaded. Please go to Data Manager and load real weather data first.")
+                    st.error("⚠️ Loaded data is empty or invalid. Please reload data from Data Manager.")
                     st.session_state.training_in_progress = False
                     st.stop()
                 
