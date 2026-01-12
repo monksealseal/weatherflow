@@ -1,0 +1,24 @@
+{
+  "name": "ERA-Interim Global Wind & Geopotential",
+  "description": "Real ECMWF ERA-Interim monthly climatology with U, V wind and geopotential height",
+  "start_date": "climatology",
+  "end_date": "climatology",
+  "region": "Global",
+  "variables": [
+    "u",
+    "v",
+    "z"
+  ],
+  "pressure_levels": [
+    200,
+    500,
+    850
+  ],
+  "citation": "Dee et al. (2011). The ERA-Interim reanalysis. Q.J.R. Meteorol. Soc.",
+  "scientific_interest": "Global circulation, jet streams, geopotential patterns",
+  "data_source": "era_interim_uvz",
+  "is_real_data": true,
+  "downloaded_at": "2026-01-11T23:46:28.798378",
+  "source": "ECMWF ERA-Interim Reanalysis",
+  "file_size_mb": 3.9912452697753906
+}

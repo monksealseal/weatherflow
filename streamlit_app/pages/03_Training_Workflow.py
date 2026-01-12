@@ -625,11 +625,13 @@ with tab4:
 
         st.markdown("---")
 
-        # Training mode selection
+        # Training mode selection - only real data options
+        st.info("**Note:** All training uses REAL weather data. No synthetic data.")
+        
         training_mode = st.radio(
             "Training Mode",
-            ["Quick Demo (Synthetic Data)", "Full Training (ERA5 Data)"],
-            help="Quick Demo uses small synthetic data for fast testing. Full Training uses real ERA5 data."
+            ["Quick Training (Fewer epochs)", "Full Training (More epochs)"],
+            help="Both modes use real data. Quick mode trains for fewer epochs."
         )
 
         # Training controls
@@ -648,8 +650,23 @@ with tab4:
 
         # Real training implementation
         if start_training:
+            # Check if real data is loaded
+            data_available = False
+            if UTILS_AVAILABLE:
+                try:
+                    data_available = has_era5_data()
+                except Exception:
+                    data_available = False
+            
+            if not data_available:
+                st.error("⚠️ No real data loaded. Please go to Data Manager and load real weather data first.")
+                st.stop()
+            
             st.session_state.training_in_progress = True
             epochs = st.session_state.workflow_data.get('epochs', 50)
+            if training_mode == "Quick Training (Fewer epochs)":
+                epochs = min(epochs, 20)  # Cap at 20 for quick mode
+            
             hidden_dim = st.session_state.workflow_data.get('hidden_dim', 128)
             num_layers = st.session_state.workflow_data.get('num_layers', 4)
             learning_rate = st.session_state.workflow_data.get('learning_rate', 1e-4)
@@ -657,9 +674,6 @@ with tab4:
             use_physics = st.session_state.workflow_data.get('use_physics', True)
             input_vars = st.session_state.workflow_data.get('input_vars', ['temperature', 'geopotential'])
 
-            # Check if we should use ERA5 data
-            use_era5 = training_mode == "Full Training (ERA5 Data)" and UTILS_AVAILABLE and has_era5_data()
-            
             progress_bar = st.progress(0)
             status_text = st.empty()
             metrics_placeholder = st.empty()
@@ -670,63 +684,57 @@ with tab4:
                 device = get_device() if UTILS_AVAILABLE else torch.device('cpu')
                 device_placeholder.info(f"🖥️ Training on: **{device}**")
 
-                # Prepare data
-                use_era5_data = False
-                if use_era5:
-                    # Load real ERA5 data
-                    data, metadata = get_active_era5_data()
-                    
-                    # Validate loaded data has variables
-                    if data is not None and len(list(data.data_vars)) > 0:
-                        st.info(f"📊 Using ERA5 data: **{metadata.get('name', 'Unknown')}**")
-                        
-                        # Get coordinate names
-                        if "latitude" in data.coords:
-                            lat_coord, lon_coord = "latitude", "longitude"
-                        else:
-                            lat_coord, lon_coord = "lat", "lon"
-                        
-                        # Prepare data tensors
-                        var_data_list = []
-                        available_vars = list(data.data_vars)
-                        selected_vars = [v for v in input_vars if v in available_vars]
-                        
-                        if not selected_vars:
-                            selected_vars = available_vars[:min(4, len(available_vars))]
-                        
-                        for var in selected_vars:
-                            var_data = data[var]
-                            if "level" in var_data.dims:
-                                # Take first level
-                                var_data = var_data.isel(level=0)
-                            var_data_list.append(var_data.values)
-                        
-                        # Check if we have data to stack
-                        if var_data_list:
-                            # Stack: [time, n_vars, lat, lon]
-                            stacked_data = np.stack(var_data_list, axis=1)
-                            n_times, n_channels, lat_size, lon_size = stacked_data.shape
-                            
-                            # Normalize
-                            data_mean = np.mean(stacked_data)
-                            data_std = np.std(stacked_data)
-                            if data_std > 0:
-                                normalized_data = (stacked_data - data_mean) / data_std
-                            else:
-                                normalized_data = stacked_data
-                            use_era5_data = True
-                        else:
-                            st.warning("⚠️ No matching variables found in ERA5 data. Falling back to synthetic data.")
-                    else:
-                        st.warning("⚠️ ERA5 data is empty or invalid. Falling back to synthetic data.")
+                # Load real data
+                data, metadata = get_active_era5_data()
                 
-                if not use_era5_data:
-                    # Use synthetic data for quick demo
-                    st.info("📊 Using synthetic data for quick demo training")
-                    lat_size, lon_size = 32, 64
-                    n_channels = min(4, len(input_vars))
-                    n_times = 20
-                    normalized_data = np.random.randn(n_times, n_channels, lat_size, lon_size).astype(np.float32)
+                # Validate loaded data has variables
+                if data is not None and len(list(data.data_vars)) > 0:
+                    st.info(f"📊 Using ERA5 data: **{metadata.get('name', 'Unknown')}**")
+                    
+                    # Get coordinate names
+                    if "latitude" in data.coords:
+                        lat_coord, lon_coord = "latitude", "longitude"
+                    else:
+                        lat_coord, lon_coord = "lat", "lon"
+                    
+                    # Prepare data tensors
+                    var_data_list = []
+                    available_vars = list(data.data_vars)
+                    selected_vars = [v for v in input_vars if v in available_vars]
+                    
+                    if not selected_vars:
+                        selected_vars = available_vars[:min(4, len(available_vars))]
+                    
+                    for var in selected_vars:
+                        var_data = data[var]
+                        if "level" in var_data.dims:
+                            # Take first level
+                            var_data = var_data.isel(level=0)
+                        var_data_list.append(var_data.values)
+                    
+                    # Check if we have data to stack
+                    if var_data_list:
+                        # Stack: [time, n_vars, lat, lon]
+                        stacked_data = np.stack(var_data_list, axis=1)
+                        n_times, n_channels, lat_size, lon_size = stacked_data.shape
+                        
+                        # Normalize
+                        data_mean = np.mean(stacked_data)
+                        data_std = np.std(stacked_data)
+                        if data_std > 0:
+                            normalized_data = (stacked_data - data_mean) / data_std
+                        else:
+                            normalized_data = stacked_data
+                        
+                        st.success(f"✅ Using REAL data: {n_times} time steps, {n_channels} variables, {lat_size}x{lon_size} grid")
+                    else:
+                        st.error("⚠️ No matching variables found in loaded data. Please load data with matching variables.")
+                        st.session_state.training_in_progress = False
+                        st.stop()
+                else:
+                    st.error("⚠️ Loaded data is empty or invalid. Please reload data from Data Manager.")
+                    st.session_state.training_in_progress = False
+                    st.stop()
                 
                 # Create model
                 model = WeatherFlowMatch(
@@ -757,7 +765,8 @@ with tab4:
                     "grid_size": (lat_size, lon_size),
                     "physics_informed": use_physics,
                     "window_size": 8,
-                    "training_data": "era5" if use_era5 else "synthetic",
+                    "training_data": "real",  # Always real data
+                    "data_source": metadata.get("source", "Unknown") if metadata else "Unknown",
                 }
                 
                 # Training loop

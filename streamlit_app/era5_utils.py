@@ -57,11 +57,30 @@ def has_era5_data() -> bool:
 
 
 def is_data_real() -> bool:
-    """Check if currently loaded data is real (not synthetic)."""
-    _, metadata = get_active_era5_data()
-    if metadata is None:
+    """
+    Check if currently loaded data is real (not synthetic).
+    
+    Note: All data in WeatherFlow is now required to be real.
+    This function verifies that the data source is genuine.
+    """
+    data, metadata = get_active_era5_data()
+    if data is None or metadata is None:
         return False
-    return not metadata.get("is_synthetic", True)
+    
+    # Check for real data indicators
+    # New format uses is_real_data = "1" or True
+    is_real = metadata.get("is_real_data", False)
+    if isinstance(is_real, str):
+        is_real = is_real == "1"
+    
+    # Legacy format used is_synthetic = False
+    if not is_real:
+        is_synthetic = metadata.get("is_synthetic", True)
+        if isinstance(is_synthetic, str):
+            is_synthetic = is_synthetic == "1"
+        is_real = not is_synthetic
+    
+    return is_real
 
 
 def get_era5_variables() -> List[str]:
@@ -392,7 +411,8 @@ def auto_load_default_sample():
     """
     Automatically load a default sample if no data is loaded.
 
-    This provides a seamless experience - users see data immediately.
+    This provides a seamless experience - users see REAL data immediately.
+    All data is real - no synthetic data is ever used.
     """
     if has_era5_data():
         return True
@@ -403,18 +423,18 @@ def auto_load_default_sample():
     # Get available samples
     available = get_available_samples()
 
-    # Prefer real data over synthetic
+    # Prefer real data samples that are readily available (from GitHub)
     preferred_order = [
-        "general_sample_2023",
-        "european_heatwave_2003",
-        "hurricane_katrina_2005",
-        "polar_vortex_2019",
+        "era_interim_global",       # Has u, v, z at multiple levels - best for flow matching
+        "ncep_reanalysis_2013",     # Air temperature - lots of time steps
+        "hurricane_katrina_2005",   # Requires cloud access
+        "european_heatwave_2003",   # Requires cloud access
     ]
 
     for sample_id in preferred_order:
         if sample_id in available:
             data, metadata = load_sample_data(sample_id)
-            if data is not None:
+            if data is not None and len(data.data_vars) > 0:
                 st.session_state["era5_data"] = data
                 st.session_state["era5_metadata"] = metadata
                 st.session_state["active_sample"] = sample_id
@@ -424,17 +444,19 @@ def auto_load_default_sample():
     if available:
         sample_id = available[0]
         data, metadata = load_sample_data(sample_id)
-        if data is not None:
+        if data is not None and len(data.data_vars) > 0:
             st.session_state["era5_data"] = data
             st.session_state["era5_metadata"] = metadata
             st.session_state["active_sample"] = sample_id
             return True
 
-    # Initialize a sample if none available
-    for sample_id in preferred_order:
-        if initialize_sample_data(sample_id, force_synthetic=True):
+    # Initialize real data samples if none available
+    # Try GitHub-accessible samples first (no cloud needed)
+    github_samples = ["era_interim_global", "ncep_reanalysis_2013"]
+    for sample_id in github_samples:
+        if initialize_sample_data(sample_id):
             data, metadata = load_sample_data(sample_id)
-            if data is not None:
+            if data is not None and len(data.data_vars) > 0:
                 st.session_state["era5_data"] = data
                 st.session_state["era5_metadata"] = metadata
                 st.session_state["active_sample"] = sample_id
@@ -443,96 +465,15 @@ def auto_load_default_sample():
     return False
 
 
-def generate_synthetic_era5_like_data(
-    n_times: int = 10,
-    n_lats: int = 32,
-    n_lons: int = 64,
-    variables: Optional[List[str]] = None,
-    seed: int = 42
-) -> Dict:
-    """
-    Generate synthetic data with ERA5-like structure for demo purposes.
-
-    Args:
-        n_times: Number of time steps
-        n_lats: Number of latitude points
-        n_lons: Number of longitude points
-        variables: List of variable names (default: temperature, u, v)
-        seed: Random seed
-
-    Returns:
-        dict: Dictionary with synthetic data arrays
-
-    NOTE: This data is SYNTHETIC and should only be used for demonstration.
-    For research and publication, always use real ERA5 data.
-    """
-    np.random.seed(seed)
-
-    if variables is None:
-        variables = ["temperature", "u_wind", "v_wind", "geopotential"]
-
-    lats = np.linspace(-90, 90, n_lats)
-    lons = np.linspace(0, 360, n_lons, endpoint=False)
-    times = np.arange(n_times)
-
-    lat_grid, lon_grid = np.meshgrid(lats, lons, indexing="ij")
-
-    result = {
-        "lats": lats,
-        "lons": lons,
-        "times": times,
-        "is_synthetic": True,
-        "warning": "SYNTHETIC DATA - for demonstration only",
-    }
-
-    for var in variables:
-        if var == "temperature":
-            # Temperature decreases with latitude
-            base = 288 - 30 * np.abs(lat_grid) / 90
-            data = np.stack([
-                base + 5 * np.sin(np.radians(lon_grid) * 2 + t * 0.1) + np.random.randn(n_lats, n_lons) * 2
-                for t in range(n_times)
-            ])
-            result[var] = data
-
-        elif var in ["u_wind", "u_component_of_wind"]:
-            # Westerlies in midlatitudes
-            base = 20 * np.sin(np.radians(lat_grid) * 2)
-            data = np.stack([
-                base + np.random.randn(n_lats, n_lons) * 3
-                for _ in range(n_times)
-            ])
-            result[var] = data
-
-        elif var in ["v_wind", "v_component_of_wind"]:
-            # Weak meridional flow
-            base = 5 * np.sin(np.radians(lon_grid) * 3) * np.cos(np.radians(lat_grid))
-            data = np.stack([
-                base + np.random.randn(n_lats, n_lons) * 2
-                for _ in range(n_times)
-            ])
-            result[var] = data
-
-        elif var == "geopotential":
-            # Height field with wave pattern
-            base = 5500 + 100 * np.cos(np.radians(lat_grid - 45) * 3)
-            data = np.stack([
-                base + 50 * np.sin(np.radians(lon_grid - t * 5) * 3) + np.random.randn(n_lats, n_lons) * 10
-                for t in range(n_times)
-            ])
-            result[var] = data
-
-        else:
-            # Generic random field
-            data = np.random.randn(n_times, n_lats, n_lons)
-            result[var] = data
-
-    return result
+# Note: Synthetic data generation has been removed.
+# All data must be real weather/climate data.
+# Use the data sources in REAL_DATA_SOURCES or WeatherBench2.
 
 
 def get_available_sample_datasets() -> Dict:
     """
     Get information about available sample datasets.
+    All datasets are REAL weather data - no synthetic data.
 
     Returns:
         Dict with sample info including availability status
