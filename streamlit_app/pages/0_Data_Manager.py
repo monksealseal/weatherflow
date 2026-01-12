@@ -56,51 +56,85 @@ st.set_page_config(
     page_title="Data Manager - WeatherFlow", page_icon="📊", layout="wide"
 )
 
-# Custom CSS
+# Custom CSS - Matching new design language
 st.markdown("""
 <style>
+    /* Hide default streamlit elements */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+
     .data-source-card {
-        background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
-        padding: 20px;
-        border-radius: 12px;
-        border-left: 5px solid #1e88e5;
+        background: white;
+        padding: 24px;
+        border-radius: 16px;
+        border: 1px solid #e5e7eb;
         margin: 15px 0;
-        transition: transform 0.2s;
+        transition: all 0.2s ease;
     }
     .data-source-card:hover {
-        transform: translateX(5px);
+        border-color: #0066cc;
+        box-shadow: 0 8px 25px rgba(0, 102, 204, 0.1);
+        transform: translateY(-2px);
+    }
+    .data-source-card h3 {
+        color: #1f2937;
+        margin-bottom: 12px;
     }
     .speed-badge {
-        display: inline-block;
-        background: #4CAF50;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: linear-gradient(135deg, #10b981, #059669);
         color: white;
-        padding: 3px 10px;
-        border-radius: 10px;
-        font-size: 0.8em;
+        padding: 5px 12px;
+        border-radius: 20px;
+        font-size: 0.85em;
+        font-weight: 600;
+        margin-bottom: 12px;
     }
     .slow-badge {
         display: inline-block;
-        background: #ff9800;
+        background: #f59e0b;
         color: white;
-        padding: 3px 10px;
-        border-radius: 10px;
-        font-size: 0.8em;
+        padding: 5px 12px;
+        border-radius: 20px;
+        font-size: 0.85em;
+        font-weight: 600;
     }
     .estimate-box {
-        background: #e3f2fd;
-        padding: 10px;
-        border-radius: 8px;
-        margin: 10px 0;
+        background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+        padding: 20px;
+        border-radius: 12px;
+        margin: 20px 0;
+        border-left: 4px solid #0066cc;
+    }
+    .page-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        background: linear-gradient(135deg, #0066cc 0%, #00a3cc 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 8px;
+    }
+    .page-subtitle {
+        font-size: 1.1rem;
+        color: #6b7280;
+        margin-bottom: 25px;
+    }
+    .citation-box {
+        background: #f8fafc;
+        border-left: 4px solid #0066cc;
+        padding: 16px 20px;
+        border-radius: 0 8px 8px 0;
+        margin: 15px 0;
+        font-size: 0.9rem;
+        color: #475569;
     }
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 Data Manager")
-
-st.markdown("""
-**Your central hub for REAL weather data.** All data is from authentic scientific sources.
-No synthetic data is ever used.
-""")
+st.markdown('<h1 class="page-title">📊 Data Manager</h1>', unsafe_allow_html=True)
+st.markdown('<p class="page-subtitle">Your central hub for real weather data from NCEP/NCAR and ERA5 reanalysis</p>', unsafe_allow_html=True)
 
 # Show current dataset status
 if CONTEXT_AVAILABLE:
