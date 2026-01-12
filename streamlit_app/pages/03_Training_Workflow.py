@@ -119,10 +119,96 @@ st.markdown("""
         margin: 3px;
         font-size: 0.9em;
     }
+    .quick-start-box {
+        background: linear-gradient(135deg, #0066cc 0%, #00a3cc 100%);
+        color: white;
+        padding: 30px;
+        border-radius: 16px;
+        margin: 20px 0;
+        text-align: center;
+    }
+    .quick-start-box h2 {
+        color: white;
+        margin-bottom: 15px;
+    }
+    .quick-start-box p {
+        color: rgba(255,255,255,0.9);
+        font-size: 1.1rem;
+        margin-bottom: 20px;
+    }
+    .quick-start-specs {
+        display: flex;
+        justify-content: center;
+        gap: 40px;
+        margin: 20px 0;
+        flex-wrap: wrap;
+    }
+    .spec-item {
+        text-align: center;
+    }
+    .spec-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+    }
+    .spec-label {
+        font-size: 0.85rem;
+        opacity: 0.9;
+    }
 </style>
 """, unsafe_allow_html=True)
 
 st.title("🏋️ Training Workflow")
+
+# =============================================================================
+# ONE-CLICK QUICK START - THE MAGIC EXPERIENCE
+# =============================================================================
+has_data = has_era5_data() if UTILS_AVAILABLE else False
+
+if has_data:
+    st.markdown("""
+    <div class="quick-start-box">
+        <h2>🚀 One-Click Training</h2>
+        <p>Train a Flow Matching model on your NCEP data with optimal defaults. No configuration needed.</p>
+        <div class="quick-start-specs">
+            <div class="spec-item">
+                <div class="spec-value">10</div>
+                <div class="spec-label">Epochs</div>
+            </div>
+            <div class="spec-item">
+                <div class="spec-value">128</div>
+                <div class="spec-label">Hidden Dim</div>
+            </div>
+            <div class="spec-item">
+                <div class="spec-value">~2 min</div>
+                <div class="spec-label">Est. Time (CPU)</div>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    col_quick1, col_quick2, col_quick3 = st.columns([1, 2, 1])
+    with col_quick2:
+        if st.button("⚡ Train Now with Optimal Defaults", type="primary", use_container_width=True, key="one_click_train"):
+            # Set all defaults and jump to training
+            st.session_state.workflow_data = {
+                "dataset": "ncep_reanalysis_2013",
+                "input_vars": ["air"],
+                "target_var": "air",
+                "lead_time": 6,
+                "train_split": 80,
+                "model": "Flow Matching",
+                "hidden_dim": 128,
+                "num_layers": 4,
+                "learning_rate": 1e-4,
+                "batch_size": 16,
+                "epochs": 10,
+                "use_physics": True,
+            }
+            st.session_state.workflow_step = 3
+            st.session_state.quick_start_triggered = True
+            st.rerun()
+
+    st.markdown("---")
 
 # Show device info
 device_info = get_device_info() if UTILS_AVAILABLE else {"device": "cpu", "cuda_available": False}
@@ -599,9 +685,16 @@ with tab3:
 with tab4:
     st.header("Step 3: Train Model")
 
-    if st.session_state.workflow_step < 3:
+    # Check if quick start was triggered
+    quick_start_mode = st.session_state.get("quick_start_triggered", False)
+
+    if st.session_state.workflow_step < 3 and not quick_start_mode:
         st.warning("Please complete Steps 1-2 first.")
     else:
+        # Quick start banner
+        if quick_start_mode:
+            st.success("⚡ **One-Click Training Mode** - Using optimal defaults for NCEP data")
+
         # Show configuration summary
         col_summary1, col_summary2 = st.columns(2)
 
@@ -626,13 +719,16 @@ with tab4:
         st.markdown("---")
 
         # Training mode selection - only real data options
-        st.info("**Note:** All training uses REAL weather data. No synthetic data.")
-        
-        training_mode = st.radio(
-            "Training Mode",
-            ["Quick Training (Fewer epochs)", "Full Training (More epochs)"],
-            help="Both modes use real data. Quick mode trains for fewer epochs."
-        )
+        if not quick_start_mode:
+            st.info("**Note:** All training uses REAL weather data. No synthetic data.")
+
+            training_mode = st.radio(
+                "Training Mode",
+                ["Quick Training (Fewer epochs)", "Full Training (More epochs)"],
+                help="Both modes use real data. Quick mode trains for fewer epochs."
+            )
+        else:
+            training_mode = "Quick Training (Fewer epochs)"
 
         # Training controls
         col_train1, col_train2, col_train3 = st.columns([1, 1, 2])
@@ -647,6 +743,11 @@ with tab4:
 
         with col_train3:
             save_checkpoints = st.checkbox("Save Checkpoints", value=True, help="Save model checkpoints to disk")
+
+        # Auto-start training if quick start was triggered
+        if quick_start_mode and not st.session_state.get("training_in_progress", False):
+            st.session_state.quick_start_triggered = False  # Clear the flag
+            start_training = True  # Auto-trigger training
 
         # Real training implementation
         if start_training:
