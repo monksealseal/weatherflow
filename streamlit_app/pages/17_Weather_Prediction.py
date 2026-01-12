@@ -54,27 +54,45 @@ st.set_page_config(
     layout="wide",
 )
 
-# Professional weather-style CSS
+# Professional weather-style CSS - Matching new design language
 st.markdown("""
 <style>
+    /* Hide default streamlit elements */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+
+    .page-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        background: linear-gradient(135deg, #0066cc 0%, #00a3cc 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 8px;
+    }
     .forecast-header {
-        background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+        background: linear-gradient(135deg, #0066cc 0%, #00a3cc 100%);
         color: white;
-        padding: 20px;
-        border-radius: 10px;
-        margin-bottom: 20px;
+        padding: 25px;
+        border-radius: 16px;
+        margin-bottom: 25px;
     }
     .forecast-day {
         background: white;
-        border: 1px solid #ddd;
-        border-radius: 10px;
-        padding: 15px;
+        border: 1px solid #e5e7eb;
+        border-radius: 16px;
+        padding: 20px;
         text-align: center;
         margin: 5px;
+        transition: all 0.2s ease;
+    }
+    .forecast-day:hover {
+        border-color: #0066cc;
+        box-shadow: 0 8px 25px rgba(0, 102, 204, 0.1);
+        transform: translateY(-2px);
     }
     .forecast-day-active {
-        border: 2px solid #1e88e5;
-        box-shadow: 0 2px 10px rgba(30, 136, 229, 0.3);
+        border: 2px solid #0066cc;
+        box-shadow: 0 4px 15px rgba(0, 102, 204, 0.2);
     }
     .temp-high {
         color: #e53935;
@@ -82,18 +100,18 @@ st.markdown("""
         font-weight: bold;
     }
     .temp-low {
-        color: #1e88e5;
+        color: #0066cc;
         font-size: 1.2em;
     }
     .model-status-ready {
-        background: #4CAF50;
+        background: linear-gradient(135deg, #10b981, #059669);
         color: white;
         padding: 8px 15px;
         border-radius: 20px;
-        font-weight: bold;
+        font-weight: 600;
     }
     .model-status-not-ready {
-        background: #ff9800;
+        background: #f59e0b;
         color: white;
         padding: 8px 15px;
         border-radius: 20px;
