@@ -49,7 +49,7 @@ Open http://localhost:8501 – you'll see real weather data within 10 seconds!
 
 Deploy your own instance:
 1. Fork this repository
-2. Go to [share.streamlit.io](https://share.streamlit.io/)
+2. Go to [streamlit.io/cloud](https://streamlit.io/cloud)
 3. Connect your fork
 4. Set main file: `streamlit_app/Home.py`
 5. Deploy!
