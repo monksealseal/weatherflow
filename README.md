@@ -1,513 +1,501 @@
-# WeatherFlow: Flow Matching for Weather Prediction
+# WeatherFlow: Interactive Weather AI Platform
 
 <div align="center">
+
 <img src="https://img.shields.io/badge/Python-3.8%2B-blue" alt="Python 3.8+"/>
 <img src="https://img.shields.io/badge/PyTorch-2.0%2B-orange" alt="PyTorch 2.0+"/>
+<img src="https://img.shields.io/badge/Streamlit-1.28%2B-red" alt="Streamlit"/>
 <img src="https://img.shields.io/badge/License-MIT-green" alt="License: MIT"/>
-<img src="https://img.shields.io/badge/Version-0.4.2-brightgreen" alt="Version 0.4.2"/>
+
+**🌍 Train AI weather models • 🔬 Real scientific data • 📊 No code required**
+
+[**🚀 Launch App**](#-quick-start-10-seconds) • [**📖 Documentation**](#-complete-streamlit-app-guide) • [**🤝 Contribute**](#-contributing-to-weatherflow)
+
 </div>
 
-WeatherFlow is a Python library built on PyTorch that provides a flexible and extensible framework for developing weather prediction models using flow matching techniques. It integrates seamlessly with ERA5 reanalysis data and incorporates physics-guided neural network architectures.
+---
 
-## 🌐 Try It Online
+## 🎯 What is WeatherFlow?
 
-**Visit our interactive web interface:** https://monksealseal.github.io/weatherflow/
+WeatherFlow is an **interactive platform for training and experimenting with AI weather prediction models**. Through our Streamlit app, you can:
 
-The web interface provides access to all WeatherFlow functionality through your browser:
-- Run ML training experiments
-- Configure datasets and models
-- Visualize predictions and results
-- Track experiment history
-- No installation required!
+- **Train real neural networks** on actual NCEP/NCAR reanalysis data
+- **Visualize weather predictions** with publication-quality graphics
+- **Benchmark models** against GraphCast, Pangu-Weather, and FourCastNet
+- **Learn atmospheric dynamics** through interactive educational tools
+- **No coding required** – every Python module in this repository is accessible through the web interface
 
-> **Note:** The web interface requires a backend server for training. See [BACKEND_QUICKSTART.md](BACKEND_QUICKSTART.md) for deployment instructions.
+> **The Magic:** The Streamlit app isn't a demo with fake data – it executes the actual Python code from the `weatherflow/`, `applications/`, and `gcm/` modules. Every calculation, every model, every visualization runs real code.
 
-## Key Features
+---
 
-* **Flow Matching Models:** Implementation of continuous normalizing flows for weather prediction, inspired by Meta AI's approach
-* **Physics-Guided Architectures:** Neural networks that respect physical constraints
-* **ERA5 Data Integration:** Robust loading of ERA5 reanalysis data from multiple sources
-* **Spherical Geometry:** Proper handling of Earth's spherical surface for global weather modeling
-* **Visualization Tools:** Comprehensive utilities for visualizing predictions and flow fields
-* **Graduate Learning Studio:** Interactive, physics-rich dashboards for atmospheric dynamics education
+## 🚀 Quick Start (10 Seconds)
 
-## 🎯 New: Model Zoo & Applications Gallery
+### Option 1: Run Locally (Recommended)
 
-WeatherFlow now includes **model zoo infrastructure** for hosting pre-trained models and **real-world applications**!
+```bash
+# Clone and install
+git clone https://github.com/monksealseal/weatherflow.git
+cd weatherflow
+pip install -r streamlit_app/requirements.txt
 
-### 🏛️ Model Zoo
-
-Infrastructure ready for hosting validated models for common forecasting tasks:
-
-```python
-from weatherflow.model_zoo import load_model
-
-# Load a pre-trained model (once available)
-model, metadata = load_model('wf_z500_3day_v1')
-print(metadata.summary())
-
-# Generate predictions
-prediction = model.predict(initial_conditions)
+# Launch the app
+streamlit run streamlit_app/Home.py
 ```
 
-**Planned Model Categories:**
-- **Global Forecasting**: Z500 3-day, T850 weekly, Multi-variable 5-day
-- **Extreme Events**: Tropical cyclone tracking, Atmospheric river detection
-- **Climate**: Seasonal forecasting
+Open http://localhost:8501 – you'll see real weather data within 10 seconds!
 
-**Note:** Pre-trained weights not yet available. See [Model Zoo](model_zoo/README.md) for training scripts.
+### Option 2: Streamlit Cloud
 
-[**→ Browse Model Zoo**](model_zoo/README.md) | [**→ View Gallery**](docs/gallery/index.md)
+Deploy your own instance:
+1. Fork this repository
+2. Go to [share.streamlit.io](https://share.streamlit.io/)
+3. Connect your fork
+4. Set main file: `streamlit_app/Home.py`
+5. Deploy!
 
-### 🚀 Applications Gallery
+---
 
-Complete, runnable examples for specific domains:
+## 🧠 How the Streamlit App Works
 
-1. **Renewable Energy Forecasting**
-   - Wind and solar power prediction
-   - Uncertainty quantification
-   - Grid integration tools
-   - [View Application →](applications/renewable_energy/README.md)
+The Streamlit app is a **live interface to all Python code** in this repository. Here's how it works:
 
-2. **Extreme Event Analysis**
-   - Heatwave and atmospheric river detection
-   - Event-based model evaluation
-   - Impact assessment tools
-   - [View Application →](applications/extreme_event_analysis/README.md)
+```mermaid
+graph TB
+    subgraph "Streamlit App (streamlit_app/)"
+        HOME[🏠 Home.py<br/>Dashboard & Status]
+        
+        subgraph "Data Layer"
+            DM[📊 Data Manager<br/>Load NCEP/ERA5 data]
+        end
+        
+        subgraph "Training Layer"
+            TW[🧠 Training Workflow<br/>Real PyTorch training]
+            FM[🌊 Flow Matching<br/>Flow model demos]
+            PL[⚡ Physics Losses<br/>Conservation laws]
+        end
+        
+        subgraph "Prediction Layer"
+            WP[🔮 Weather Prediction<br/>Generate forecasts]
+            MC[📈 Model Comparison<br/>WeatherBench2 benchmarks]
+        end
+        
+        subgraph "Applications Layer"
+            WIND[🌬️ Wind Power<br/>WindPowerConverter]
+            SOLAR[☀️ Solar Power<br/>SolarPowerConverter]
+            EXTREME[🌡️ Extreme Events<br/>Heatwave/AR detection]
+        end
+        
+        subgraph "Science Layer"
+            GCM[🌍 GCM Simulation<br/>Climate modeling]
+            EDU[📚 Education<br/>Atmospheric dynamics]
+            VIZ[🎨 Visualization<br/>Weather maps]
+        end
+        
+        subgraph "Advanced Layer"
+            HUR[🌀 Hurricane Tracking<br/>IBTrACS/HURDAT2]
+            WB2[📊 WeatherBench2<br/>Standard metrics]
+            WS[🌐 Worldsphere<br/>AI command center]
+        end
+    end
+    
+    subgraph "Python Backend"
+        WF[weatherflow/<br/>Core ML models]
+        APP[applications/<br/>Domain apps]
+        GCMLIB[gcm/<br/>Climate model]
+    end
+    
+    HOME --> DM
+    DM --> TW
+    TW --> WP
+    WP --> MC
+    
+    WIND --> APP
+    SOLAR --> APP
+    EXTREME --> APP
+    
+    TW --> WF
+    FM --> WF
+    PL --> WF
+    
+    GCM --> GCMLIB
+    
+    style HOME fill:#e0f2fe
+    style TW fill:#dcfce7
+    style WP fill:#fef3c7
+```
 
-3. **Educational Laboratory**
-   - Graduate-level teaching materials
-   - Interactive Jupyter notebooks
-   - Guided exercises with solutions
-   - [View Educational Resources →](applications/educational/README.md)
+### The Key Insight
 
-[**→ Explore All Applications**](applications/README.md)
+When you click buttons in the Streamlit app, you're running **real Python code**:
 
-## Installation
+| Streamlit Page | Python Module Being Executed | What It Does |
+|---------------|------------------------------|--------------|
+| Training Workflow | `weatherflow.models.flow_matching.WeatherFlowMatch` | Real PyTorch neural network training |
+| Wind Power | `applications.renewable_energy.wind_power.WindPowerConverter` | Actual turbine power curve calculations |
+| Solar Power | `applications.renewable_energy.solar_power.SolarPowerConverter` | Real PVlib solar calculations |
+| Extreme Events | `applications.extreme_event_analysis.detectors` | Scientific event detection algorithms |
+| GCM Simulation | `gcm.core.model.GCM` | Full atmospheric physics simulation |
+| Education | `weatherflow.education.graduate_tool` | Atmospheric dynamics calculations |
+
+---
+
+## 📖 Complete Streamlit App Guide
+
+### 🏠 Home Dashboard
+
+The central hub showing your operational status:
+- **Data Status**: Whether NCEP/ERA5 data is loaded
+- **Model Status**: If you have trained checkpoints
+- **Quick Actions**: One-click access to core workflows
+- **Benchmarks**: WeatherBench2 leaderboard comparison
+
+### Core Workflow Pages
+
+#### 📊 Data Manager (`pages/0_Data_Manager.py`)
+**Purpose**: Load and manage weather datasets
+
+- Download 7 MB NCEP/NCAR reanalysis sample (one click!)
+- Load ERA-Interim or WeatherBench2 data
+- Upload custom weather data
+- Visualize loaded data in real-time
+
+**Use when**: Starting a new project or switching datasets
+
+---
+
+#### 🧠 Training Workflow (`pages/03_Training_Workflow.py`)
+**Purpose**: Train real neural network weather models
+
+- Configure model architecture (layers, attention, physics)
+- Set training parameters (epochs, batch size, learning rate)
+- Watch real-time loss curves during training
+- Save checkpoints for later use
+
+**Use when**: You want to train your own weather prediction model
+
+---
+
+#### 🔮 Weather Prediction (`pages/17_Weather_Prediction.py`)
+**Purpose**: Generate forecasts with trained models
+
+- Load saved model checkpoints
+- Initialize from current weather conditions
+- Generate multi-day forecasts
+- Professional weather-style visualizations
+
+**Use when**: Making actual weather predictions
+
+---
+
+#### 📈 Model Comparison (`pages/12_Model_Comparison.py`)
+**Purpose**: Benchmark against state-of-the-art models
+
+- Compare your model to GraphCast, Pangu-Weather, FourCastNet
+- WeatherBench2 standard metrics (Z500 RMSE, T850, etc.)
+- Efficiency analysis
+- Export comparison charts
+
+**Use when**: Evaluating model performance scientifically
+
+---
+
+### Application Pages
+
+#### 🌬️ Wind Power (`pages/1_Wind_Power.py`)
+**Purpose**: Convert weather forecasts to wind farm power output
+
+- Select from real turbine models (Vestas V90, Siemens SG 14, etc.)
+- Configure wind farm parameters
+- Calculate power production from wind data
+- Capacity factor and annual energy estimates
+
+**Runs**: `applications/renewable_energy/wind_power.py`
+
+---
+
+#### ☀️ Solar Power (`pages/2_Solar_Power.py`)
+**Purpose**: Solar energy forecasting
+
+- Configure PV system specifications
+- Calculate solar irradiance and power
+- Account for temperature effects
+- Grid integration tools
+
+**Runs**: `applications/renewable_energy/solar_power.py`
+
+---
+
+#### 🌡️ Extreme Events (`pages/3_Extreme_Events.py`)
+**Purpose**: Detect and analyze extreme weather
+
+- Heatwave detection with configurable thresholds
+- Atmospheric river identification
+- Extreme precipitation analysis
+- Event statistics and visualization
+
+**Runs**: `applications/extreme_event_analysis/detectors.py`
+
+---
+
+### Science & Research Pages
+
+#### 🌊 Flow Matching (`pages/4_Flow_Matching.py`)
+**Purpose**: Interactive flow matching model exploration
+
+- Build and configure WeatherFlowMatch models
+- Visualize flow fields and ODE integration
+- Run training demonstrations
+- Understand how flow matching works
+
+**Runs**: `weatherflow/models/flow_matching.py`
+
+---
+
+#### ⚡ Physics Losses (`pages/8_Physics_Losses.py`)
+**Purpose**: Explore physics-informed machine learning
+
+- Mass conservation constraints
+- Energy conservation losses
+- Potential vorticity preservation
+- Geostrophic balance enforcement
+
+**Runs**: `weatherflow/physics/losses.py`
+
+---
+
+#### 🌍 GCM Simulation (`pages/5_GCM_Simulation.py`)
+**Purpose**: Run climate model simulations
+
+- Configure grid resolution
+- Set CO₂ concentrations
+- Run multi-day simulations
+- Analyze climate diagnostics
+
+**Runs**: `gcm/core/model.py`
+
+---
+
+#### 📚 Education (`pages/6_Education.py`)
+**Purpose**: Learn atmospheric dynamics
+
+- Geostrophic wind calculator
+- Rossby wave laboratory
+- Potential vorticity visualization
+- Practice problems with solutions
+
+**Runs**: `weatherflow/education/graduate_tool.py`
+
+---
+
+### Advanced Pages
+
+#### 📊 WeatherBench2 Metrics (`pages/16_WeatherBench2_Metrics.py`)
+**Purpose**: Standard evaluation metrics
+
+- Headline metrics (Z500, T850, T2M, WS10, etc.)
+- RMSE, MAE, ACC, SEEPS calculations
+- Regional analysis (Global, Tropics, Extra-tropics)
+- Lead time degradation curves
+
+---
+
+#### 🌀 Hurricane Tracking (`pages/22_Hurricane_Tracking.py`)
+**Purpose**: Tropical cyclone analysis
+
+- IBTrACS historical data
+- HURDAT2 Atlantic database
+- Storm track visualization
+- Intensity analysis
+
+---
+
+#### 🌐 Worldsphere Command Center (`pages/20_Worldsphere_Command_Center.py`)
+**Purpose**: Advanced AI model management
+
+- CycleGAN models for satellite translation
+- Video diffusion for atmospheric sequences
+- Model registry and experiment tracking
+
+---
+
+## 🔧 Installation for Development
+
+### Full Development Setup
 
 ```bash
 # Clone the repository
 git clone https://github.com/monksealseal/weatherflow.git
 cd weatherflow
 
-# Install in development mode
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install core package
 pip install -e .
 
-# Install extra dependencies for development
+# Install Streamlit app dependencies
+pip install -r streamlit_app/requirements.txt
+
+# Install development tools
 pip install -r requirements-dev.txt
 ```
 
-For managed notebook platforms (e.g., Google Colab or Lambda Labs) where editable
-installs can be flaky, install the pinned runtime stack directly:
+### Run the App
 
 ```bash
-pip install -r requirements.txt
+# From repository root
+streamlit run streamlit_app/Home.py
+
+# Or from streamlit_app directory
+cd streamlit_app
+streamlit run Home.py
 ```
 
-## Training with Sophisticated Methods and Real Data
-
-For complete step-by-step instructions on training flow matching models with the most sophisticated methods and real ERA5 data, see [**TRAINING_INSTRUCTIONS.txt**](TRAINING_INSTRUCTIONS.txt).
-
-This guide covers:
-- Simple and advanced flow matching approaches
-- Using the FlowTrainer API with physics constraints
-- Foundation model pre-training (FlowAtmosphere)
-- Common troubleshooting solutions
-
-## Quick Start
-
-Here's a minimal example to get started:
-
-```python
-from weatherflow.data import ERA5Dataset, create_data_loaders
-from weatherflow.models import WeatherFlowMatch
-from weatherflow.utils import WeatherVisualizer
-import torch
-
-# Load data
-train_loader, val_loader = create_data_loaders(
-    variables=['z', 't'],             # Geopotential and temperature
-    pressure_levels=[500],            # Single pressure level
-    train_slice=('2015', '2016'),     # Training years
-    val_slice=('2017', '2017'),       # Validation year
-    batch_size=32
-)
-
-# Create model
-model = WeatherFlowMatch(
-    input_channels=2,                 # Number of variables
-    hidden_dim=128,                   # Hidden dimension
-    n_layers=4,                       # Number of layers
-    physics_informed=True             # Use physics constraints
-)
-
-# Train model (simple example)
-optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-model = model.to(device)
-
-# Train for one epoch
-model.train()
-for batch in train_loader:
-    x0, x1 = batch['input'].to(device), batch['target'].to(device)
-    t = torch.rand(x0.size(0), device=device)
-    loss = model.compute_flow_loss(x0, x1, t)['total_loss']
-    optimizer.zero_grad()
-    loss.backward()
-    optimizer.step()
-
-# Generate predictions
-from weatherflow.models import WeatherFlowODE
-
-ode_model = WeatherFlowODE(model)
-x0 = next(iter(val_loader))['input'].to(device)
-times = torch.linspace(0, 1, 5, device=device)  # 5 time steps
-with torch.no_grad():
-    predictions = ode_model(x0, times)
-
-# Visualize results
-visualizer = WeatherVisualizer()
-vis_var = 'z'  # Geopotential
-var_idx = 0
-visualizer.plot_comparison(
-    true_data={vis_var: x0[0, var_idx].cpu()},
-    pred_data={vis_var: predictions[-1, 0, var_idx].cpu()},
-    var_name=vis_var,
-    title="Prediction vs Truth"
-)
-```
-
-## Documentation
-
-The `docs/` directory contains an extensive MkDocs site covering installation,
-data ingestion, model APIs, advanced usage patterns, and tutorials. Build it
-locally with:
+### Run Tests
 
 ```bash
-pip install -e .[docs]
-mkdocs serve
+pytest tests/
 ```
 
-Then open `http://localhost:8000` to browse the rendered documentation.
+---
 
-## Comprehensive Example
+## 🤝 Contributing to WeatherFlow
 
-For a more comprehensive example, see the `examples/weather_prediction.py` script, which demonstrates:
+We welcome contributions from the weather AI community! Here's how to get involved:
 
-1. Loading ERA5 data
-2. Training a flow matching model with physics constraints
-3. Generating predictions for different lead times
-4. Visualizing results
+### Ways to Contribute
 
-Run the example script:
+1. **🐛 Report Bugs**: Open an issue describing the problem
+2. **💡 Suggest Features**: Propose new pages or functionality
+3. **📝 Improve Documentation**: Help make things clearer
+4. **🔬 Add Science**: Contribute new physics constraints or metrics
+5. **🎨 Enhance Visualizations**: Create better weather displays
+6. **🧠 Build Models**: Add new model architectures
+
+### Contribution Workflow
 
 ```bash
-python examples/weather_prediction.py --variables z t --pressure-levels 500 \
-    --train-years 2015 2016 --val-years 2017 --epochs 20 \
-    --use-attention --physics-informed --save-model --save-results
+# 1. Fork the repository on GitHub
+
+# 2. Clone your fork
+git clone https://github.com/YOUR-USERNAME/weatherflow.git
+cd weatherflow
+
+# 3. Create a feature branch
+git checkout -b feature/your-feature-name
+
+# 4. Make your changes
+# - Add code in appropriate directories
+# - Add tests in tests/
+# - Update documentation
+
+# 5. Run tests
+pytest tests/
+
+# 6. Format code
+black .
+isort --profile black .
+
+# 7. Commit and push
+git add .
+git commit -m "Add: your feature description"
+git push origin feature/your-feature-name
+
+# 8. Open a Pull Request on GitHub
 ```
 
-## Interactive Web Dashboard
+### Adding a New Streamlit Page
 
-WeatherFlow now ships with a lightweight FastAPI service and React-based
-dashboard that let you explore the library without writing code. The dashboard
-walks you through dataset synthesis, model configuration, training, and flow
-visualisation using the core `WeatherFlowMatch` and `WeatherFlowODE`
-components.
+1. Create your page in `streamlit_app/pages/XX_YourPage.py`
+2. Import real Python modules (not mock data!)
+3. Add proper docstring explaining which code it runs
+4. Include user-friendly UI with Streamlit widgets
+5. Test locally before submitting PR
 
-### 1. Start the API service
+### Code Style
 
-```bash
-uvicorn weatherflow.server.app:app --reload --port 8000
-```
+- Follow PEP 8
+- Use type hints
+- Write Google-style docstrings
+- Add tests for new features
+- Keep functions focused and small
 
-The server exposes `/api/options` for configuration metadata and
-`/api/experiments` to launch a synthetic training run that exercises the
-weather flow models and ODE solver.
+---
 
-### 2. Install and run the React app
+## 🌍 Vision: Democratizing Weather AI
 
-```bash
-cd frontend
-npm install
-npm run dev
-```
+### Our Mission
 
-Open the printed URL (typically http://localhost:5173) in your browser to
-interact with the dashboard. Use the panels on the left to configure data,
-model, and training parameters, then run an experiment to inspect loss curves,
-channel statistics, and generated trajectories on the right-hand side.
+WeatherFlow exists to **make weather AI accessible to everyone**:
 
-To produce a production build and run the component tests:
+- **Researchers**: Rapidly prototype and benchmark new ideas
+- **Students**: Learn atmospheric dynamics interactively
+- **Developers**: Build weather applications without PhD-level expertise
+- **Community**: Collaborate on open-source weather intelligence
 
-```bash
-npm run build
-npm test
-```
+### Roadmap
 
-## Key Components
+- [ ] **Real-time data**: Live NOAA/ECMWF data feeds
+- [ ] **Pre-trained models**: Download and use immediately
+- [ ] **Multi-GPU training**: Scale to larger models
+- [ ] **Ensemble forecasting**: Probabilistic predictions
+- [ ] **Regional models**: High-resolution limited area models
+- [ ] **Mobile app**: Weather predictions on your phone
 
-### Data Loading
+### Join the Community
 
-```python
-from weatherflow.data import ERA5Dataset
+- ⭐ Star this repo to show support
+- 🔔 Watch for updates
+- 💬 Join discussions in Issues
+- 🐦 Share your work on social media with #WeatherFlow
 
-# Load data directly from WeatherBench2
-dataset = ERA5Dataset(
-    variables=['z', 't', 'u', 'v'],        # Variables to load
-    pressure_levels=[850, 500, 250],       # Pressure levels (hPa)
-    time_slice=('2015', '2016'),           # Time period
-    normalize=True                         # Apply normalization
-)
+---
 
-# Load from local netCDF file
-local_dataset = ERA5Dataset(
-    data_path='/path/to/era5_data.nc',
-    variables=['z', 't'],
-    pressure_levels=[500]
-)
-```
+## 📚 Additional Resources
 
-### Flow Matching Models
+### Documentation
 
-```python
-from weatherflow.models import WeatherFlowMatch
+| Resource | Description |
+|----------|-------------|
+| [Training Instructions](TRAINING_INSTRUCTIONS.txt) | Step-by-step model training guide |
+| [Backend Quickstart](BACKEND_QUICKSTART.md) | Deploy the API server |
+| [Model Zoo](model_zoo/README.md) | Pre-trained model infrastructure |
+| [Applications](applications/README.md) | Domain-specific examples |
+| [API Reference](docs/api_reference.md) | Python API documentation |
 
-# Simple model
-model = WeatherFlowMatch(
-    input_channels=4,                  # Number of variables
-    hidden_dim=256,                    # Hidden dimension
-    n_layers=4                         # Number of layers
-)
+### Related Projects
 
-# Advanced model with physics constraints
-advanced_model = WeatherFlowMatch(
-    input_channels=4,
-    hidden_dim=256,
-    n_layers=6,
-    use_attention=True,                # Use attention mechanism
-    physics_informed=True,             # Apply physics constraints
-    grid_size=(32, 64)                 # Latitude/longitude grid size
-)
-```
+- [WeatherBench2](https://sites.research.google/weatherbench) - Standardized evaluation
+- [GraphCast](https://arxiv.org/abs/2212.12794) - Google DeepMind's weather model
+- [Pangu-Weather](https://arxiv.org/abs/2211.02556) - Huawei's foundation model
+- [ERA5](https://cds.climate.copernicus.eu/) - ECMWF reanalysis data
 
-### ODE Solver for Prediction
+---
 
-```python
-from weatherflow.models import WeatherFlowODE
+## 📜 License & Citation
 
-# Create ODE solver with the trained flow model
-ode_model = WeatherFlowODE(
-    flow_model=model,
-    solver_method='dopri5',           # ODE solver method
-    rtol=1e-4,                        # Relative tolerance
-    atol=1e-4                         # Absolute tolerance
-)
-
-# Generate predictions
-x0 = initial_weather_state            # Initial state
-times = torch.linspace(0, 1, 5)       # 5 time steps
-predictions = ode_model(x0, times)    # Shape: [time, batch, channels, lat, lon]
-```
-
-### Visualization
-
-```python
-from weatherflow.utils import WeatherVisualizer
-
-visualizer = WeatherVisualizer()
-
-# Compare prediction with ground truth
-visualizer.plot_comparison(
-    true_data={'temperature': true_temp},
-    pred_data={'temperature': pred_temp},
-    var_name='temperature'
-)
-
-# Visualize flow field
-visualizer.plot_flow_vectors(
-    u=u_wind,                           # U-component of wind
-    v=v_wind,                           # V-component of wind
-    background=geopotential,            # Background field
-    var_name='geopotential'
-)
-
-# Create animation
-visualizer.create_prediction_animation(
-    predictions=predictions[:, 0, 0],   # Time evolution of first variable
-    var_name='temperature',
-    interval=200,                       # Animation speed (ms)
-    save_path='animation.gif'
-)
-```
-
-## Advanced Usage
-
-### Custom Flow Matching Models
-
-You can create custom flow matching models by extending the base classes:
-
-```python
-import torch.nn as nn
-from weatherflow.models import WeatherFlowMatch
-
-class MyFlowModel(WeatherFlowMatch):
-    def __init__(self, input_channels, hidden_dim=256):
-        super().__init__(input_channels, hidden_dim)
-        # Add custom layers
-        self.extra_layer = nn.Linear(hidden_dim, hidden_dim)
-    
-    def forward(self, x, t):
-        # Override forward method
-        h = super().forward(x, t)
-        # Add custom processing
-        h = self.extra_layer(h)
-        return h
-```
-
-### Physics-Informed Constraints
-
-You can add custom physics constraints:
-
-```python
-def custom_physics_constraint(v, x):
-    """Apply custom physics constraint to velocity field."""
-    # Implement your physics constraint
-    return v_constrained
-
-# Use in model
-model = WeatherFlowMatch(physics_informed=True)
-model._apply_physics_constraints = custom_physics_constraint
-```
-
-## Running Jupyter Notebooks
-
-We provide several Jupyter notebooks to help you learn and work with WeatherFlow. 
-
-### Setup Notebook Environment
-
-For the easiest experience running the notebooks, use our setup script:
-
-```bash
-# Create a dedicated environment and fix notebook imports
-python setup_notebook_env.py
-```
-
-This script:
-1. Creates a virtual environment with all required dependencies
-2. Installs the WeatherFlow package in development mode
-3. Registers a Jupyter kernel
-4. Fixes import paths in notebooks
-
-### Alternative Manual Setup
-
-If you prefer to set up manually:
-
-1. Install notebook dependencies:
-   ```bash
-   pip install -r notebooks/notebook_requirements.txt
-   ```
-
-2. Fix notebook imports:
-   ```bash
-   python notebooks/fix_notebook_imports.py
-   ```
-
-3. Run Jupyter Lab or Notebook:
-   ```bash
-   jupyter lab
-   ```
-
-See [notebooks/README.md](notebooks/README.md) for more details.
-
-## Contributing
-
-We welcome contributions to WeatherFlow! To contribute:
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/your-feature`
-3. Make your changes
-4. Run tests: `pytest tests/`
-5. Submit a pull request
-
-See `CONTRIBUTING.md` for more details.
-
-## License
-
-WeatherFlow is released under the MIT License. See `LICENSE` for details.
-
-## Citation
+WeatherFlow is released under the **MIT License**. See [LICENSE](LICENSE) for details.
 
 If you use WeatherFlow in your research, please cite:
 
-```
+```bibtex
 @software{weatherflow2023,
   author = {Siman, Eduardo},
-  title = {WeatherFlow: Flow Matching for Weather Prediction},
+  title = {WeatherFlow: Interactive Weather AI Platform},
   url = {https://github.com/monksealseal/weatherflow},
   year = {2023}
 }
 ```
 
-## Acknowledgments
-
-This project builds upon flow matching techniques introduced by Meta AI and is inspired by approaches from the weather and climate modeling community.
-## Graduate Learning Studio
-
-WeatherFlow now ships with an advanced educational toolkit tailored for graduate-level
-atmospheric dynamics and physics.  The `GraduateAtmosphericDynamicsTool`
-combines interactive Plotly dashboards with step-by-step problem solvers so students can
-experiment with balanced flows, Rossby-wave dispersion, and potential vorticity structures.
-
-```python
-from weatherflow.education import GraduateAtmosphericDynamicsTool
-import numpy as np
-
-tool = GraduateAtmosphericDynamicsTool(reference_latitude=45.0)
-
-# 1. Build a balanced flow visualization from a synthetic jet streak
-latitudes = np.linspace(35.0, 55.0, 30)
-longitudes = np.linspace(-30.0, 30.0, 40)
-y_metric = tool.R_EARTH * np.deg2rad(latitudes)
-x_metric = tool.R_EARTH * np.cos(np.deg2rad(latitudes.mean())) * np.deg2rad(longitudes)
-height = (
-    5600.0
-    + 5.0e-5 * (y_metric[:, None] - y_metric.mean())
-    + 2.5e-5 * (x_metric[None, :] - x_metric.mean())
-)
-balanced_fig = tool.create_balanced_flow_dashboard(height, latitudes, longitudes)
-balanced_fig.show()
-
-# 2. Explore Rossby-wave dispersion characteristics interactively
-rossby_fig = tool.create_rossby_wave_lab(mean_flow=18.0)
-rossby_fig.show()
-
-# 3. Generate curated practice problems with step-by-step solutions
-for scenario in tool.generate_problem_scenarios():
-    print(scenario.title)
-    for step in scenario.solution_steps:
-        print(f" - {step.description}: {step.value:.3f} {step.units}")
-    print(scenario.answer)
-```
-
-The toolkit produces volumetric potential vorticity renderings, Rossby-wave dispersion
-laboratories, and automated geostrophic/thermal-wind calculators that help students bridge
-conceptual understanding with concrete numerical problem solving.
-
 ---
 
-## 📊 Comprehensive Repository Report
+<div align="center">
 
-A detailed, comprehensive report covering all aspects of this repository is available:
+**Built with ❤️ for the Weather AI Community**
 
-**[View Full Repository Report →](COMPREHENSIVE_REPOSITORY_REPORT.md)**
+[🚀 Get Started](#-quick-start-10-seconds) • [📖 Full Guide](#-complete-streamlit-app-guide) • [🤝 Contribute](#-contributing-to-weatherflow)
 
-This 1,000+ line report includes:
-- Complete repository statistics and analysis
-- Detailed architecture documentation
-- Scientific validation results (99.7% of IFS HRES skill)
-- Full feature catalog and capabilities
-- Development infrastructure overview
-- Deployment and distribution guides
-- Research roadmap and future directions
+</div>
 
