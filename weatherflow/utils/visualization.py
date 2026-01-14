@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 import numpy as np
@@ -14,62 +15,101 @@ class WeatherVisualizer:
     """Comprehensive visualization tools for weather prediction.
     
     This class provides a variety of visualization methods for weather data,
-    including:
-    - Global maps with proper projections
-    - Comparison plots between predicted and true values
-    - Error distributions and metrics
-    - Animations of weather evolution
-    - Flow field visualizations
+    following the classic Wallace & Battisti / textbook atmospheric science
+    visualization style with:
+    - Global Robinson projection showing the whole world
+    - Professional publication-quality colormaps
+    - Clear coastlines and gridlines
+    - Properly centered diverging colormaps for anomaly fields
+    
+    The style is inspired by classic atmospheric science textbooks like
+    "Atmospheric Science" by Wallace and Hobbs.
     """
     
     VAR_LABELS = {
         'temperature': 'Temperature (K)',
-        'geopotential': 'Geopotential (m²/s²)',
-        'u_component_of_wind': 'U-Wind (m/s)',
-        'v_component_of_wind': 'V-Wind (m/s)',
-        'specific_humidity': 'Specific Humidity (kg/kg)',
+        'geopotential': 'Geopotential Height (m)',
+        'geopotential_height': 'Geopotential Height (m)',
+        'u_component_of_wind': 'Zonal Wind (m/s)',
+        'v_component_of_wind': 'Meridional Wind (m/s)',
+        'specific_humidity': 'Specific Humidity (g/kg)',
         'wind_speed': 'Wind Speed (m/s)',
-        'vorticity': 'Vorticity (1/s)',
+        'vorticity': 'Relative Vorticity (10⁻⁵ s⁻¹)',
+        'potential_vorticity': 'Potential Vorticity (PVU)',
         't': 'Temperature (K)',
-        'z': 'Geopotential (m²/s²)',
-        'u': 'U-Wind (m/s)',
-        'v': 'V-Wind (m/s)',
-        'q': 'Specific Humidity (kg/kg)'
+        'z': 'Geopotential Height (m)',
+        'u': 'Zonal Wind (m/s)',
+        'v': 'Meridional Wind (m/s)',
+        'q': 'Specific Humidity (g/kg)',
+        'slp': 'Sea Level Pressure (hPa)',
+        'mslp': 'Mean Sea Level Pressure (hPa)',
+        'precip': 'Precipitation (mm/day)',
+        'omega': 'Vertical Velocity (Pa/s)',
     }
     
+    # Wallace & Battisti style colormaps - classic atmospheric science choices
+    # Temperature: warm colors for warm, cool colors for cold
+    # Geopotential: sequential colormap showing height variations
+    # Wind components: diverging colormap centered on zero
+    # Humidity: sequential blues for moisture content
+    # Vorticity: diverging colormap (cyclonic vs anticyclonic)
     VAR_CMAPS = {
-        'temperature': 'RdBu_r',
-        'geopotential': 'viridis',
-        'u_component_of_wind': 'RdBu_r',
-        'v_component_of_wind': 'RdBu_r',
-        'specific_humidity': 'Blues',
+        'temperature': 'coolwarm',
+        'geopotential': 'BuPu',
+        'geopotential_height': 'BuPu',
+        'u_component_of_wind': 'PuOr',
+        'v_component_of_wind': 'PuOr',
+        'specific_humidity': 'GnBu',
         'wind_speed': 'YlOrRd',
-        'vorticity': 'RdBu_r',
-        't': 'RdBu_r',
-        'z': 'viridis',
-        'u': 'RdBu_r',
-        'v': 'RdBu_r',
-        'q': 'Blues',
-        'error': 'RdBu_r',
-        'difference': 'RdBu_r'
+        'vorticity': 'PiYG',
+        'potential_vorticity': 'PiYG',
+        't': 'coolwarm',
+        'z': 'BuPu',
+        'u': 'PuOr',
+        'v': 'PuOr',
+        'q': 'GnBu',
+        'slp': 'RdYlBu_r',
+        'mslp': 'RdYlBu_r',
+        'precip': 'YlGnBu',
+        'omega': 'RdBu',
+        'error': 'seismic',
+        'difference': 'seismic',
+        'anomaly': 'seismic',
+    }
+    
+    # Variables that should use diverging colormaps centered on zero
+    DIVERGING_VARS = {
+        'u', 'v', 'u_component_of_wind', 'v_component_of_wind',
+        'vorticity', 'omega', 'error', 'difference', 'anomaly',
     }
     
     def __init__(
         self,
-        figsize: Tuple[int, int] = (15, 10),
-        projection: str = 'PlateCarree',
+        figsize: Tuple[int, int] = (14, 8),
+        projection: str = 'Robinson',
         save_dir: Optional[str] = None
     ):
-        """Initialize the visualizer.
+        """Initialize the visualizer with Wallace & Battisti style defaults.
         
         Args:
-            figsize: Default figure size for plots
-            projection: Default cartopy projection
+            figsize: Default figure size for plots (14, 8) for global maps
+            projection: Default cartopy projection ('Robinson' for global views)
             save_dir: Directory to save plots
         """
         self.figsize = figsize
         self.projection = getattr(ccrs, projection)()
         self.save_dir = save_dir
+        
+        # Set matplotlib style for publication-quality figures
+        plt.rcParams.update({
+            'font.family': 'sans-serif',
+            'font.size': 11,
+            'axes.titlesize': 13,
+            'axes.labelsize': 11,
+            'xtick.labelsize': 9,
+            'ytick.labelsize': 9,
+            'figure.dpi': 150,
+        })
     
     def _get_latlons(
         self, 
@@ -110,13 +150,21 @@ class WeatherVisualizer:
         vmax: Optional[float] = None,
         ax: Optional[plt.Axes] = None,
         add_colorbar: bool = True,
-        levels: int = 20,
-        coastlines: bool = True,
+        levels: int = 15,
+        coastlines: bool = False,
         grid: bool = True,
         var_name: Optional[str] = None,
-        center_zero: bool = False
+        center_zero: bool = False,
+        global_extent: bool = True,
+        extend: str = 'both'
     ) -> Tuple[plt.Figure, plt.Axes]:
-        """Plot a single weather field on a map.
+        """Plot a single weather field on a global map.
+        
+        Uses Wallace & Battisti / textbook atmospheric science style with:
+        - Robinson projection for global views
+        - Appropriate colormaps for each variable type
+        - Clean gridlines and professional formatting
+        - Diverging colormaps centered on zero for appropriate variables
         
         Args:
             data: The data to plot (2D array)
@@ -125,11 +173,13 @@ class WeatherVisualizer:
             vmin, vmax: Color scale limits
             ax: Existing axis to plot on
             add_colorbar: Whether to add a colorbar
-            levels: Number of contour levels
-            coastlines: Whether to add coastlines
+            levels: Number of contour levels (default 15 for cleaner look)
+            coastlines: Whether to add coastlines (requires network on first use)
             grid: Whether to add gridlines
             var_name: Variable name for automatic colormap selection
             center_zero: Whether to center the colormap around zero
+            global_extent: Whether to show the entire globe
+            extend: Colorbar extension style ('both', 'min', 'max', 'neither')
             
         Returns:
             Figure and Axes objects
@@ -147,43 +197,89 @@ class WeatherVisualizer:
         # Get lat/lon grid
         lons, lats = self._get_latlons(data)
         
-        # Select colormap
+        # Select colormap based on variable type
         if cmap is None and var_name is not None:
-            cmap = self.VAR_CMAPS.get(var_name, 'viridis')
+            cmap = self.VAR_CMAPS.get(var_name, 'coolwarm')
         elif cmap is None:
-            cmap = 'viridis'
-            
-        # Set color limits
-        if center_zero and vmin is None and vmax is None:
-            abs_max = np.max(np.abs(data_np))
-            vmin, vmax = -abs_max, abs_max
+            cmap = 'coolwarm'
         
-        # Add map features
+        # Automatically center on zero for diverging variables
+        should_center = center_zero or (var_name in self.DIVERGING_VARS)
+        
+        # Set color limits
+        if should_center and vmin is None and vmax is None:
+            abs_max = np.nanmax(np.abs(data_np))
+            vmin, vmax = -abs_max, abs_max
+        elif vmin is None and vmax is None:
+            vmin = np.nanmin(data_np)
+            vmax = np.nanmax(data_np)
+        
+        # Create discrete levels for cleaner contours (Wallace & Battisti style)
+        contour_levels = np.linspace(vmin, vmax, levels)
+        
+        # Set global extent to show the whole world
+        if global_extent:
+            ax.set_global()
+        
+        # Add map features with Wallace & Battisti styling
+        # Note: coastlines and land/ocean features require network access to download
+        # the Natural Earth data on first use. Skip silently if unavailable.
         if coastlines:
-            ax.coastlines(resolution='50m', color='black', linewidth=0.5)
-            ax.add_feature(cfeature.BORDERS, linestyle=':', linewidth=0.5)
+            try:
+                # Try to add coastlines (lower resolution for faster loading)
+                ax.coastlines(resolution='110m', color='#333333', linewidth=0.8)
+            except Exception:
+                pass  # Skip if data unavailable
+            # Note: LAND and OCEAN features are skipped as they require additional
+            # data downloads that may not be available in all environments
             
         if grid:
-            ax.gridlines(draw_labels=True)
+            gl = ax.gridlines(
+                draw_labels=True,
+                linewidth=0.5,
+                color='gray',
+                alpha=0.5,
+                linestyle='--'
+            )
+            gl.top_labels = False
+            gl.right_labels = False
         
-        # Plot data
+        # Plot data with filled contours
         cs = ax.contourf(
             lons, lats, data_np, 
-            levels=levels,
+            levels=contour_levels,
             transform=ccrs.PlateCarree(),
             cmap=cmap,
-            vmin=vmin,
-            vmax=vmax
+            extend=extend
         )
         
-        # Add colorbar
+        # Add contour lines for better readability (classic textbook style)
+        ax.contour(
+            lons, lats, data_np,
+            levels=contour_levels[::2],  # Every other level
+            transform=ccrs.PlateCarree(),
+            colors='black',
+            linewidths=0.3,
+            alpha=0.5
+        )
+        
+        # Add colorbar with proper formatting
         if add_colorbar:
             label = self.VAR_LABELS.get(var_name, '') if var_name else ''
-            plt.colorbar(cs, ax=ax, orientation='horizontal', pad=0.05, label=label)
+            cbar = plt.colorbar(
+                cs, ax=ax, 
+                orientation='horizontal', 
+                pad=0.08,
+                shrink=0.8,
+                aspect=35,
+                extend=extend
+            )
+            cbar.set_label(label, fontsize=10)
+            cbar.ax.tick_params(labelsize=9)
         
-        # Set title
+        # Set title with proper formatting
         if title:
-            ax.set_title(title)
+            ax.set_title(title, fontsize=13, fontweight='bold', pad=10)
             
         return fig, ax
     
@@ -198,6 +294,11 @@ class WeatherVisualizer:
     ) -> Tuple[plt.Figure, List[plt.Axes]]:
         """Plot comparison between true and predicted fields with difference.
         
+        Uses Wallace & Battisti style with three-panel layout showing:
+        - True (observed) field
+        - Predicted field
+        - Difference (prediction - truth) with centered colormap
+        
         Args:
             true_data: True weather state
             pred_data: Predicted weather state
@@ -209,7 +310,7 @@ class WeatherVisualizer:
         Returns:
             Figure and list of Axes objects
         """
-        fig = plt.figure(figsize=(18, 6))
+        fig = plt.figure(figsize=(16, 5))
         
         # Extract data
         if isinstance(true_data, dict) and isinstance(pred_data, dict):
@@ -237,14 +338,14 @@ class WeatherVisualizer:
         diff = pred_np - true_np
         
         # Get common color scale for true and predicted
-        vmin = min(np.min(true_np), np.min(pred_np))
-        vmax = max(np.max(true_np), np.max(pred_np))
+        vmin = min(np.nanmin(true_np), np.nanmin(pred_np))
+        vmax = max(np.nanmax(true_np), np.nanmax(pred_np))
         
         # Plot true field
         ax1 = fig.add_subplot(1, 3, 1, projection=self.projection)
         self.plot_field(
             true_np, 
-            title="True", 
+            title="(a) Observed", 
             ax=ax1, 
             var_name=var_name,
             vmin=vmin,
@@ -255,24 +356,24 @@ class WeatherVisualizer:
         ax2 = fig.add_subplot(1, 3, 2, projection=self.projection)
         self.plot_field(
             pred_np, 
-            title="Predicted", 
+            title="(b) Predicted", 
             ax=ax2, 
             var_name=var_name,
             vmin=vmin,
             vmax=vmax
         )
         
-        # Plot difference
+        # Plot difference with diverging colormap centered on zero
         ax3 = fig.add_subplot(1, 3, 3, projection=self.projection)
         self.plot_field(
             diff, 
-            title="Difference", 
+            title="(c) Difference (Pred - Obs)", 
             ax=ax3, 
             var_name="difference",
             center_zero=True
         )
         
-        plt.suptitle(title)
+        fig.suptitle(title, fontsize=14, fontweight='bold', y=1.02)
         plt.tight_layout()
         
         if save_path:
@@ -454,9 +555,13 @@ class WeatherVisualizer:
         level_idx: int = 0,
         interval: int = 200,
         title: str = "Weather Prediction",
-        save_path: Optional[str] = None
+        save_path: Optional[str] = None,
+        coastlines: bool = False
     ) -> FuncAnimation:
         """Create animation of weather prediction over time.
+        
+        Uses Wallace & Battisti style with global Robinson projection,
+        appropriate colormaps, and clean presentation.
         
         Args:
             predictions: Sequence of weather states
@@ -465,6 +570,7 @@ class WeatherVisualizer:
             interval: Animation interval in milliseconds
             title: Animation title
             save_path: Path to save the animation
+            coastlines: Whether to add coastlines (requires network on first use)
             
         Returns:
             Animation object
@@ -497,8 +603,8 @@ class WeatherVisualizer:
         fig = plt.figure(figsize=self.figsize)
         ax = plt.axes(projection=self.projection)
         
-        # Get colormap
-        cmap = self.VAR_CMAPS.get(var_name, 'viridis')
+        # Get colormap (Wallace & Battisti style)
+        cmap = self.VAR_CMAPS.get(var_name, 'coolwarm')
         
         # Get lat/lon grid
         lons, lats = self._get_latlons(preds_np[0] if isinstance(preds_np, list) else preds_np[0])
@@ -509,29 +615,51 @@ class WeatherVisualizer:
         else:
             all_data = preds_np.flatten()
             
-        vmin, vmax = np.min(all_data), np.max(all_data)
+        vmin, vmax = np.nanmin(all_data), np.nanmax(all_data)
+        levels = np.linspace(vmin, vmax, 15)
         
-        # Add map features
-        ax.coastlines(resolution='50m', color='black', linewidth=0.5)
-        ax.add_feature(cfeature.BORDERS, linestyle=':', linewidth=0.5)
-        ax.gridlines(draw_labels=True)
+        # Set global extent
+        ax.set_global()
+        
+        # Add map features (Wallace & Battisti style)
+        if coastlines:
+            try:
+                ax.coastlines(resolution='110m', color='#333333', linewidth=0.8)
+            except Exception:
+                pass  # Skip if coastline data unavailable
+        gl = ax.gridlines(
+            draw_labels=True,
+            linewidth=0.5,
+            color='gray',
+            alpha=0.5,
+            linestyle='--'
+        )
+        gl.top_labels = False
+        gl.right_labels = False
         
         # Initial frame
         frame = preds_np[0] if isinstance(preds_np, list) else preds_np[0]
         cont = ax.contourf(
             lons, lats, frame, 
+            levels=levels,
             transform=ccrs.PlateCarree(),
             cmap=cmap,
-            vmin=vmin,
-            vmax=vmax
+            extend='both'
         )
         
         # Add colorbar
         label = self.VAR_LABELS.get(var_name, '') if var_name else ''
-        plt.colorbar(cont, ax=ax, orientation='horizontal', pad=0.05, label=label)
+        cbar = plt.colorbar(
+            cont, ax=ax, 
+            orientation='horizontal', 
+            pad=0.08,
+            shrink=0.8,
+            aspect=35
+        )
+        cbar.set_label(label, fontsize=10)
         
         # Title
-        time_title = ax.set_title(f"{title} - Time step 0")
+        time_title = ax.set_title(f"{title} - Time step 0", fontsize=13, fontweight='bold')
         
         def update(frame_idx):
             """Update function for animation."""
@@ -548,10 +676,10 @@ class WeatherVisualizer:
             # Plot new frame
             new_cont = ax.contourf(
                 lons, lats, current, 
+                levels=levels,
                 transform=ccrs.PlateCarree(),
                 cmap=cmap,
-                vmin=vmin,
-                vmax=vmax
+                extend='both'
             )
             
             # Update title
@@ -570,7 +698,7 @@ class WeatherVisualizer:
         )
         
         if save_path:
-            anim.save(save_path, writer='pillow', fps=5, dpi=100)
+            anim.save(save_path, writer='pillow', fps=5, dpi=150)
             
         return anim
     
@@ -580,22 +708,29 @@ class WeatherVisualizer:
         v: Union[np.ndarray, torch.Tensor],
         background: Optional[Union[np.ndarray, torch.Tensor]] = None,
         var_name: Optional[str] = None,
-        title: str = "Flow Field",
+        title: str = "Wind Field",
         scale: float = 1.0,
         density: float = 1.0,
-        save_path: Optional[str] = None
+        save_path: Optional[str] = None,
+        global_extent: bool = True,
+        coastlines: bool = False
     ) -> Tuple[plt.Figure, plt.Axes]:
-        """Plot flow vectors (e.g., wind field).
+        """Plot flow vectors (e.g., wind field) in Wallace & Battisti style.
+        
+        Creates a global map with wind vectors overlaid on an optional
+        background field (e.g., geopotential height or temperature).
         
         Args:
-            u: U-component of the vector field
-            v: V-component of the vector field
-            background: Optional background field
-            var_name: Variable name for background
+            u: U-component (zonal) of the vector field
+            v: V-component (meridional) of the vector field
+            background: Optional background field to plot beneath vectors
+            var_name: Variable name for background colormap selection
             title: Plot title
-            scale: Vector scale factor
-            density: Vector density
+            scale: Vector scale factor (larger = shorter arrows)
+            density: Vector density (larger = more arrows)
             save_path: Path to save the figure
+            global_extent: Whether to show the entire globe
+            coastlines: Whether to add coastlines (requires network on first use)
             
         Returns:
             Figure and Axes objects
@@ -611,45 +746,84 @@ class WeatherVisualizer:
         # Get lat/lon grid
         lons, lats = self._get_latlons(u_np)
         
-        # Add map features
-        ax.coastlines(resolution='50m', color='black', linewidth=0.5)
-        ax.add_feature(cfeature.BORDERS, linestyle=':', linewidth=0.5)
-        ax.gridlines(draw_labels=True)
+        # Set global extent
+        if global_extent:
+            ax.set_global()
+        
+        # Add map features (Wallace & Battisti style)
+        if coastlines:
+            try:
+                ax.coastlines(resolution='110m', color='#333333', linewidth=0.8)
+            except Exception:
+                pass  # Skip if coastline data unavailable
+        gl = ax.gridlines(
+            draw_labels=True,
+            linewidth=0.5,
+            color='gray',
+            alpha=0.5,
+            linestyle='--'
+        )
+        gl.top_labels = False
+        gl.right_labels = False
         
         # Plot background if provided
         if background is not None:
             bg_np = self._prep_data(background)
-            cmap = self.VAR_CMAPS.get(var_name, 'viridis')
+            cmap = self.VAR_CMAPS.get(var_name, 'coolwarm')
+            vmin, vmax = np.nanmin(bg_np), np.nanmax(bg_np)
+            levels = np.linspace(vmin, vmax, 15)
+            
             bg = ax.contourf(
                 lons, lats, bg_np, 
+                levels=levels,
                 transform=ccrs.PlateCarree(),
                 cmap=cmap,
-                alpha=0.7
+                alpha=0.8,
+                extend='both'
             )
-            plt.colorbar(bg, ax=ax, orientation='horizontal', pad=0.05)
+            cbar = plt.colorbar(
+                bg, ax=ax, 
+                orientation='horizontal', 
+                pad=0.08,
+                shrink=0.8,
+                aspect=35
+            )
+            label = self.VAR_LABELS.get(var_name, '') if var_name else ''
+            cbar.set_label(label, fontsize=10)
         
-        # Sub-sample for cleaner plot
+        # Sub-sample for cleaner plot (Wallace & Battisti style uses sparse vectors)
         n_lat, n_lon = u_np.shape
-        step_lat = max(1, int(n_lat / (30 * density)))
-        step_lon = max(1, int(n_lon / (60 * density)))
+        step_lat = max(1, int(n_lat / (25 * density)))
+        step_lon = max(1, int(n_lon / (50 * density)))
         
-        # Plot vectors
-        # Note: lons, lats, u_np, v_np all have shape (n_lat, n_lon)
-        # First index is latitude, second is longitude - use consistent indexing
+        # Calculate wind speed for coloring vectors
+        wind_speed = np.sqrt(u_np**2 + v_np**2)
+        
+        # Plot vectors with color based on wind speed
         q = ax.quiver(
             lons[::step_lat, ::step_lon],
             lats[::step_lat, ::step_lon],
             u_np[::step_lat, ::step_lon],
             v_np[::step_lat, ::step_lon],
+            wind_speed[::step_lat, ::step_lon],
             transform=ccrs.PlateCarree(),
-            scale=50/scale,
-            scale_units='inches'
+            scale=40/scale,
+            scale_units='inches',
+            cmap='YlOrRd',
+            alpha=0.9,
+            width=0.003
         )
         
-        ax.quiverkey(q, 0.9, 0.05, 10, r'$10 \frac{m}{s}$', labelpos='E',
-                     coordinates='figure', fontproperties={'size': 10})
+        # Add reference vector
+        ax.quiverkey(
+            q, 0.9, -0.1, 10, 
+            r'10 m s$^{-1}$', 
+            labelpos='E',
+            coordinates='axes', 
+            fontproperties={'size': 10}
+        )
         
-        ax.set_title(title)
+        ax.set_title(title, fontsize=13, fontweight='bold', pad=10)
         
         if save_path:
             plt.savefig(save_path, bbox_inches='tight', dpi=200)
