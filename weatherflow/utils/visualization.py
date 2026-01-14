@@ -80,7 +80,8 @@ class WeatherVisualizer:
     # Variables that should use diverging colormaps centered on zero
     DIVERGING_VARS = {
         'u', 'v', 'u_component_of_wind', 'v_component_of_wind',
-        'vorticity', 'omega', 'error', 'difference', 'anomaly',
+        'vorticity', 'potential_vorticity', 'omega', 
+        'error', 'difference', 'anomaly',
     }
     
     def __init__(
@@ -817,7 +818,7 @@ class WeatherVisualizer:
         # Add reference vector
         ax.quiverkey(
             q, 0.9, -0.1, 10, 
-            r'10 m s$^{-1}$', 
+            r'10 m/s', 
             labelpos='E',
             coordinates='axes', 
             fontproperties={'size': 10}
