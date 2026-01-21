@@ -137,7 +137,8 @@ def run_tropic_world_simulation(nlon, nlat, nlev, dt, duration_days, output_inte
     """
     if not GCM_AVAILABLE:
         return generate_synthetic_tropic_world_data(
-            nlon, nlat, nlev, duration_days, output_interval_hours, base_sst, sst_perturbation
+            nlon, nlat, nlev, duration_days, output_interval_hours, base_sst, sst_perturbation,
+            progress_callback=progress_callback
         )
 
     # Create GCM in Tropic World mode
@@ -187,7 +188,14 @@ def run_tropic_world_simulation(nlon, nlat, nlev, dt, duration_days, output_inte
             state_history.append(state_snapshot)
 
             if progress_callback:
-                progress_callback((step + 1) / n_steps, model.state.time / 86400.0)
+                # Pass state snapshot, grid info, and progress to callback for real-time visualization
+                progress_callback(
+                    (step + 1) / n_steps,
+                    model.state.time / 86400.0,
+                    state_snapshot,
+                    lats,
+                    pressures
+                )
 
     return {
         'state_history': state_history,
@@ -272,7 +280,7 @@ def capture_state_snapshot(model):
 
 
 def generate_synthetic_tropic_world_data(nlon, nlat, nlev, duration_days, output_interval_hours,
-                                          base_sst, sst_perturbation):
+                                          base_sst, sst_perturbation, progress_callback=None):
     """
     Generate synthetic Tropic World data for demonstration when GCM is not available
     """
@@ -344,7 +352,7 @@ def generate_synthetic_tropic_world_data(nlon, nlat, nlev, duration_days, output
             # Pressure
             p[k] = pressures[k] * np.ones((nlat, nlon))
 
-        state_history.append({
+        state_snapshot = {
             'time': time_days,
             'T': T,
             'rh': rh,
@@ -356,7 +364,18 @@ def generate_synthetic_tropic_world_data(nlon, nlat, nlev, duration_days, output
             'sst': sst,
             'diabatic_heating': diabatic_heating,
             'tsurf': sst
-        })
+        }
+        state_history.append(state_snapshot)
+
+        # Call progress callback with state for real-time visualization
+        if progress_callback:
+            progress_callback(
+                (t + 1) / n_timesteps,
+                time_days,
+                state_snapshot,
+                lats,
+                pressures
+            )
 
     # Generate diagnostics
     diagnostics = {
@@ -765,6 +784,64 @@ def create_animated_cross_sections(state_history, lats, pressures, variable='T')
     return fig
 
 
+def create_realtime_visualization(state, lats, pressures):
+    """
+    Create a quick visualization for real-time updates during simulation.
+    Shows SST map and Temperature cross-section side by side.
+    """
+    from plotly.subplots import make_subplots
+
+    fig = make_subplots(
+        rows=1, cols=2,
+        subplot_titles=(
+            f'SST - Day {state["time"]:.1f}',
+            f'Temperature Cross-Section - Day {state["time"]:.1f}'
+        ),
+        column_widths=[0.5, 0.5]
+    )
+
+    # SST map
+    fig.add_trace(
+        go.Heatmap(
+            z=state['sst'],
+            colorscale='RdBu_r',
+            colorbar=dict(title='K', x=0.45, len=0.9),
+            hovertemplate='SST: %{z:.1f} K<extra></extra>'
+        ),
+        row=1, col=1
+    )
+
+    # Temperature cross-section (sorted by SST area fraction)
+    cs_T, area_frac = compute_area_fraction_sorted_cross_section(
+        state['T'], state['sst'], pressures, lats
+    )
+
+    fig.add_trace(
+        go.Heatmap(
+            z=cs_T,
+            x=area_frac * 100,
+            y=pressures,
+            colorscale=create_blue_to_red_colorscale(),
+            colorbar=dict(title='K', x=1.0, len=0.9),
+            hovertemplate='Area: %{x:.0f}%<br>P: %{y:.0f} hPa<br>T: %{z:.1f} K<extra></extra>'
+        ),
+        row=1, col=2
+    )
+
+    fig.update_xaxes(title_text='Longitude Index', row=1, col=1)
+    fig.update_yaxes(title_text='Latitude Index', row=1, col=1)
+    fig.update_xaxes(title_text='Area Fraction (%) - Warm→Cold', row=1, col=2)
+    fig.update_yaxes(title_text='Pressure (hPa)', autorange='reversed', row=1, col=2)
+
+    fig.update_layout(
+        height=400,
+        margin=dict(l=50, r=50, t=50, b=50),
+        title=dict(text=f'🌡️ Real-Time Simulation: Day {state["time"]:.1f}', x=0.5, font=dict(size=16))
+    )
+
+    return fig
+
+
 def create_sst_diagnostics_plot(diagnostics):
     """Create SST diagnostics time series plot"""
 
@@ -876,29 +953,44 @@ with st.expander("About Tropic World", expanded=False):
     """)
 
 # Run simulation button
-run_button = st.button("🚀 Run Tropic World Simulation", type="primary", use_container_width=True)
+run_button = st.button("🚀 Run Tropic World Simulation", type="primary", width='stretch')
 
 if run_button or 'tropic_world_results' in st.session_state:
 
     if run_button:
-        # Run simulation
-        with st.spinner("Running Tropic World simulation..."):
-            progress_bar = st.progress(0)
-            status_text = st.empty()
+        # Run simulation with real-time visualization updates
+        st.subheader("🔄 Simulation Progress")
 
-            def update_progress(progress, day):
-                progress_bar.progress(progress)
-                status_text.text(f"Simulating day {day:.1f} of {duration_days}...")
+        progress_bar = st.progress(0)
+        status_text = st.empty()
 
-            results = run_tropic_world_simulation(
-                nlon, nlat, nlev, dt, duration_days, output_interval,
-                base_sst, sst_perturbation, update_progress
-            )
+        # Create placeholder for real-time visualization
+        viz_placeholder = st.empty()
 
-            st.session_state['tropic_world_results'] = results
-            progress_bar.empty()
-            status_text.empty()
-            st.success("Simulation complete!")
+        def update_progress(progress, day, state=None, lats=None, pressures=None):
+            """Update progress and visualization during simulation"""
+            progress_bar.progress(progress)
+            status_text.text(f"Simulating day {day:.1f} of {duration_days}...")
+
+            # Update real-time visualization if state is provided
+            if state is not None and lats is not None and pressures is not None:
+                try:
+                    fig = create_realtime_visualization(state, lats, pressures)
+                    viz_placeholder.plotly_chart(fig, width='stretch', key=f'realtime_{day:.2f}')
+                except Exception:
+                    # Skip visualization update if there's an error (e.g., during early steps)
+                    pass
+
+        results = run_tropic_world_simulation(
+            nlon, nlat, nlev, dt, duration_days, output_interval,
+            base_sst, sst_perturbation, update_progress
+        )
+
+        st.session_state['tropic_world_results'] = results
+        progress_bar.empty()
+        status_text.empty()
+        viz_placeholder.empty()
+        st.success("✅ Simulation complete! View results in the tabs below.")
 
     results = st.session_state['tropic_world_results']
     state_history = results['state_history']
@@ -966,7 +1058,7 @@ if run_button or 'tropic_world_results' in st.session_state:
                 colorscale = 'YlGnBu'
 
             fig_globe = create_3d_globe(data, lons, lats, title, colorscale)
-            st.plotly_chart(fig_globe, use_container_width=True)
+            st.plotly_chart(fig_globe, width='stretch')
 
     # Tab 2: Vertical Cross Sections
     with tab2:
@@ -997,7 +1089,7 @@ if run_button or 'tropic_world_results' in st.session_state:
                 create_blue_to_red_colorscale(),
                 "K"
             )
-            st.plotly_chart(fig_T, use_container_width=True)
+            st.plotly_chart(fig_T, width='stretch')
 
             # Streamfunction
             st.markdown("### Mass Streamfunction")
@@ -1015,7 +1107,7 @@ if run_button or 'tropic_world_results' in st.session_state:
                 zmin=-vmax_psi,
                 zmax=vmax_psi
             )
-            st.plotly_chart(fig_psi, use_container_width=True)
+            st.plotly_chart(fig_psi, width='stretch')
 
         with col2:
             # Relative Humidity
@@ -1031,7 +1123,7 @@ if run_button or 'tropic_world_results' in st.session_state:
                 zmin=0,
                 zmax=100
             )
-            st.plotly_chart(fig_rh, use_container_width=True)
+            st.plotly_chart(fig_rh, width='stretch')
 
             # Diabatic Heating
             st.markdown("### Diabatic Heating")
@@ -1048,7 +1140,7 @@ if run_button or 'tropic_world_results' in st.session_state:
                 zmin=-vmax_dh,
                 zmax=vmax_dh
             )
-            st.plotly_chart(fig_dh, use_container_width=True)
+            st.plotly_chart(fig_dh, width='stretch')
 
     # Tab 3: Animations
     with tab3:
@@ -1071,7 +1163,7 @@ if run_button or 'tropic_world_results' in st.session_state:
                 state_history, lats, pressures, var_map[anim_var]
             )
 
-        st.plotly_chart(fig_anim, use_container_width=True)
+        st.plotly_chart(fig_anim, width='stretch')
 
         st.markdown("""
         **How to Use:**
@@ -1085,7 +1177,7 @@ if run_button or 'tropic_world_results' in st.session_state:
         st.header("Tropic World Diagnostics")
 
         fig_diag = create_sst_diagnostics_plot(diagnostics)
-        st.plotly_chart(fig_diag, use_container_width=True)
+        st.plotly_chart(fig_diag, width='stretch')
 
         # Summary statistics
         st.subheader("Summary Statistics")
@@ -1154,7 +1246,7 @@ if run_button or 'tropic_world_results' in st.session_state:
                 )
 
             fig.update_layout(height=600, title='SST Pattern Evolution')
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
 
         elif analysis_type == "Warm vs Cold Region Comparison":
             state = state_history[-1]
@@ -1207,7 +1299,7 @@ if run_button or 'tropic_world_results' in st.session_state:
             fig.update_xaxes(title='Relative Humidity (%)', row=1, col=2)
             fig.update_layout(height=500)
 
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
 
             # Statistics
             col1, col2 = st.columns(2)
@@ -1272,7 +1364,7 @@ if run_button or 'tropic_world_results' in st.session_state:
             fig.update_xaxes(title='m/s', row=1, col=4)
 
             fig.update_layout(height=400, showlegend=False)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
 
         else:  # Heating Components
             st.subheader("Diabatic Heating Components")
@@ -1306,7 +1398,7 @@ if run_button or 'tropic_world_results' in st.session_state:
                                 "K/day",
                                 zmid=0, zmin=-vmax_rad, zmax=vmax_rad
                             )
-                            st.plotly_chart(fig_rad, use_container_width=True)
+                            st.plotly_chart(fig_rad, width='stretch')
                         else:
                             st.info("Radiative heating is uniform/zero")
                     else:
@@ -1326,7 +1418,7 @@ if run_button or 'tropic_world_results' in st.session_state:
                                 "K/day",
                                 zmid=0, zmin=-vmax_cloud, zmax=vmax_cloud
                             )
-                            st.plotly_chart(fig_cloud, use_container_width=True)
+                            st.plotly_chart(fig_cloud, width='stretch')
                         else:
                             st.info("Cloud microphysics heating is uniform/zero")
                     else:
@@ -1347,7 +1439,7 @@ if run_button or 'tropic_world_results' in st.session_state:
                                 "K/day",
                                 zmid=0, zmin=-vmax_conv, zmax=vmax_conv
                             )
-                            st.plotly_chart(fig_conv, use_container_width=True)
+                            st.plotly_chart(fig_conv, width='stretch')
                         else:
                             st.info("Convective heating is uniform/zero")
                     else:
@@ -1367,7 +1459,7 @@ if run_button or 'tropic_world_results' in st.session_state:
                                 "K/day",
                                 zmid=0, zmin=-vmax_bl, zmax=vmax_bl
                             )
-                            st.plotly_chart(fig_bl, use_container_width=True)
+                            st.plotly_chart(fig_bl, width='stretch')
                         else:
                             st.info("Boundary layer heating is uniform/zero")
                     else:
