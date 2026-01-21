@@ -20,7 +20,7 @@ class RadiationScheme:
     Based on two-stream approximation with multiple spectral bands
     """
 
-    def __init__(self, grid, vgrid, co2_ppmv=400.0):
+    def __init__(self, grid, vgrid, co2_ppmv=400.0, uniform_solar=False):
         """
         Initialize radiation scheme
 
@@ -32,6 +32,11 @@ class RadiationScheme:
             Vertical grid
         co2_ppmv : float
             CO2 concentration in ppmv
+        uniform_solar : bool
+            If True, distribute solar radiation uniformly over entire planet surface.
+            This is used for "Tropic World" simulations where incoming solar radiation
+            is evenly distributed (not just the sunlit side). The effective solar
+            flux becomes solar_constant/4 everywhere.
         """
         self.grid = grid
         self.vgrid = vgrid
@@ -39,6 +44,9 @@ class RadiationScheme:
         # Physical constants
         self.sigma_sb = 5.67e-8  # Stefan-Boltzmann constant (W/m^2/K^4)
         self.solar_constant = 1361.0  # Solar constant (W/m^2)
+
+        # Tropic World: uniform solar radiation mode
+        self.uniform_solar = uniform_solar
 
         # Gas concentrations
         self.co2_ppmv = co2_ppmv
@@ -105,9 +113,20 @@ class RadiationScheme:
         Returns
         -------
         zenith : ndarray
-            Solar zenith angle (radians) at each grid point
+            Solar zenith angle (radians) at each grid point.
+            For uniform_solar mode (Tropic World), returns a constant effective
+            zenith angle corresponding to uniform solar heating.
         """
-        # Simple diurnal and seasonal cycle
+        if self.uniform_solar:
+            # Tropic World: uniform solar radiation over entire planet
+            # The effective zenith angle is chosen such that cos(zenith) = 0.25
+            # This gives solar_constant * cos(zenith) = solar_constant / 4
+            # which is the average solar flux over a sphere
+            effective_cos_zenith = 0.25
+            zenith = np.full_like(self.grid.lat2d, np.arccos(effective_cos_zenith))
+            return zenith
+
+        # Standard Earth-like: diurnal and seasonal cycle
         day_of_year = (time / 86400.0) % 365.0
         hour_of_day = (time / 3600.0) % 24.0
 

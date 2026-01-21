@@ -11,7 +11,7 @@ import numpy as np
 class SphericalGrid:
     """Spherical grid for atmospheric modeling"""
 
-    def __init__(self, nlon, nlat, nlev, planet_radius=6.371e6):
+    def __init__(self, nlon, nlat, nlev, planet_radius=6.371e6, rotation_rate=7.292e-5):
         """
         Initialize spherical grid
 
@@ -25,11 +25,15 @@ class SphericalGrid:
             Number of vertical levels
         planet_radius : float
             Planet radius in meters (default: Earth)
+        rotation_rate : float
+            Planetary rotation rate in rad/s (default: Earth's rotation)
+            Set to 0 for non-rotating planet (e.g., Tropic World)
         """
         self.nlon = nlon
         self.nlat = nlat
         self.nlev = nlev
         self.radius = planet_radius
+        self.rotation_rate = rotation_rate
 
         # Create coordinate arrays
         self.lon = np.linspace(0, 2*np.pi, nlon, endpoint=False)
@@ -64,9 +68,12 @@ class SphericalGrid:
         self.total_area = 4 * np.pi * self.radius**2
 
     def _compute_coriolis(self):
-        """Compute Coriolis parameter"""
-        omega = 7.292e-5  # Earth's rotation rate (rad/s)
-        self.f_coriolis = 2 * omega * self.sin_lat
+        """Compute Coriolis parameter
+
+        Uses the rotation_rate set during initialization.
+        For non-rotating planets (Tropic World), rotation_rate = 0.
+        """
+        self.f_coriolis = 2 * self.rotation_rate * self.sin_lat
 
     def gradient_x(self, field):
         """
