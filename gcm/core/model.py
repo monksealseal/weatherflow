@@ -204,6 +204,109 @@ class GCM:
         print(f"Total time: {total_elapsed:.1f} seconds")
         print(f"Performance: {n_steps/total_elapsed:.1f} steps/second")
 
+    def run_with_visualization(self, duration_days=10, day_callback=None, output_interval_hours=6):
+        """
+        Run the GCM simulation with visualization updates after each day.
+
+        This method pauses the simulation after each simulated day to allow
+        visualization updates. The callback is called with the model instance
+        after each day completes.
+
+        Parameters
+        ----------
+        duration_days : float
+            Simulation duration in days
+        day_callback : callable, optional
+            Function called after each day with signature: callback(model, day)
+            The simulation pauses until this callback returns.
+        output_interval_hours : float
+            Interval for diagnostic output (hours)
+
+        Examples
+        --------
+        >>> from gcm.visualization import Interactive3DVisualizer
+        >>> viz = Interactive3DVisualizer()
+        >>> model.run_with_visualization(
+        ...     duration_days=10,
+        ...     day_callback=lambda m, d: viz.update(m, d)
+        ... )
+        """
+        total_seconds = duration_days * 86400.0
+        output_interval = output_interval_hours * 3600.0
+
+        n_steps = int(total_seconds / self.dt)
+        output_frequency = int(output_interval / self.dt)
+        steps_per_day = int(86400.0 / self.dt)
+
+        print(f"\nStarting simulation with visualization:")
+        print(f"  Duration: {duration_days} days")
+        print(f"  Time step: {self.dt} seconds")
+        print(f"  Total steps: {n_steps}")
+        print(f"  Steps per day: {steps_per_day}")
+        print(f"  Visualization callback: {'Yes' if day_callback else 'No'}")
+
+        start_time = systime.time()
+        last_day = 0
+
+        for step in range(n_steps):
+            # Time integration
+            self.integrator.step(self.state, self.dt, self._compute_tendencies)
+
+            # Diagnostics at output interval
+            if step % output_frequency == 0:
+                self._output_diagnostics(step)
+
+            # Check if a full day has passed
+            current_day = int(self.state.time / 86400.0)
+            if current_day > last_day:
+                elapsed = systime.time() - start_time
+                progress = (step + 1) / n_steps * 100
+                sim_days = self.state.time / 86400.0
+
+                print(f"\nDay {current_day} complete ({progress:.1f}%) - Elapsed: {elapsed:.1f}s")
+
+                # Call visualization callback
+                if day_callback is not None:
+                    print(f"  Rendering visualization for day {current_day}...")
+                    day_callback(self, current_day)
+                    print(f"  Visualization complete. Continuing simulation...")
+
+                last_day = current_day
+
+        # Final callback at end of simulation
+        if day_callback is not None:
+            final_day = self.state.time / 86400.0
+            print(f"\nRendering final visualization for day {final_day:.1f}...")
+            day_callback(self, final_day)
+
+        total_elapsed = systime.time() - start_time
+        print(f"\nSimulation complete!")
+        print(f"Total time: {total_elapsed:.1f} seconds")
+        print(f"Performance: {n_steps/total_elapsed:.1f} steps/second")
+
+    def step_one_day(self):
+        """
+        Advance the simulation by exactly one day.
+
+        This method is useful for manual day-by-day control of the simulation
+        with visualization updates between days.
+
+        Returns
+        -------
+        day : float
+            The current simulation day after stepping
+        """
+        steps_per_day = int(86400.0 / self.dt)
+        output_frequency = max(1, steps_per_day // 4)  # Output 4 times per day
+
+        for step in range(steps_per_day):
+            self.integrator.step(self.state, self.dt, self._compute_tendencies)
+
+            if step % output_frequency == 0:
+                self._output_diagnostics(step)
+
+        return self.state.time / 86400.0
+
     def _compute_tendencies(self, state):
         """
         Compute all tendencies (dynamics + physics)
