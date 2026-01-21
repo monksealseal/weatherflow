@@ -57,7 +57,15 @@ class SphericalGrid:
         # Map scale factors
         self.cos_lat = np.cos(self.lat2d)
         self.sin_lat = np.sin(self.lat2d)
-        self.tan_lat = np.tan(self.lat2d)
+
+        # tan(lat) is problematic near poles - limit it
+        # This is a common technique in GCMs to avoid polar singularity
+        tan_lat_raw = np.tan(self.lat2d)
+        # Limit tan(lat) to avoid blow-up near poles
+        # At 89 degrees, tan(lat) ~ 57, which is reasonable
+        # At 89.9 degrees, tan(lat) ~ 573, which causes instability
+        max_tan = 50.0  # Corresponds to about 88.9 degrees
+        self.tan_lat = np.clip(tan_lat_raw, -max_tan, max_tan)
 
         # Grid cell areas (per unit solid angle)
         # Area = R^2 * dlon * cos(lat) * dlat
@@ -92,7 +100,9 @@ class SphericalGrid:
         grad = np.zeros_like(field)
         grad[:, :] = np.gradient(field, self.dlon, axis=1)
         # Divide by R*cos(lat) for proper metric
-        grad /= (self.radius * self.cos_lat)
+        # Limit cos(lat) to avoid division by zero near poles
+        cos_lat_safe = np.maximum(np.abs(self.cos_lat), 0.02)  # ~89 degrees
+        grad /= (self.radius * cos_lat_safe)
         return grad
 
     def gradient_y(self, field):
@@ -130,20 +140,24 @@ class SphericalGrid:
         div : ndarray
             Horizontal divergence
         """
-        # d(u*cos(lat))/dlon
-        du_dlon = np.gradient(u * self.cos_lat, self.dlon, axis=1)
+        # d(u*cos(lat))/dlon - note: u multiplied by cos here, not u*cos
+        du_dlon = np.gradient(u, self.dlon, axis=1)
 
         # d(v*cos(lat))/dlat
-        dv_dlat = np.gradient(v * self.cos_lat, self.dlat, axis=0)
+        dv_coslat_dlat = np.gradient(v * self.cos_lat, self.dlat, axis=0)
 
         # Divergence = 1/(R*cos(lat)) * [du/dlon + d(v*cos(lat))/dlat]
-        div = (du_dlon + dv_dlat) / (self.radius * self.cos_lat)
+        # Limit cos(lat) to avoid division by zero near poles
+        cos_lat_safe = np.maximum(np.abs(self.cos_lat), 0.02)
+        div = (du_dlon + dv_coslat_dlat) / (self.radius * cos_lat_safe)
 
         return div
 
     def vorticity(self, u, v):
         """
-        Compute vertical component of vorticity on sphere
+        Compute vertical component of relative vorticity on sphere
+
+        zeta = (1/(R*cos(phi))) * (dv/dlambda - d(u*cos(phi))/dphi)
 
         Parameters
         ----------
@@ -155,18 +169,41 @@ class SphericalGrid:
         Returns
         -------
         vort : ndarray
-            Vertical vorticity
+            Vertical (relative) vorticity
         """
-        # d(v*cos(lat))/dlon
-        dv_dlon = np.gradient(v * self.cos_lat, self.dlon, axis=1)
+        # dv/dlon (not v*cos(lat))
+        dv_dlon = np.gradient(v, self.dlon, axis=1)
 
         # d(u*cos(lat))/dlat
-        du_dlat = np.gradient(u * self.cos_lat, self.dlat, axis=0)
+        du_coslat_dlat = np.gradient(u * self.cos_lat, self.dlat, axis=0)
 
         # Vorticity = 1/(R*cos(lat)) * [dv/dlon - d(u*cos(lat))/dlat]
-        vort = (dv_dlon - du_dlat) / (self.radius * self.cos_lat)
+        # Handle polar singularity by limiting cos_lat
+        cos_lat_safe = np.maximum(np.abs(self.cos_lat), 0.01)
+
+        vort = (dv_dlon - du_coslat_dlat) / (self.radius * cos_lat_safe)
 
         return vort
+
+    def absolute_vorticity(self, u, v):
+        """
+        Compute absolute vorticity (relative + planetary)
+
+        eta = zeta + f
+
+        Parameters
+        ----------
+        u : ndarray
+            Zonal wind component
+        v : ndarray
+            Meridional wind component
+
+        Returns
+        -------
+        abs_vort : ndarray
+            Absolute vorticity
+        """
+        return self.vorticity(u, v) + self.f_coriolis
 
     def laplacian(self, field):
         """
@@ -194,8 +231,10 @@ class SphericalGrid:
 
         # Laplacian = 1/(R^2*cos^2(lat)) * d2f/dlon2 +
         #             1/(R^2*cos(lat)) * d/dlat(cos(lat)*df/dlat)
-        lap = (d2f_dlon2 / (self.radius**2 * self.cos_lat**2) +
-               d_coslat_dfdlat / (self.radius**2 * self.cos_lat))
+        # Limit cos(lat) to avoid division by zero near poles
+        cos_lat_safe = np.maximum(np.abs(self.cos_lat), 0.02)
+        lap = (d2f_dlon2 / (self.radius**2 * cos_lat_safe**2) +
+               d_coslat_dfdlat / (self.radius**2 * cos_lat_safe))
 
         return lap
 

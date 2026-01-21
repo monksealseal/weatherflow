@@ -188,6 +188,9 @@ class GCM:
             # Time integration
             self.integrator.step(self.state, self.dt, self._compute_tendencies)
 
+            # Apply state limits to prevent unrealistic values
+            self.dynamics.apply_state_limits(self.state)
+
             # Diagnostics
             if step % output_frequency == 0:
                 self._output_diagnostics(step)
@@ -252,6 +255,9 @@ class GCM:
             # Time integration
             self.integrator.step(self.state, self.dt, self._compute_tendencies)
 
+            # Apply state limits to prevent unrealistic values
+            self.dynamics.apply_state_limits(self.state)
+
             # Diagnostics at output interval
             if step % output_frequency == 0:
                 self._output_diagnostics(step)
@@ -301,6 +307,9 @@ class GCM:
 
         for step in range(steps_per_day):
             self.integrator.step(self.state, self.dt, self._compute_tendencies)
+
+            # Apply state limits to prevent unrealistic values
+            self.dynamics.apply_state_limits(self.state)
 
             if step % output_frequency == 0:
                 self._output_diagnostics(step)

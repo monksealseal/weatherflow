@@ -10,7 +10,7 @@ import numpy as np
 class VerticalGrid:
     """Vertical coordinate system for atmospheric models"""
 
-    def __init__(self, nlev, coord_type='sigma', ptop=0.0, psurf=101325.0):
+    def __init__(self, nlev, coord_type='sigma', ptop=100.0, psurf=101325.0):
         """
         Initialize vertical grid
 
@@ -21,13 +21,15 @@ class VerticalGrid:
         coord_type : str
             Coordinate type: 'sigma' or 'hybrid'
         ptop : float
-            Pressure at model top (Pa)
+            Pressure at model top (Pa). Default 100 Pa (~0.1 hPa, upper stratosphere)
+            Must be > 0 to avoid numerical issues with log(0).
         psurf : float
             Reference surface pressure (Pa)
         """
         self.nlev = nlev
         self.coord_type = coord_type
-        self.ptop = ptop
+        # Ensure ptop > 0 to avoid log(0) issues
+        self.ptop = max(ptop, 1.0)  # At least 1 Pa
         self.psurf = psurf
 
         if coord_type == 'sigma':
@@ -92,7 +94,11 @@ class VerticalGrid:
         # Pressure at interfaces: p = ak + bk * ps
         p_interface = self.ak[:, None, None] + self.bk[:, None, None] * ps[None, :, :]
 
+        # Ensure positive pressures for log calculation
+        p_interface = np.maximum(p_interface, 1.0)  # At least 1 Pa
+
         # Pressure at centers (log-pressure average)
+        # This is more accurate than arithmetic average for hydrostatic atmosphere
         p_center = np.exp(0.5 * (np.log(p_interface[:-1]) + np.log(p_interface[1:])))
 
         return p_interface, p_center

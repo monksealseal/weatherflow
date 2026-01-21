@@ -42,7 +42,10 @@ class AtmosphericDynamics:
         self.kappa = self.Rd / self.cp
 
         # Numerical diffusion coefficients
-        self.nu_horizontal = 1e5  # Horizontal diffusion (m^2/s)
+        # Higher diffusion needed for numerical stability, especially near poles
+        # Scale with resolution: higher resolution needs less diffusion
+        # For coarse resolution (32x16), we need strong diffusion
+        self.nu_horizontal = 1e6  # Horizontal diffusion (m^2/s) - very strong for stability
         self.nu_vertical = 1.0    # Vertical diffusion (m^2/s)
 
     def compute_tendencies(self, state):
@@ -58,6 +61,9 @@ class AtmosphericDynamics:
         -------
         Modifies state.du_dt, state.dv_dt, state.dT_dt, state.dq_dt, state.dps_dt
         """
+        # Apply polar filter first to smooth fields near poles
+        self.apply_polar_filter(state)
+
         # Advection
         self._advection(state)
 
@@ -73,14 +79,30 @@ class AtmosphericDynamics:
         # Adiabatic heating/cooling from vertical motion
         self._adiabatic_temperature(state)
 
-        # Horizontal diffusion
+        # Horizontal diffusion (increased for stability)
         self._horizontal_diffusion(state)
+
+        # Additional polar damping for stability
+        self._polar_damping(state)
 
         # Surface pressure tendency from mass continuity
         self._surface_pressure_tendency(state)
 
+        # Safety: limit tendencies to prevent runaway instabilities
+        self._limit_tendencies(state)
+
     def _advection(self, state):
-        """Compute advection terms"""
+        """
+        Compute advection terms including metric (curvature) terms
+
+        On a sphere, the momentum equations include additional terms
+        from the curvature of the coordinate system:
+
+        du/dt = ... + u*v*tan(lat)/R  (metric term)
+        dv/dt = ... - u^2*tan(lat)/R  (metric term)
+
+        These are essential for proper angular momentum conservation.
+        """
         # Horizontal advection for each level
         for k in range(self.vgrid.nlev):
             u = state.u[k]
@@ -91,10 +113,20 @@ class AtmosphericDynamics:
             du_dy = self.grid.gradient_y(u)
             state.du_dt[k] -= u * du_dx + v * du_dy
 
+            # Metric term for u: +u*v*tan(lat)/R
+            # This term arises from the curvature of the sphere
+            tan_lat = self.grid.tan_lat
+            metric_u = u * v * tan_lat / self.grid.radius
+            state.du_dt[k] += metric_u
+
             # Advection of v
             dv_dx = self.grid.gradient_x(v)
             dv_dy = self.grid.gradient_y(v)
             state.dv_dt[k] -= u * dv_dx + v * dv_dy
+
+            # Metric term for v: -u^2*tan(lat)/R
+            metric_v = -u**2 * tan_lat / self.grid.radius
+            state.dv_dt[k] += metric_v
 
             # Advection of T
             dT_dx = self.grid.gradient_x(state.T[k])
@@ -140,56 +172,109 @@ class AtmosphericDynamics:
             state.dv_dt[k] -= self.grid.f_coriolis * state.u[k]
 
     def _vertical_motion(self, state):
-        """Compute vertical velocity from continuity equation"""
-        # omega = dp/dt from mass continuity
-        # omega_k = omega_{k-1} - int_{p_{k-1}}^{p_k} div(V) dp
+        """
+        Compute vertical pressure velocity (omega = dp/dt) from continuity equation
+
+        The vertical velocity omega is computed from mass continuity:
+        d(omega)/dp = -div(V)
+
+        With boundary condition omega = 0 at top of atmosphere.
+
+        Note: state.w stores omega (Pa/s), not vertical velocity w (m/s).
+        The relationship is: omega = -rho * g * w
+        """
+        # Compute omega from continuity equation
+        # Starting from top where omega = 0
+        omega = np.zeros_like(state.u)
 
         for k in range(self.vgrid.nlev):
             # Horizontal divergence
             div = self.grid.divergence(state.u[k], state.v[k])
 
+            # Limit divergence to prevent blowup
+            # Typical divergence should be O(1e-5) to O(1e-4) s^-1
+            div = np.clip(div, -1e-3, 1e-3)
+
             if k == 0:
                 # At top: omega = 0
-                state.w[k] = 0.0
+                omega[k] = 0.0
             else:
-                # Integrate continuity equation
+                # Integrate continuity equation downward
+                # omega_k = omega_{k-1} + integral(div) dp
                 dp = state.p[k] - state.p[k-1]
-                state.w[k] = state.w[k-1] - state.rho[k] * div * dp
+                # Ensure dp is positive and reasonable
+                dp = np.maximum(dp, 100.0)  # At least 100 Pa layers
+                # Average divergence over the layer
+                div_prev = self.grid.divergence(state.u[k-1], state.v[k-1])
+                div_prev = np.clip(div_prev, -1e-3, 1e-3)
+                div_avg = 0.5 * (div + div_prev)
+                omega[k] = omega[k-1] + div_avg * dp
 
-        # Vertical advection
+        # Limit omega to reasonable values
+        # Typical omega should be O(0.1-1) Pa/s for synoptic systems
+        omega = np.clip(omega, -10.0, 10.0)
+
+        # Store omega in state.w (Pa/s)
+        state.w[:] = omega
+
+        # Vertical advection using omega (d/dp terms)
         for k in range(1, self.vgrid.nlev - 1):
-            w = state.w[k]
+            omega_k = omega[k]
 
             # d/dp using centered differences
-            dp_down = state.p[k+1] - state.p[k]
-            dp_up = state.p[k] - state.p[k-1]
+            dp_down = np.maximum(state.p[k+1] - state.p[k], 100.0)
+            dp_up = np.maximum(state.p[k] - state.p[k-1], 100.0)
+            dp_total = dp_down + dp_up
 
+            # Vertical advection: omega * d(field)/dp
             # Advection of u
-            du_dp = (state.u[k+1] - state.u[k-1]) / (dp_down + dp_up)
-            state.du_dt[k] -= w * du_dp
+            du_dp = (state.u[k+1] - state.u[k-1]) / dp_total
+            state.du_dt[k] -= omega_k * du_dp
 
             # Advection of v
-            dv_dp = (state.v[k+1] - state.v[k-1]) / (dp_down + dp_up)
-            state.dv_dt[k] -= w * dv_dp
+            dv_dp = (state.v[k+1] - state.v[k-1]) / dp_total
+            state.dv_dt[k] -= omega_k * dv_dp
 
             # Advection of T
-            dT_dp = (state.T[k+1] - state.T[k-1]) / (dp_down + dp_up)
-            state.dT_dt[k] -= w * dT_dp
+            dT_dp = (state.T[k+1] - state.T[k-1]) / dp_total
+            state.dT_dt[k] -= omega_k * dT_dp
 
             # Advection of q
-            dq_dp = (state.q[k+1] - state.q[k-1]) / (dp_down + dp_up)
-            state.dq_dt[k] -= w * dq_dp
+            dq_dp = (state.q[k+1] - state.q[k-1]) / dp_total
+            state.dq_dt[k] -= omega_k * dq_dp
+
+            # Advection of cloud water
+            dqc_dp = (state.qc[k+1] - state.qc[k-1]) / dp_total
+            state.dqc_dt[k] -= omega_k * dqc_dp
+
+            # Advection of cloud ice
+            dqi_dp = (state.qi[k+1] - state.qi[k-1]) / dp_total
+            state.dqi_dt[k] -= omega_k * dqi_dp
 
     def _adiabatic_temperature(self, state):
-        """Adiabatic temperature change from vertical motion"""
-        for k in range(self.vgrid.nlev):
-            # Adiabatic heating/cooling: dT/dt = (T/theta) * (dtheta/dt)
-            # For adiabatic process: dtheta/dt = 0, but vertical motion causes
-            # compression/expansion heating/cooling
+        """
+        Adiabatic temperature change from vertical motion
 
+        The thermodynamic equation in pressure coordinates:
+        dT/dt = (kappa * T / p) * omega
+
+        where kappa = R/cp and omega = dp/dt (Pa/s)
+
+        This represents compression warming (omega > 0, descending)
+        and expansion cooling (omega < 0, ascending).
+        """
+        for k in range(self.vgrid.nlev):
+            # Adiabatic heating/cooling from vertical motion
             # dT/dt = (kappa * T / p) * omega
-            # where omega = dp/dt
-            adiabatic_heating = (self.kappa * state.T[k] / state.p[k]) * state.w[k]
+            # where omega is stored in state.w (Pa/s)
+            omega = state.w[k]
+            T = state.T[k]
+            p = state.p[k]
+
+            # Prevent division by very small pressure at top levels
+            p_safe = np.maximum(p, 100.0)
+
+            adiabatic_heating = (self.kappa * T / p_safe) * omega
             state.dT_dt[k] += adiabatic_heating
 
     def _horizontal_diffusion(self, state):
@@ -296,3 +381,91 @@ class AtmosphericDynamics:
                     state.v[k, i, :] = (1 - strength) * state.v[k, i, :] + strength * v_mean
                     state.T[k, i, :] = (1 - strength) * state.T[k, i, :] + strength * T_mean
                     state.q[k, i, :] = (1 - strength) * state.q[k, i, :] + strength * q_mean
+
+    def _polar_damping(self, state):
+        """
+        Apply explicit damping near poles for numerical stability
+
+        Near poles, the CFL condition becomes restrictive due to:
+        1. Convergence of meridians (small dx)
+        2. Large metric terms (tan_lat -> infinity)
+
+        This adds Rayleigh damping to tendencies near poles.
+        """
+        # Threshold latitude for damping (degrees)
+        damp_lat = 75.0  # Start damping at 75 degrees
+
+        lat_deg = np.rad2deg(self.grid.lat)
+
+        for i, lat in enumerate(lat_deg):
+            if abs(lat) > damp_lat:
+                # Damping strength increases toward pole
+                # Use smooth function to avoid discontinuities
+                dist_from_thresh = (abs(lat) - damp_lat) / (90.0 - damp_lat)
+                # Damping timescale: 1 hour at pole, infinite at threshold
+                tau = 3600.0  # 1 hour at pole
+                damp_rate = dist_from_thresh**2 / tau
+
+                for k in range(self.vgrid.nlev):
+                    # Damp momentum tendencies toward zonal mean
+                    u_mean = np.mean(state.u[k, i, :])
+                    v_mean = np.mean(state.v[k, i, :])
+
+                    # Add damping to tendencies
+                    state.du_dt[k, i, :] -= damp_rate * (state.u[k, i, :] - u_mean)
+                    state.dv_dt[k, i, :] -= damp_rate * (state.v[k, i, :] - v_mean)
+
+    def _limit_tendencies(self, state, max_du_dt=0.01, max_dT_dt=0.01):
+        """
+        Limit tendencies to prevent numerical blowup
+
+        This is a safety measure to prevent runaway instabilities.
+
+        Parameters
+        ----------
+        max_du_dt : float
+            Maximum wind tendency (m/s per second)
+        max_dT_dt : float
+            Maximum temperature tendency (K per second)
+        """
+        # Limit wind tendencies
+        state.du_dt = np.clip(state.du_dt, -max_du_dt, max_du_dt)
+        state.dv_dt = np.clip(state.dv_dt, -max_du_dt, max_du_dt)
+
+        # Limit temperature tendencies
+        state.dT_dt = np.clip(state.dT_dt, -max_dT_dt, max_dT_dt)
+
+    def apply_state_limits(self, state, max_wind=150.0, T_min=150.0, T_max=350.0):
+        """
+        Apply physical limits to model state
+
+        This prevents unrealistic values from developing during spin-up
+        or due to numerical issues. Limits are applied gently using
+        damping rather than hard clipping for momentum.
+
+        Parameters
+        ----------
+        state : ModelState
+            Model state to limit
+        max_wind : float
+            Maximum allowed wind speed (m/s)
+        T_min, T_max : float
+            Temperature bounds (K)
+        """
+        # Wind speed damping for excessive winds
+        wind_speed = np.sqrt(state.u**2 + state.v**2)
+
+        # Apply damping to excessive winds (scale down to max_wind)
+        mask = wind_speed > max_wind
+        if np.any(mask):
+            # Damping factor: 1 where wind <= max_wind, <1 where wind > max_wind
+            damp_factor = np.where(
+                mask,
+                max_wind / np.maximum(wind_speed, 1e-10),
+                1.0
+            )
+            state.u *= damp_factor
+            state.v *= damp_factor
+
+        # Temperature limits
+        state.T = np.clip(state.T, T_min, T_max)
