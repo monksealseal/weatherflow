@@ -14,9 +14,13 @@ import numpy as np
 class OceanMixedLayerModel:
     """
     Simple slab ocean model with thermodynamics
+
+    Supports both Earth-like (latitudinal SST gradient) and Tropic World
+    (uniform SST with spontaneous convective organization) configurations.
     """
 
-    def __init__(self, grid):
+    def __init__(self, grid, mixed_layer_depth=50.0, tropic_world=False,
+                 tropic_world_sst=300.0, sst_perturbation=0.5):
         """
         Initialize ocean mixed layer model
 
@@ -24,6 +28,16 @@ class OceanMixedLayerModel:
         ----------
         grid : SphericalGrid
             Horizontal grid
+        mixed_layer_depth : float
+            Depth of ocean mixed layer in meters (default: 50m)
+        tropic_world : bool
+            If True, initialize with uniform SST and small random perturbations
+            to allow spontaneous convective organization. No sea ice.
+        tropic_world_sst : float
+            Base SST for Tropic World mode (K). Default: 300K (27C)
+        sst_perturbation : float
+            Amplitude of random SST perturbations in Tropic World mode (K).
+            These perturbations seed the development of warm and cold regions.
         """
         self.grid = grid
 
@@ -34,8 +48,13 @@ class OceanMixedLayerModel:
         self.Lf = 3.34e5         # Latent heat of fusion (J/kg)
 
         # Ocean parameters
-        self.mixed_layer_depth = 50.0  # m
+        self.mixed_layer_depth = mixed_layer_depth
         self.q_transport = 30.0  # Ocean heat transport magnitude (W/m^2)
+
+        # Tropic World configuration
+        self.tropic_world = tropic_world
+        self.tropic_world_sst = tropic_world_sst
+        self.sst_perturbation = sst_perturbation
 
         # Ocean state
         nlat, nlon = grid.nlat, grid.nlon
@@ -44,14 +63,17 @@ class OceanMixedLayerModel:
         self.ice_fraction = np.zeros((nlat, nlon))  # Sea ice fraction
 
         # Ocean mask (1 = ocean, 0 = land)
-        # Simplified: all points are ocean
+        # For both Earth-like and Tropic World: all points are ocean
         self.ocean_mask = np.ones((nlat, nlon))
 
-        # Initialize SST
-        self._initialize_sst()
+        # Initialize SST based on mode
+        if tropic_world:
+            self._initialize_sst_tropic_world()
+        else:
+            self._initialize_sst()
 
     def _initialize_sst(self):
-        """Initialize SST with realistic distribution"""
+        """Initialize SST with realistic Earth-like distribution"""
         # Temperature decreases from equator to poles
         lat = self.grid.lat2d
 
@@ -68,6 +90,49 @@ class OceanMixedLayerModel:
         self.ice_thickness[ice_regions] = 2.0  # 2m ice thickness
         self.ice_fraction[ice_regions] = 1.0
         self.sst[ice_regions] = T_freeze  # Ice-covered ocean at freezing point
+
+    def _initialize_sst_tropic_world(self):
+        """
+        Initialize SST for Tropic World simulation
+
+        Tropic World has:
+        - Uniform base SST everywhere (no latitudinal gradient)
+        - Small random perturbations to seed spontaneous convective organization
+        - No sea ice (planet is too warm)
+
+        The perturbations are important because they break the symmetry and allow
+        the development of warm and cold regions through the positive feedbacks:
+        - Warm regions attract convection
+        - Convection moistens the atmosphere
+        - Moisture warms the surface through the greenhouse effect
+        - Cool regions are drier and lose more OLR to space
+        """
+        nlat, nlon = self.grid.nlat, self.grid.nlon
+
+        # Start with uniform SST
+        self.sst[:] = self.tropic_world_sst
+
+        # Add small random perturbations to seed instability
+        # Use spatially correlated noise for more realistic initial conditions
+        np.random.seed(42)  # For reproducibility
+        random_field = np.random.randn(nlat, nlon)
+
+        # Smooth the random field to create larger-scale perturbations
+        # Simple smoothing: average with neighbors
+        smoothed = random_field.copy()
+        for _ in range(3):  # Apply smoothing multiple times
+            smoothed[1:-1, 1:-1] = (
+                smoothed[:-2, 1:-1] + smoothed[2:, 1:-1] +
+                smoothed[1:-1, :-2] + smoothed[1:-1, 2:] +
+                4 * smoothed[1:-1, 1:-1]
+            ) / 8.0
+
+        # Apply perturbation
+        self.sst += self.sst_perturbation * smoothed
+
+        # No sea ice in Tropic World (warm planet)
+        self.ice_thickness[:] = 0.0
+        self.ice_fraction[:] = 0.0
 
     def compute_ocean(self, state, dt, net_radiation, sensible_flux, latent_flux):
         """
@@ -136,9 +201,20 @@ class OceanMixedLayerModel:
         Simple diffusive representation:
         Q = -k * ∇T
 
-        Transports heat from warm equator to cold poles
+        Transports heat from warm equator to cold poles.
+
+        Note: In Tropic World mode, heat is NOT transported horizontally within
+        the slab ocean. This allows SST contrasts to develop and persist,
+        driven by the atmospheric circulation feedback rather than ocean
+        heat transport.
         """
-        # Meridional heat transport (simplified)
+        if self.tropic_world:
+            # No horizontal heat transport in Tropic World
+            # The slab ocean only serves as a heat reservoir at each grid point
+            # Temperature varies according to net energy flux at air-sea interface
+            return
+
+        # Earth-like mode: meridional heat transport
         # Use Laplacian to diffuse heat
 
         # Diffusivity (large for ocean)
@@ -158,7 +234,14 @@ class OceanMixedLayerModel:
 
         If SST tries to fall below freezing, form ice
         If ice exists and heat is available, melt ice
+
+        Note: In Tropic World mode, sea ice is disabled since the planet
+        is uniformly warm and ice should not form.
         """
+        if self.tropic_world:
+            # No sea ice in Tropic World - the planet is too warm
+            return
+
         T_freeze = 271.4  # K
 
         # Ice formation (when SST at freezing and heat loss continues)
