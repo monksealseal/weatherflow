@@ -1183,25 +1183,28 @@ if run_button or 'tropic_world_results' in st.session_state:
         st.subheader("Summary Statistics")
         col1, col2, col3, col4 = st.columns(4)
 
+        # Check if diagnostics have data
+        has_data = len(diagnostics.get('sst_contrast', [])) > 0
+
         with col1:
             st.metric(
                 "Max SST Contrast",
-                f"{max(diagnostics['sst_contrast']):.2f} K"
+                f"{max(diagnostics['sst_contrast']):.2f} K" if has_data else "N/A"
             )
         with col2:
             st.metric(
                 "Mean SST",
-                f"{np.mean(diagnostics['global_mean_sst']):.2f} K"
+                f"{np.mean(diagnostics['global_mean_sst']):.2f} K" if has_data else "N/A"
             )
         with col3:
             st.metric(
                 "Mean Warm Fraction",
-                f"{np.mean(diagnostics['sst_warm_fraction']):.2%}"
+                f"{np.mean(diagnostics['sst_warm_fraction']):.2%}" if has_data else "N/A"
             )
         with col4:
             st.metric(
                 "Mean KE",
-                f"{np.mean(diagnostics['kinetic_energy']):.2f} m²/s²"
+                f"{np.mean(diagnostics['kinetic_energy']):.2f} m²/s²" if has_data else "N/A"
             )
 
     # Tab 5: Detailed Analysis
