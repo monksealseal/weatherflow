@@ -271,7 +271,7 @@ class TimeIntegrator:
 
         return state
 
-    def _apply_constraints(self, state):
+    def _apply_constraints(self, state, max_wind=200.0):
         """
         Apply physical constraints to prognostic variables
 
@@ -279,6 +279,7 @@ class TimeIntegrator:
         - Cloud water/ice must be non-negative
         - Pressure must be positive
         - Temperature must be reasonable
+        - Wind speed must be reasonable
         """
         # Non-negative moisture
         state.q = np.maximum(0.0, state.q)
@@ -290,3 +291,11 @@ class TimeIntegrator:
 
         # Reasonable temperature bounds
         state.T = np.clip(state.T, 150.0, 400.0)
+
+        # Limit wind speed to prevent blowup
+        wind_speed = np.sqrt(state.u**2 + state.v**2)
+        mask = wind_speed > max_wind
+        if np.any(mask):
+            scale = np.where(mask, max_wind / np.maximum(wind_speed, 1e-10), 1.0)
+            state.u *= scale
+            state.v *= scale
