@@ -6,14 +6,6 @@ secondaryBackgroundColor = "#f5f7fa"
 textColor = "#262730"
 font = "sans serif"
 
-# Sidebar theme colors to fix "Invalid color" warnings
-[theme.sidebar]
-backgroundColor = "#f5f7fa"
-textColor = "#262730"
-widgetBackgroundColor = "#ffffff"
-widgetBorderColor = "#e0e4e8"
-skeletonBackgroundColor = "#e8ecf0"
-
 [server]
 headless = true
 enableCORS = false
