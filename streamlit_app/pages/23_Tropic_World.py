@@ -1220,7 +1220,7 @@ if run_button or 'tropic_world_results' in st.session_state:
                 st.write(f"- Mean SST: {np.mean(sst[cold_mask]):.2f} K")
                 st.write(f"- Area Fraction: {np.sum(cold_mask)/sst.size:.1%}")
 
-        else:  # Vertical Profiles
+        elif analysis_type == "Vertical Profiles":
             state = state_history[-1]
 
             # Select location
