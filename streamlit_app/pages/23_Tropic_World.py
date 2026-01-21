@@ -1176,15 +1176,18 @@ if run_button or 'tropic_world_results' in st.session_state:
     with tab4:
         st.header("Tropic World Diagnostics")
 
-        fig_diag = create_sst_diagnostics_plot(diagnostics)
-        st.plotly_chart(fig_diag, width='stretch')
+        # Check if diagnostics have data
+        has_data = len(diagnostics.get('sst_contrast', [])) > 0
+
+        if has_data:
+            fig_diag = create_sst_diagnostics_plot(diagnostics)
+            st.plotly_chart(fig_diag, width='stretch')
+        else:
+            st.info("Run a simulation to see diagnostics data.")
 
         # Summary statistics
         st.subheader("Summary Statistics")
         col1, col2, col3, col4 = st.columns(4)
-
-        # Check if diagnostics have data
-        has_data = len(diagnostics.get('sst_contrast', [])) > 0
 
         with col1:
             st.metric(
