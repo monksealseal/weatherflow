@@ -61,8 +61,9 @@ class MultiStepERA5Dataset(ERA5Dataset):
         if end > len(self.times):
             raise IndexError("Index out of range for requested sequence window.")
 
-        # Reuse base-class normalization by pulling each timestep via super().__getitem__
-        slices = [super().__getitem__(t_idx) for t_idx in range(start, end)]
+        # Reuse base-class normalization by pulling each timestep via the parent __getitem__
+        _base_getitem = super().__getitem__
+        slices = [_base_getitem(t_idx) for t_idx in range(start, end)]
         sequence = torch.stack(slices, dim=0)  # [T, V, L, H, W]
 
         context = sequence[: self.context_length]

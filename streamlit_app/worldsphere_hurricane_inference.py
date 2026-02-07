@@ -67,8 +67,12 @@ class NumpyHurricaneModel:
         zoom_factors = (target_size[0] / image.shape[0], target_size[1] / image.shape[1])
         return ndimage.zoom(image, zoom_factors, order=1)
 
-    def preprocess(self, image: np.ndarray, target_size: Tuple[int, int] = (256, 256)) -> np.ndarray:
-        """Preprocess image for analysis."""
+    def preprocess(self, image: np.ndarray, target_size: Tuple[int, int] = (256, 256)):
+        """Preprocess image for analysis.
+
+        Returns a torch tensor of shape (1, 1, H, W) when PyTorch is
+        available, otherwise a 2-D numpy array.
+        """
         # Ensure 2D grayscale
         if len(image.shape) == 3:
             if image.shape[2] == 3:
@@ -84,11 +88,20 @@ class NumpyHurricaneModel:
         if image.shape != target_size:
             image = self._resize_image(image, target_size)
 
+        if TORCH_AVAILABLE:
+            return torch.from_numpy(image).float().unsqueeze(0).unsqueeze(0)
         return image
+
+    def _preprocess_np(self, image: np.ndarray, target_size: Tuple[int, int] = (256, 256)) -> np.ndarray:
+        """Preprocess and always return a 2-D numpy array."""
+        result = self.preprocess(image, target_size)
+        if TORCH_AVAILABLE and not isinstance(result, np.ndarray):
+            return result.squeeze().numpy()
+        return result
 
     def estimate_wind_field(self, image: np.ndarray) -> Dict[str, Any]:
         """Estimate wind field using gradient-based analysis."""
-        img = self.preprocess(image)
+        img = self._preprocess_np(image)
 
         # Use image gradients as proxy for wind patterns
         sobel_x = ndimage.sobel(img, axis=1)
@@ -125,7 +138,7 @@ class NumpyHurricaneModel:
 
     def predict_intensity(self, image: np.ndarray) -> Dict[str, Any]:
         """Predict intensity using image analysis heuristics."""
-        img = self.preprocess(image)
+        img = self._preprocess_np(image)
 
         # Analyze image statistics for intensity estimation
         h, w = img.shape
@@ -184,7 +197,7 @@ class NumpyHurricaneModel:
 
     def detect_eye(self, image: np.ndarray) -> Dict[str, Any]:
         """Detect hurricane eye using thresholding and morphology."""
-        img = self.preprocess(image)
+        img = self._preprocess_np(image)
         h, w = img.shape
         cy, cx = h // 2, w // 2
 
@@ -287,6 +300,116 @@ class NumpyHurricaneModel:
             "analysis_timestamp": datetime.now().isoformat(),
             "model_version": self.metadata["version"],
         }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PyTorch-based neural network components (used when torch is available)
+# ─────────────────────────────────────────────────────────────────────────────
+
+if TORCH_AVAILABLE:
+    class HurricaneFeatureExtractor(nn.Module):
+        """CNN feature extractor for hurricane satellite imagery."""
+
+        def __init__(self, in_channels: int = 1, feature_dim: int = 256):
+            super().__init__()
+            self.feature_dim = feature_dim
+
+            self.block1 = nn.Sequential(
+                nn.Conv2d(in_channels, 32, 3, padding=1),
+                nn.BatchNorm2d(32), nn.ReLU(), nn.MaxPool2d(2))
+            self.block2 = nn.Sequential(
+                nn.Conv2d(32, 64, 3, padding=1),
+                nn.BatchNorm2d(64), nn.ReLU(), nn.MaxPool2d(2))
+            self.block3 = nn.Sequential(
+                nn.Conv2d(64, 128, 3, padding=1),
+                nn.BatchNorm2d(128), nn.ReLU(), nn.MaxPool2d(2))
+            self.block4 = nn.Sequential(
+                nn.Conv2d(128, 256, 3, padding=1),
+                nn.BatchNorm2d(256), nn.ReLU(), nn.MaxPool2d(2))
+
+            self.pool = nn.AdaptiveAvgPool2d(1)
+            self.fc = nn.Linear(256, feature_dim)
+
+        def forward(self, x):
+            intermediates = []
+            for block in [self.block1, self.block2, self.block3, self.block4]:
+                x = block(x)
+                intermediates.append(x)
+            features = self.fc(self.pool(x).flatten(1))
+            return features, intermediates
+
+    class WindFieldEstimator(nn.Module):
+        """U-Net style wind field estimator."""
+
+        def __init__(self, in_channels: int = 1, out_channels: int = 2):
+            super().__init__()
+            self.encoder1 = nn.Sequential(
+                nn.Conv2d(in_channels, 32, 3, padding=1), nn.ReLU(),
+                nn.Conv2d(32, 32, 3, padding=1), nn.ReLU())
+            self.pool1 = nn.MaxPool2d(2)
+            self.encoder2 = nn.Sequential(
+                nn.Conv2d(32, 64, 3, padding=1), nn.ReLU(),
+                nn.Conv2d(64, 64, 3, padding=1), nn.ReLU())
+            self.pool2 = nn.MaxPool2d(2)
+            self.bottleneck = nn.Sequential(
+                nn.Conv2d(64, 128, 3, padding=1), nn.ReLU())
+            self.up2 = nn.ConvTranspose2d(128, 64, 2, stride=2)
+            self.decoder2 = nn.Sequential(
+                nn.Conv2d(128, 64, 3, padding=1), nn.ReLU())
+            self.up1 = nn.ConvTranspose2d(64, 32, 2, stride=2)
+            self.decoder1 = nn.Sequential(
+                nn.Conv2d(64, 32, 3, padding=1), nn.ReLU())
+            self.final = nn.Conv2d(32, out_channels, 1)
+
+        def forward(self, x):
+            e1 = self.encoder1(x)
+            e2 = self.encoder2(self.pool1(e1))
+            b = self.bottleneck(self.pool2(e2))
+            d2 = self.decoder2(torch.cat([self.up2(b), e2], dim=1))
+            d1 = self.decoder1(torch.cat([self.up1(d2), e1], dim=1))
+            return self.final(d1)
+
+    class IntensityPredictor(nn.Module):
+        """Predicts hurricane intensity parameters."""
+
+        def __init__(self, in_channels: int = 1):
+            super().__init__()
+            self.features = nn.Sequential(
+                nn.Conv2d(in_channels, 32, 3, padding=1), nn.ReLU(), nn.MaxPool2d(2),
+                nn.Conv2d(32, 64, 3, padding=1), nn.ReLU(), nn.MaxPool2d(2),
+                nn.Conv2d(64, 128, 3, padding=1), nn.ReLU(), nn.AdaptiveAvgPool2d(4))
+            self.intensity_head = nn.Linear(128 * 16, 3)
+            self.trend_head = nn.Linear(128 * 16, 3)
+
+        def forward(self, x):
+            feat = self.features(x).flatten(1)
+            return {
+                "intensity": self.intensity_head(feat),
+                "trend": self.trend_head(feat),
+            }
+
+    class EyeDetector(nn.Module):
+        """Segmentation model for eye / eyewall / rainband masks."""
+
+        def __init__(self, in_channels: int = 1):
+            super().__init__()
+            self.encoder = nn.Sequential(
+                nn.Conv2d(in_channels, 32, 3, padding=1), nn.ReLU(), nn.MaxPool2d(2),
+                nn.Conv2d(32, 64, 3, padding=1), nn.ReLU(), nn.MaxPool2d(2))
+            self.decoder = nn.Sequential(
+                nn.ConvTranspose2d(64, 32, 2, stride=2), nn.ReLU(),
+                nn.ConvTranspose2d(32, 16, 2, stride=2), nn.ReLU(),
+                nn.Conv2d(16, 3, 1), nn.Sigmoid())
+
+        def forward(self, x):
+            return self.decoder(self.encoder(x))
+
+else:
+    # Stubs so imports don't break when torch is absent
+    HurricaneFeatureExtractor = None  # type: ignore[assignment,misc]
+    WindFieldEstimator = None  # type: ignore[assignment,misc]
+    IntensityPredictor = None  # type: ignore[assignment,misc]
+    EyeDetector = None  # type: ignore[assignment,misc]
 
 
 # Alias for compatibility
