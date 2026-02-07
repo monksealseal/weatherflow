@@ -20,6 +20,10 @@ wheels/
 .installed.cfg
 *.egg
 
+# Test / coverage artifacts
+.coverage
+htmlcov/
+
 # Documentation
 site/
 
