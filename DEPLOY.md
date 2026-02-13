@@ -1,6 +1,6 @@
 # WeatherFlow Deployment Guide
 
-Deploy WeatherFlow publicly using one of three methods.
+Deploy WeatherFlow publicly using one of four methods.
 
 ---
 
@@ -109,6 +109,46 @@ make deploy-fly
 flyctl scale count 2        # Run 2 instances
 flyctl scale vm shared-cpu-2x  # Upgrade CPU
 ```
+
+---
+
+## Option 4: Vercel
+
+Deploy the React frontend as a static site + FastAPI as a serverless function.
+
+### Prerequisites
+
+- Install the Vercel CLI: `npm install -g vercel`
+- Sign up: `vercel login`
+
+### Deploy
+
+```bash
+# First time: link to Vercel project
+vercel
+
+# Production deploy
+vercel deploy --prod
+
+# Or use Make
+make deploy-vercel
+```
+
+Vercel auto-detects `vercel.json` and:
+- Builds the React frontend from `frontend/` (served as static files)
+- Deploys `api/index.py` as a serverless function (handles `/api/*` routes)
+
+### How it works
+
+- `/api/*` requests are routed to the FastAPI serverless function
+- All other requests serve the React SPA
+- Automatic HTTPS, CDN, and global edge caching
+
+### Limitations
+
+- Serverless functions have a 60s timeout (configurable up to 300s on Pro)
+- 250MB unzipped size limit (CPU-only PyTorch fits)
+- Streamlit is **not** deployed on Vercel (use Railway or Docker for Streamlit)
 
 ---
 

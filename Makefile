@@ -23,7 +23,7 @@
         build build-python build-frontend build-docs build-docker \
         dev dev-backend dev-frontend dev-streamlit \
         docker-build docker-up docker-down docker-shell \
-        deploy deploy-docker deploy-fly deploy-railway deploy-stop deploy-status deploy-logs \
+        deploy deploy-docker deploy-fly deploy-railway deploy-vercel deploy-stop deploy-status deploy-logs \
         clean clean-python clean-frontend clean-docs clean-docker \
         release-check version-check pre-commit-install pre-commit-run \
         ci-test ci-build \
@@ -209,6 +209,9 @@ deploy-fly: ## Deploy Streamlit app to Fly.io
 
 deploy-railway: ## Deploy API to Railway
 	railway up
+
+deploy-vercel: ## Deploy React frontend + API to Vercel
+	vercel deploy --prod
 
 deploy-stop: ## Stop production Docker Compose services
 	$(COMPOSE) -f docker-compose.prod.yml down
