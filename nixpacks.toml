@@ -1,0 +1,15 @@
+# Nixpacks build configuration for Railway
+# Ensures CPU-only PyTorch and proper system dependencies
+
+[phases.setup]
+nixPkgs = ["gcc", "gfortran", "pkg-config", "hdf5", "netcdf"]
+
+[phases.install]
+cmds = [
+    "pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu",
+    "pip install --no-cache-dir -r requirements.txt",
+    "pip install --no-cache-dir -e ."
+]
+
+[start]
+cmd = "uvicorn weatherflow.server.app:app --host 0.0.0.0 --port ${PORT:-8000} --workers 2"
