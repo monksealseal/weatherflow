@@ -6,6 +6,7 @@
 #   ./scripts/deploy.sh docker       # Deploy with Docker Compose (local/VPS)
 #   ./scripts/deploy.sh fly          # Deploy to Fly.io
 #   ./scripts/deploy.sh railway      # Deploy to Railway
+#   ./scripts/deploy.sh vercel       # Deploy to Vercel
 #   ./scripts/deploy.sh stop         # Stop Docker Compose services
 
 set -euo pipefail
@@ -35,6 +36,7 @@ usage() {
     echo "  docker    Deploy with Docker Compose (local server or VPS)"
     echo "  fly       Deploy to Fly.io"
     echo "  railway   Deploy to Railway"
+    echo "  vercel    Deploy to Vercel (React frontend + API serverless)"
     echo "  stop      Stop Docker Compose services"
     echo "  status    Show status of running services"
     echo "  logs      Show logs from Docker Compose services"
@@ -101,6 +103,19 @@ deploy_railway() {
     echo "Check your Railway dashboard for the deployment URL."
 }
 
+deploy_vercel() {
+    info "Deploying WeatherFlow to Vercel..."
+    check_command vercel
+
+    cd "$PROJECT_DIR"
+
+    info "Deploying to production..."
+    vercel deploy --prod
+
+    echo ""
+    ok "Deployed to Vercel!"
+}
+
 stop_services() {
     info "Stopping WeatherFlow services..."
     cd "$PROJECT_DIR"
@@ -129,6 +144,7 @@ case "$1" in
     docker)  deploy_docker ;;
     fly)     deploy_fly ;;
     railway) deploy_railway ;;
+    vercel)  deploy_vercel ;;
     stop)    stop_services ;;
     status)  show_status ;;
     logs)    show_logs ;;
