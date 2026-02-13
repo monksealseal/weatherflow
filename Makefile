@@ -20,6 +20,7 @@
         build build-python build-frontend build-docs build-docker \
         dev dev-backend dev-frontend dev-streamlit \
         docker-build docker-up docker-down docker-shell \
+        deploy deploy-docker deploy-fly deploy-railway deploy-stop deploy-status deploy-logs \
         clean clean-python clean-frontend clean-docs clean-docker \
         release-check version-check pre-commit-install pre-commit-run \
         ci-test ci-build
@@ -187,6 +188,31 @@ docker-down: ## Stop docker-compose services
 
 docker-shell: ## Open interactive shell in Docker container
 	$(COMPOSE) --profile shell run --rm gcm-shell
+
+# ──────────────────────────────────────────────
+# Production Deployment
+# ──────────────────────────────────────────────
+
+deploy: deploy-docker ## Deploy production stack (alias for deploy-docker)
+
+deploy-docker: ## Deploy full stack with Docker Compose (Streamlit + API + nginx)
+	$(COMPOSE) -f docker-compose.prod.yml up --build -d
+	@echo "$(GREEN)WeatherFlow deployed at http://localhost:$${PORT:-80}$(RESET)"
+
+deploy-fly: ## Deploy Streamlit app to Fly.io
+	flyctl deploy
+
+deploy-railway: ## Deploy API to Railway
+	railway up
+
+deploy-stop: ## Stop production Docker Compose services
+	$(COMPOSE) -f docker-compose.prod.yml down
+
+deploy-status: ## Show status of production services
+	$(COMPOSE) -f docker-compose.prod.yml ps
+
+deploy-logs: ## Show logs from production services
+	$(COMPOSE) -f docker-compose.prod.yml logs -f --tail=100
 
 # ──────────────────────────────────────────────
 # Code Quality

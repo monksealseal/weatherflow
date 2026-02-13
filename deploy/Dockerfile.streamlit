@@ -1,0 +1,68 @@
+# WeatherFlow Streamlit App - Production Dockerfile
+# Multi-stage build for smaller image size
+
+FROM python:3.11-slim AS base
+
+# System dependencies for cartopy, netCDF4, h5py
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    g++ \
+    curl \
+    libgeos-dev \
+    libproj-dev \
+    proj-data \
+    proj-bin \
+    libhdf5-dev \
+    libnetcdf-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Install Python dependencies first for better caching
+COPY streamlit_app/requirements.txt /app/streamlit_requirements.txt
+COPY requirements.txt /app/requirements.txt
+
+# Install CPU-only PyTorch (much smaller) + app dependencies
+RUN pip install --no-cache-dir \
+    torch --index-url https://download.pytorch.org/whl/cpu && \
+    pip install --no-cache-dir \
+    -r /app/requirements.txt \
+    -r /app/streamlit_requirements.txt
+
+# Copy the weatherflow package and install it
+COPY pyproject.toml setup.py setup.cfg* README.md /app/
+COPY weatherflow/ /app/weatherflow/
+RUN pip install --no-cache-dir -e .
+
+# Copy the Streamlit app
+COPY streamlit_app/ /app/streamlit_app/
+
+# Streamlit config
+RUN mkdir -p /root/.streamlit
+RUN echo '[server]\n\
+headless = true\n\
+port = 8501\n\
+address = "0.0.0.0"\n\
+enableCORS = false\n\
+enableXsrfProtection = false\n\
+maxUploadSize = 200\n\
+\n\
+[theme]\n\
+primaryColor = "#1E88E5"\n\
+backgroundColor = "#FFFFFF"\n\
+secondaryBackgroundColor = "#F5F5F5"\n\
+textColor = "#212121"\n\
+\n\
+[browser]\n\
+gatherUsageStats = false\n' > /root/.streamlit/config.toml
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
+    CMD curl -f http://localhost:8501/_stcore/health || exit 1
+
+EXPOSE 8501
+
+ENV PYTHONUNBUFFERED=1
+ENV MPLBACKEND=Agg
+
+CMD ["streamlit", "run", "streamlit_app/Home.py", "--server.port=8501", "--server.address=0.0.0.0"]
