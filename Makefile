@@ -170,6 +170,9 @@ dev-frontend: ## Start Vite frontend dev server (port 5173)
 dev-streamlit: ## Start Streamlit app (port 8501)
 	streamlit run streamlit_app/Home.py
 
+interactive: ## Launch interactive terminal app
+	$(PYTHON) scripts/interactive.py
+
 # ──────────────────────────────────────────────
 # Docker
 # ──────────────────────────────────────────────
