@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import type { LatLng, PointForecast, WeatherModel, SurfaceVariable } from '../types/weather';
 import { MODELS, SURFACE_VARIABLES } from '../types/weather';
 import { fetchMultiModelForecast } from '../api/openMeteo';
@@ -10,14 +10,58 @@ interface ModelComparisonProps {
 
 const COMPARE_MODELS: WeatherModel[] = ['gfs', 'ecmwf', 'icon', 'gem'];
 const COMPARE_VAR: SurfaceVariable = 'temperature_2m';
+const MIN_HEIGHT = 250;
+const DEFAULT_HEIGHT = 360;
+const MAX_HEIGHT_RATIO = 0.85; // max 85% of viewport
 
 export default function ModelComparison({ location, onClose }: ModelComparisonProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const [forecasts, setForecasts] = useState<PointForecast[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedVar, setSelectedVar] = useState<SurfaceVariable>(COMPARE_VAR);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+  const [panelHeight, setPanelHeight] = useState(DEFAULT_HEIGHT);
+  const [expanded, setExpanded] = useState(false);
+
+  const toggleExpand = useCallback(() => {
+    if (expanded) {
+      setPanelHeight(DEFAULT_HEIGHT);
+      setExpanded(false);
+    } else {
+      setPanelHeight(Math.floor(window.innerHeight * MAX_HEIGHT_RATIO));
+      setExpanded(true);
+    }
+  }, [expanded]);
+
+  // Drag-to-resize from the top edge
+  const handleDragStart = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    const startY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    const startHeight = panelRef.current?.getBoundingClientRect().height ?? panelHeight;
+
+    const onMove = (ev: MouseEvent | TouchEvent) => {
+      const currentY = 'touches' in ev ? ev.touches[0].clientY : ev.clientY;
+      const delta = startY - currentY;
+      const maxH = Math.floor(window.innerHeight * MAX_HEIGHT_RATIO);
+      const newHeight = Math.max(MIN_HEIGHT, Math.min(maxH, startHeight + delta));
+      setPanelHeight(newHeight);
+      setExpanded(newHeight >= maxH - 20);
+    };
+
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.removeEventListener('touchmove', onMove);
+      document.removeEventListener('touchend', onUp);
+    };
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    document.addEventListener('touchmove', onMove);
+    document.addEventListener('touchend', onUp);
+  }, [panelHeight]);
 
   useEffect(() => {
     let cancelled = false;
@@ -224,7 +268,17 @@ export default function ModelComparison({ location, onClose }: ModelComparisonPr
   ];
 
   return (
-    <div className="comparison-panel">
+    <div
+      className={`comparison-panel ${expanded ? 'comparison-panel--expanded' : ''}`}
+      ref={panelRef}
+      style={{ height: panelHeight }}
+    >
+      {/* Drag handle */}
+      <div
+        className="comparison-panel__drag-handle"
+        onMouseDown={handleDragStart}
+        onTouchStart={handleDragStart}
+      />
       <div className="comparison-panel__header">
         <h3>Model Comparison</h3>
         <div className="comparison-panel__var-select">
@@ -241,6 +295,13 @@ export default function ModelComparison({ location, onClose }: ModelComparisonPr
             );
           })}
         </div>
+        <button
+          className="comparison-panel__expand"
+          onClick={toggleExpand}
+          title={expanded ? 'Collapse' : 'Expand'}
+        >
+          {expanded ? '\u2193' : '\u2191'}
+        </button>
         <button className="forecast-panel__close" onClick={onClose}>x</button>
       </div>
       {loading && <div className="comparison-panel__loading">Loading multi-model data...</div>}

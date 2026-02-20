@@ -55,21 +55,39 @@ export default function App() {
 
   const handleNavigate = useCallback((view: ViewMode) => {
     setViewMode(view);
+    setActivePanel('none'); // Close any open panel first
     switch (view) {
+      case 'map':
+        // Dashboard: show radar by default, remove satellite
+        setActiveLayers(['radar']);
+        break;
       case 'radar':
-        setActiveLayers((prev) => prev.includes('radar') ? prev : [...prev, 'radar']);
+        setActiveLayers(['radar']);
         break;
       case 'satellite':
-        setActiveLayers((prev) => prev.includes('satellite') ? prev : [...prev, 'satellite']);
+        setActiveLayers(['satellite']);
         break;
       case 'tropical':
         setActivePanel('tropical');
         break;
       case 'soundings':
-        if (selectedLocation) setActivePanel('sounding');
+        if (selectedLocation) {
+          setActivePanel('sounding');
+        } else {
+          // Default to a central US location so the panel opens immediately
+          setSelectedLocation({ lat: 35.2226, lng: -97.4395 });
+          setLocationName('Norman, OK');
+          setActivePanel('sounding');
+        }
         break;
       case 'models':
-        if (selectedLocation) setActivePanel('comparison');
+        if (selectedLocation) {
+          setActivePanel('comparison');
+        } else {
+          setSelectedLocation({ lat: 35.2226, lng: -97.4395 });
+          setLocationName('Norman, OK');
+          setActivePanel('comparison');
+        }
         break;
       default:
         break;
@@ -149,6 +167,12 @@ export default function App() {
             onSatelliteFramesLoaded={setSatelliteFrameCount}
             selectedLocation={selectedLocation}
           />
+
+          {showSatellite && satelliteFrameCount === 0 && (
+            <div className="map-notice">
+              Satellite imagery is temporarily unavailable from RainViewer.
+            </div>
+          )}
 
           {selectedLocation && (
             <div className="map-info">
