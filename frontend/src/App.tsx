@@ -1,182 +1,229 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useState, useCallback } from 'react';
+import type { LatLng, WeatherModel, MapLayer, ViewMode } from './types/weather';
+import Sidebar from './components/Sidebar';
+import MapView from './components/MapView';
+import TimeSlider from './components/TimeSlider';
+import ForecastPanel from './components/ForecastPanel';
+import Meteogram from './components/Meteogram';
+import SkewT from './components/SkewT';
+import LocationSearch from './components/LocationSearch';
+import LayerControl from './components/LayerControl';
+import ModelComparison from './components/ModelComparison';
+import StormTracker from './components/StormTracker';
 import './App.css';
-import {
-  DatasetConfig,
-  ExperimentConfig,
-  ExperimentResult,
-  ModelConfig,
-  ServerOptions,
-  InferenceConfig,
-  TrainingConfig
-} from './api/types';
-import { fetchOptions, runExperiment } from './api/client';
-import DatasetConfigurator from './components/DatasetConfigurator';
-import ModelConfigurator from './components/ModelConfigurator';
-import TrainingConfigurator from './components/TrainingConfigurator';
-import InferenceConfigurator from './components/InferenceConfigurator';
-import ResultsPanel from './components/ResultsPanel';
-import LoadingOverlay from './components/LoadingOverlay';
-import ErrorNotice from './components/ErrorNotice';
-import AtmosphereViewer from './game/AtmosphereViewer';
 
-const defaultModelConfig: ModelConfig = {
-  hiddenDim: 96,
-  nLayers: 3,
-  useAttention: true,
-  physicsInformed: true,
-  windowSize: 8,
-  sphericalPadding: true,
-  useGraphMp: true,
-  subdivisions: 1,
-  interpCacheDir: null,
-  backbone: 'icosahedral'
-};
+type Panel = 'none' | 'forecast' | 'meteogram' | 'sounding' | 'comparison' | 'tropical';
 
-const createDefaultDatasetConfig = (options: ServerOptions): DatasetConfig => ({
-  variables: options.variables.slice(0, 2),
-  pressureLevels: [options.pressureLevels[0]],
-  gridSize: options.gridSizes[0] ?? { lat: 16, lon: 32 },
-  trainSamples: 48,
-  valSamples: 16
-});
+export default function App() {
+  // Navigation & layout
+  const [viewMode, setViewMode] = useState<ViewMode>('map');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-const createDefaultTrainingConfig = (options: ServerOptions): TrainingConfig => ({
-  epochs: Math.min(2, options.maxEpochs),
-  batchSize: 8,
-  learningRate: 5e-4,
-  solverMethod: options.solverMethods[0] ?? 'dopri5',
-  timeSteps: 5,
-  lossType: options.lossTypes[0] ?? 'mse',
-  seed: 42,
-  dynamicsScale: 0.15,
-  rolloutSteps: 3,
-  rolloutWeight: 0.3
-});
+  // Map state
+  const [activeLayers, setActiveLayers] = useState<MapLayer[]>(['radar']);
+  const [selectedLocation, setSelectedLocation] = useState<LatLng | null>(null);
+  const [locationName, setLocationName] = useState<string>('');
+  const [selectedModel, setSelectedModel] = useState<WeatherModel>('best_match');
 
-const defaultInferenceConfig: InferenceConfig = {
-  tileSizeLat: 0,
-  tileSizeLon: 0,
-  tileOverlap: 0
-};
+  // Time & animation
+  const [forecastHour, setForecastHour] = useState(0);
+  const [radarFrameCount, setRadarFrameCount] = useState(0);
+  const [satelliteFrameCount, setSatelliteFrameCount] = useState(0);
+  const [radarFrame, setRadarFrame] = useState(-1);
+  const [satelliteFrame, setSatelliteFrame] = useState(-1);
 
-function App(): JSX.Element {
-  const [options, setOptions] = useState<ServerOptions | null>(null);
-  const [datasetConfig, setDatasetConfig] = useState<DatasetConfig | null>(null);
-  const [modelConfig, setModelConfig] = useState<ModelConfig>(defaultModelConfig);
-  const [trainingConfig, setTrainingConfig] = useState<TrainingConfig | null>(null);
-  const [inferenceConfig, setInferenceConfig] = useState<InferenceConfig>(defaultInferenceConfig);
-  const [result, setResult] = useState<ExperimentResult | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // Panel
+  const [activePanel, setActivePanel] = useState<Panel>('none');
 
-  useEffect(() => {
-    fetchOptions()
-      .then((data) => {
-        setOptions(data);
-        setDatasetConfig((current) => current ?? createDefaultDatasetConfig(data));
-        setTrainingConfig((current) => current ?? createDefaultTrainingConfig(data));
-      })
-      .catch((err: Error) => {
-        setError(`Failed to load server options: ${err.message}`);
-      });
+  const handleMapClick = useCallback((latlng: LatLng) => {
+    setSelectedLocation(latlng);
+    setLocationName(`${latlng.lat.toFixed(3)}, ${latlng.lng.toFixed(3)}`);
+    setActivePanel('forecast');
   }, []);
 
-  const canRunExperiment = useMemo(
-    () => Boolean(options && datasetConfig && trainingConfig && datasetConfig.variables.length > 0),
-    [options, datasetConfig, trainingConfig]
+  const handleLocationSelect = useCallback((latlng: LatLng, name: string) => {
+    setSelectedLocation(latlng);
+    setLocationName(name);
+    setActivePanel('forecast');
+  }, []);
+
+  const handleLayerToggle = useCallback((layer: MapLayer) => {
+    setActiveLayers((prev) =>
+      prev.includes(layer) ? prev.filter((l) => l !== layer) : [...prev, layer],
+    );
+  }, []);
+
+  const handleNavigate = useCallback((view: ViewMode) => {
+    setViewMode(view);
+    switch (view) {
+      case 'radar':
+        setActiveLayers((prev) => prev.includes('radar') ? prev : [...prev, 'radar']);
+        break;
+      case 'satellite':
+        setActiveLayers((prev) => prev.includes('satellite') ? prev : [...prev, 'satellite']);
+        break;
+      case 'tropical':
+        setActivePanel('tropical');
+        break;
+      case 'soundings':
+        if (selectedLocation) setActivePanel('sounding');
+        break;
+      case 'models':
+        if (selectedLocation) setActivePanel('comparison');
+        break;
+      default:
+        break;
+    }
+  }, [selectedLocation]);
+
+  const showRadar = activeLayers.includes('radar');
+  const showSatellite = activeLayers.includes('satellite');
+
+  const isOverlayMode = showRadar || showSatellite;
+  const timeMax = showRadar
+    ? radarFrameCount - 1
+    : showSatellite
+      ? satelliteFrameCount - 1
+      : 168;
+  const timeValue = showRadar
+    ? (radarFrame < 0 ? Math.max(0, radarFrameCount - 1) : radarFrame)
+    : showSatellite
+      ? (satelliteFrame < 0 ? Math.max(0, satelliteFrameCount - 1) : satelliteFrame)
+      : forecastHour;
+
+  const handleTimeChange = useCallback(
+    (val: number) => {
+      if (showRadar) setRadarFrame(val);
+      else if (showSatellite) setSatelliteFrame(val);
+      else setForecastHour(val);
+    },
+    [showRadar, showSatellite],
   );
 
-  const handleRunExperiment = async () => {
-    if (!options || !datasetConfig || !trainingConfig) {
-      return;
-    }
-
-    const config: ExperimentConfig = {
-      dataset: datasetConfig,
-      model: modelConfig,
-      training: trainingConfig,
-      inference: inferenceConfig
-    };
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const response = await runExperiment(config);
-      setResult(response);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown error';
-      setError(`Experiment failed: ${message}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleReset = () => {
-    if (!options) {
-      return;
-    }
-    setDatasetConfig(createDefaultDatasetConfig(options));
-    setModelConfig(defaultModelConfig);
-    setTrainingConfig(createDefaultTrainingConfig(options));
-    setInferenceConfig(defaultInferenceConfig);
-    setResult(null);
-  };
+  const formatTimeLabel = useCallback(
+    (val: number) => {
+      if (isOverlayMode) return `Frame ${val + 1} / ${timeMax + 1}`;
+      return `F${String(val).padStart(3, '0')}`;
+    },
+    [isOverlayMode, timeMax],
+  );
 
   return (
-    <div className="app-shell">
-      <header className="app-header">
-        <div>
-          <h1>WeatherFlow Studio</h1>
-          <p className="subtitle">Configure, train, and evaluate WeatherFlow models with an interactive dashboard.</p>
-        </div>
-        <div className="header-actions">
-          <button type="button" onClick={handleReset} disabled={!options} className="ghost-button">
-            Reset configuration
-          </button>
-        </div>
-      </header>
+    <div className="app">
+      <Sidebar
+        currentView={viewMode}
+        onNavigate={handleNavigate}
+        collapsed={sidebarCollapsed}
+        onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+      />
 
-      {error && <ErrorNotice message={error} />}
+      <div className={`app__main ${sidebarCollapsed ? 'app__main--expanded' : ''}`}>
+        {/* Top bar */}
+        <div className="top-bar">
+          <LocationSearch onSelect={handleLocationSelect} />
 
-      <main className="app-main">
-        <section className="config-column">
-          <DatasetConfigurator
-            options={options}
-            value={datasetConfig}
-            onChange={setDatasetConfig}
-          />
-          <ModelConfigurator value={modelConfig} onChange={setModelConfig} />
-          <TrainingConfigurator
-            options={options}
-            value={trainingConfig}
-            onChange={setTrainingConfig}
-          />
-          <InferenceConfigurator value={inferenceConfig} onChange={setInferenceConfig} />
-          <div className="actions">
-            <button
-              type="button"
-              className="primary-button"
-              onClick={handleRunExperiment}
-              disabled={!canRunExperiment || loading}
-            >
-              {loading ? 'Running...' : 'Run experiment'}
-            </button>
+          <div className="top-bar__center">
+            <TimeSlider
+              value={timeValue}
+              max={timeMax > 0 ? timeMax : 1}
+              onChange={handleTimeChange}
+              label={showRadar ? 'Radar' : showSatellite ? 'Satellite' : 'Forecast'}
+              formatLabel={formatTimeLabel}
+            />
           </div>
-        </section>
-        <section className="results-column">
-          <ResultsPanel
-            result={result}
-            loading={loading}
-            hasConfig={Boolean(canRunExperiment)}
-          />
-          <AtmosphereViewer />
-        </section>
-      </main>
 
-      {loading && <LoadingOverlay message="Running WeatherFlow experiment..." />}
+          <div className="top-bar__right">
+            <LayerControl activeLayers={activeLayers} onToggle={handleLayerToggle} />
+          </div>
+        </div>
+
+        {/* Map */}
+        <div className="map-wrapper">
+          <MapView
+            showRadar={showRadar}
+            showSatellite={showSatellite}
+            radarFrame={radarFrame}
+            satelliteFrame={satelliteFrame}
+            onMapClick={handleMapClick}
+            onRadarFramesLoaded={setRadarFrameCount}
+            onSatelliteFramesLoaded={setSatelliteFrameCount}
+            selectedLocation={selectedLocation}
+          />
+
+          {selectedLocation && (
+            <div className="map-info">
+              <span className="map-info__location">{locationName}</span>
+              <span className="map-info__coords">
+                {selectedLocation.lat.toFixed(4)}N, {selectedLocation.lng.toFixed(4)}E
+              </span>
+            </div>
+          )}
+
+          {selectedLocation && activePanel === 'none' && (
+            <div className="quick-actions">
+              <button className="quick-action" onClick={() => setActivePanel('forecast')}>
+                Forecast
+              </button>
+              <button className="quick-action" onClick={() => setActivePanel('meteogram')}>
+                Meteogram
+              </button>
+              <button className="quick-action" onClick={() => setActivePanel('sounding')}>
+                Sounding
+              </button>
+              <button className="quick-action" onClick={() => setActivePanel('comparison')}>
+                Compare Models
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Panels */}
+        {activePanel === 'forecast' && selectedLocation && (
+          <ForecastPanel
+            location={selectedLocation}
+            model={selectedModel}
+            forecastHour={forecastHour}
+            onModelChange={setSelectedModel}
+            onClose={() => setActivePanel('none')}
+            onOpenMeteogram={() => setActivePanel('meteogram')}
+            onOpenSounding={() => setActivePanel('sounding')}
+          />
+        )}
+
+        {activePanel === 'meteogram' && selectedLocation && (
+          <Meteogram
+            location={selectedLocation}
+            model={selectedModel}
+            onClose={() => setActivePanel('none')}
+          />
+        )}
+
+        {activePanel === 'sounding' && selectedLocation && (
+          <SkewT
+            location={selectedLocation}
+            model={selectedModel}
+            forecastHour={forecastHour}
+            onClose={() => setActivePanel('none')}
+          />
+        )}
+
+        {activePanel === 'comparison' && selectedLocation && (
+          <ModelComparison
+            location={selectedLocation}
+            onClose={() => setActivePanel('none')}
+          />
+        )}
+
+        {activePanel === 'tropical' && (
+          <StormTracker
+            onClose={() => setActivePanel('none')}
+            onSelectStorm={(lat, lon) => {
+              setSelectedLocation({ lat, lng: lon });
+              setLocationName(`Storm @ ${lat.toFixed(1)}N, ${Math.abs(lon).toFixed(1)}${lon < 0 ? 'W' : 'E'}`);
+            }}
+          />
+        )}
+      </div>
     </div>
   );
 }
-
-export default App;
