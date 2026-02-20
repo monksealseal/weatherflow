@@ -1,0 +1,95 @@
+/* TC Reports Archive View */
+.nhc-reports { padding: 0; }
+
+.nhc-reports .view-header {
+  padding: 24px 32px;
+  border-bottom: 1px solid #e2e8f0;
+  background: linear-gradient(135deg, #4a5568 0%, #718096 100%);
+  color: #fff;
+}
+.nhc-reports .view-header h1 { margin: 0 0 4px; font-size: 1.5rem; }
+.nhc-reports .view-header .view-subtitle { margin: 0; opacity: 0.85; font-size: 0.95rem; }
+
+.nhc-reports .controls-bar {
+  display: flex; gap: 12px; padding: 16px 32px; background: #f7fafc;
+  border-bottom: 1px solid #e2e8f0; align-items: center; flex-wrap: wrap;
+}
+.nhc-reports .control-label { font-size: 0.85rem; color: #718096; font-weight: 500; }
+.nhc-reports .control-select {
+  padding: 6px 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 0.85rem;
+}
+.nhc-reports .control-search {
+  padding: 6px 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 0.85rem;
+  flex: 1; max-width: 300px;
+}
+
+.nhc-reports .reports-content { padding: 24px 32px; }
+
+/* Season summary */
+.nhc-reports .season-summary {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px; margin-bottom: 24px;
+}
+.nhc-reports .summary-card {
+  background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px;
+  text-align: center;
+}
+.nhc-reports .summary-value { font-size: 1.5rem; font-weight: 700; color: #2d3748; }
+.nhc-reports .summary-label { font-size: 0.75rem; color: #a0aec0; text-transform: uppercase; letter-spacing: 0.5px; }
+
+/* Reports list */
+.nhc-reports .reports-list { display: flex; flex-direction: column; gap: 12px; }
+
+.nhc-reports .report-card {
+  background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;
+  transition: box-shadow 0.2s;
+}
+.nhc-reports .report-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+
+.nhc-reports .report-card-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 16px 20px; cursor: pointer;
+}
+.nhc-reports .report-name-area { display: flex; align-items: center; gap: 12px; }
+.nhc-reports .report-name { font-size: 1rem; font-weight: 600; color: #2d3748; }
+.nhc-reports .report-category {
+  font-size: 0.7rem; font-weight: 700; padding: 2px 8px; border-radius: 20px;
+  text-transform: uppercase; letter-spacing: 0.5px;
+}
+.nhc-reports .report-category.td { background: #c6f6d5; color: #276749; }
+.nhc-reports .report-category.ts { background: #fefcbf; color: #975a16; }
+.nhc-reports .report-category.hurricane { background: #fed7d7; color: #c53030; }
+.nhc-reports .report-category.major { background: #9b2c2c; color: #fff; }
+
+.nhc-reports .report-dates { font-size: 0.85rem; color: #718096; }
+
+.nhc-reports .report-details {
+  padding: 0 20px 16px; border-top: 1px solid #edf2f7;
+}
+
+.nhc-reports .report-stats {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px; margin: 16px 0;
+}
+.nhc-reports .report-stat { display: flex; flex-direction: column; }
+.nhc-reports .report-stat-label { font-size: 0.75rem; color: #a0aec0; text-transform: uppercase; letter-spacing: 0.5px; }
+.nhc-reports .report-stat-value { font-size: 1rem; font-weight: 600; color: #2d3748; }
+
+.nhc-reports .report-summary {
+  font-size: 0.9rem; color: #4a5568; line-height: 1.6; margin-bottom: 12px;
+}
+
+.nhc-reports .report-link {
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px;
+  background: #ebf4ff; color: #2b6cb0; border: 1px solid #bee3f8;
+  border-radius: 6px; font-size: 0.85rem; text-decoration: none;
+  cursor: pointer; transition: background 0.15s;
+}
+.nhc-reports .report-link:hover { background: #bee3f8; }
+
+.nhc-reports .no-reports { text-align: center; padding: 60px; color: #718096; }
+
+.nhc-reports .expand-icon {
+  font-size: 0.8rem; color: #a0aec0; transition: transform 0.2s;
+}
+.nhc-reports .expand-icon.open { transform: rotate(90deg); }

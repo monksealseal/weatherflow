@@ -1,0 +1,146 @@
+/* Public Advisory View */
+.nhc-public-advisory { padding: 0; }
+
+.nhc-public-advisory .view-header {
+  padding: 24px 32px;
+  border-bottom: 1px solid #e2e8f0;
+  background: linear-gradient(135deg, #742a2a 0%, #9b2c2c 100%);
+  color: #fff;
+}
+.nhc-public-advisory .view-header h1 { margin: 0 0 4px; font-size: 1.5rem; }
+.nhc-public-advisory .view-header .view-subtitle { margin: 0; opacity: 0.85; font-size: 0.95rem; }
+
+.nhc-public-advisory .storm-selector {
+  display: flex;
+  gap: 8px;
+  padding: 16px 32px;
+  background: #f7fafc;
+  border-bottom: 1px solid #e2e8f0;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.nhc-public-advisory .selector-label { font-size: 0.85rem; color: #718096; font-weight: 500; }
+.nhc-public-advisory .selector-btn {
+  padding: 6px 16px;
+  border: 1px solid #cbd5e0;
+  border-radius: 20px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all 0.15s;
+}
+.nhc-public-advisory .selector-btn.active { background: #9b2c2c; color: #fff; border-color: #9b2c2c; }
+.nhc-public-advisory .selector-btn:hover:not(.active) { background: #edf2f7; }
+
+.nhc-public-advisory .advisory-content { padding: 24px 32px; }
+
+.nhc-public-advisory .advisory-headline {
+  background: #fff5f5;
+  border: 1px solid #fed7d7;
+  border-left: 4px solid #e53e3e;
+  padding: 16px 20px;
+  border-radius: 0 8px 8px 0;
+  margin-bottom: 24px;
+}
+.nhc-public-advisory .advisory-headline h2 {
+  margin: 0 0 4px;
+  font-size: 1rem;
+  color: #c53030;
+  text-transform: uppercase;
+}
+.nhc-public-advisory .advisory-headline p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #742a2a;
+  line-height: 1.5;
+}
+
+.nhc-public-advisory .advisory-meta {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+.nhc-public-advisory .meta-item { display: flex; flex-direction: column; }
+.nhc-public-advisory .meta-label { font-size: 0.75rem; color: #a0aec0; text-transform: uppercase; letter-spacing: 0.5px; }
+.nhc-public-advisory .meta-value { font-size: 0.95rem; font-weight: 600; color: #2d3748; }
+
+.nhc-public-advisory .ww-section { margin-bottom: 24px; }
+.nhc-public-advisory .ww-section h3 { margin: 0 0 12px; font-size: 1rem; color: #2d3748; }
+
+.nhc-public-advisory .ww-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 10px;
+}
+
+.nhc-public-advisory .ww-card {
+  padding: 12px 16px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.nhc-public-advisory .ww-card .ww-type {
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.5px;
+}
+.nhc-public-advisory .ww-card.warning { background: #fed7d7; border: 1px solid #fc8181; }
+.nhc-public-advisory .ww-card.warning .ww-type { color: #9b2c2c; }
+.nhc-public-advisory .ww-card.watch { background: #feebc8; border: 1px solid #f6ad55; }
+.nhc-public-advisory .ww-card.watch .ww-type { color: #c05621; }
+
+.nhc-public-advisory .advisory-summary {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 24px;
+  line-height: 1.7;
+  font-size: 0.95rem;
+  color: #2d3748;
+}
+
+.nhc-public-advisory .raw-text-section { margin-top: 24px; }
+.nhc-public-advisory .section-title { font-size: 1rem; font-weight: 600; color: #2d3748; margin: 0 0 12px; }
+.nhc-public-advisory .toggle-btn {
+  background: none;
+  border: 1px solid #cbd5e0;
+  border-radius: 4px;
+  padding: 4px 12px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+.nhc-public-advisory .raw-text {
+  background: #1a202c;
+  color: #e2e8f0;
+  padding: 20px;
+  border-radius: 8px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-x: auto;
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.nhc-public-advisory .next-advisory {
+  margin-top: 16px;
+  padding: 12px 16px;
+  background: #ebf8ff;
+  border: 1px solid #bee3f8;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  color: #2c5282;
+}
+
+.nhc-public-advisory .loading {
+  text-align: center;
+  padding: 60px;
+  color: #718096;
+}

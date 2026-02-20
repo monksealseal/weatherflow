@@ -1,0 +1,106 @@
+/* Forecast Advisory View */
+.nhc-forecast-advisory { padding: 0; }
+
+.nhc-forecast-advisory .view-header {
+  padding: 24px 32px;
+  border-bottom: 1px solid #e2e8f0;
+  background: linear-gradient(135deg, #2c5282 0%, #2b6cb0 100%);
+  color: #fff;
+}
+.nhc-forecast-advisory .view-header h1 { margin: 0 0 4px; font-size: 1.5rem; }
+.nhc-forecast-advisory .view-header .view-subtitle { margin: 0; opacity: 0.85; font-size: 0.95rem; }
+
+.nhc-forecast-advisory .storm-selector {
+  display: flex; gap: 8px; padding: 16px 32px; background: #f7fafc;
+  border-bottom: 1px solid #e2e8f0; align-items: center; flex-wrap: wrap;
+}
+.nhc-forecast-advisory .selector-label { font-size: 0.85rem; color: #718096; font-weight: 500; }
+.nhc-forecast-advisory .selector-btn {
+  padding: 6px 16px; border: 1px solid #cbd5e0; border-radius: 20px;
+  background: #fff; cursor: pointer; font-size: 0.85rem; font-weight: 500; transition: all 0.15s;
+}
+.nhc-forecast-advisory .selector-btn.active { background: #2b6cb0; color: #fff; border-color: #2b6cb0; }
+.nhc-forecast-advisory .selector-btn:hover:not(.active) { background: #edf2f7; }
+
+.nhc-forecast-advisory .advisory-content { padding: 24px 32px; }
+
+.nhc-forecast-advisory .current-conditions {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 16px; margin-bottom: 24px;
+}
+
+.nhc-forecast-advisory .condition-card {
+  background: #fff; border: 1px solid #e2e8f0; border-radius: 8px;
+  padding: 16px; text-align: center;
+}
+.nhc-forecast-advisory .condition-label { font-size: 0.75rem; color: #a0aec0; text-transform: uppercase; letter-spacing: 0.5px; }
+.nhc-forecast-advisory .condition-value { font-size: 1.5rem; font-weight: 700; color: #2d3748; margin: 4px 0; }
+.nhc-forecast-advisory .condition-unit { font-size: 0.8rem; color: #718096; }
+
+/* Wind radii */
+.nhc-forecast-advisory .radii-section { margin-bottom: 24px; }
+.nhc-forecast-advisory .section-title { font-size: 1rem; font-weight: 600; color: #2d3748; margin: 0 0 12px; }
+
+.nhc-forecast-advisory .radii-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+}
+
+.nhc-forecast-advisory .radii-card {
+  background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px;
+}
+.nhc-forecast-advisory .radii-card h4 { margin: 0 0 12px; font-size: 0.9rem; color: #2d3748; }
+.nhc-forecast-advisory .radii-card.r34 { border-top: 3px solid #ecc94b; }
+.nhc-forecast-advisory .radii-card.r50 { border-top: 3px solid #ed8936; }
+.nhc-forecast-advisory .radii-card.r64 { border-top: 3px solid #e53e3e; }
+
+.nhc-forecast-advisory .radii-quadrants {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+}
+.nhc-forecast-advisory .quad-item { display: flex; justify-content: space-between; font-size: 0.85rem; }
+.nhc-forecast-advisory .quad-label { color: #718096; }
+.nhc-forecast-advisory .quad-value { font-weight: 600; color: #2d3748; }
+
+/* Forecast table */
+.nhc-forecast-advisory .forecast-table-wrap {
+  overflow-x: auto; margin-bottom: 24px;
+}
+
+.nhc-forecast-advisory .forecast-table {
+  width: 100%; border-collapse: collapse; font-size: 0.85rem;
+}
+.nhc-forecast-advisory .forecast-table th {
+  text-align: left; padding: 10px 14px; background: #edf2f7;
+  border-bottom: 2px solid #cbd5e0; font-weight: 600; color: #4a5568;
+  white-space: nowrap;
+}
+.nhc-forecast-advisory .forecast-table td {
+  padding: 10px 14px; border-bottom: 1px solid #e2e8f0; color: #2d3748;
+}
+.nhc-forecast-advisory .forecast-table tr:hover td { background: #f7fafc; }
+
+.nhc-forecast-advisory .wind-indicator {
+  display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px;
+}
+.nhc-forecast-advisory .wind-indicator.td { background: #c6f6d5; border: 1px solid #68d391; }
+.nhc-forecast-advisory .wind-indicator.ts { background: #fefcbf; border: 1px solid #ecc94b; }
+.nhc-forecast-advisory .wind-indicator.cat1 { background: #feebc8; border: 1px solid #ed8936; }
+.nhc-forecast-advisory .wind-indicator.cat2 { background: #fed7d7; border: 1px solid #fc8181; }
+.nhc-forecast-advisory .wind-indicator.cat3 { background: #feb2b2; border: 1px solid #e53e3e; }
+.nhc-forecast-advisory .wind-indicator.cat4,
+.nhc-forecast-advisory .wind-indicator.cat5 { background: #9b2c2c; border: 1px solid #742a2a; }
+
+.nhc-forecast-advisory .raw-text {
+  background: #1a202c; color: #e2e8f0; padding: 20px; border-radius: 8px;
+  font-family: 'Courier New', monospace; font-size: 0.8rem; line-height: 1.5;
+  white-space: pre-wrap; overflow-x: auto; max-height: 500px; overflow-y: auto;
+}
+.nhc-forecast-advisory .toggle-btn {
+  background: none; border: 1px solid #cbd5e0; border-radius: 4px;
+  padding: 4px 12px; cursor: pointer; font-size: 0.85rem;
+}
+.nhc-forecast-advisory .loading { text-align: center; padding: 60px; color: #718096; }
+
+@media (max-width: 768px) {
+  .nhc-forecast-advisory .radii-grid { grid-template-columns: 1fr; }
+  .nhc-forecast-advisory .current-conditions { grid-template-columns: repeat(2, 1fr); }
+}

@@ -1,0 +1,100 @@
+/* Storm Surge View */
+.nhc-storm-surge { padding: 0; }
+
+.nhc-storm-surge .view-header {
+  padding: 24px 32px;
+  border-bottom: 1px solid #e2e8f0;
+  background: linear-gradient(135deg, #1a365d 0%, #2c5282 100%);
+  color: #fff;
+}
+.nhc-storm-surge .view-header h1 { margin: 0 0 4px; font-size: 1.5rem; }
+.nhc-storm-surge .view-header .view-subtitle { margin: 0; opacity: 0.85; font-size: 0.95rem; }
+
+.nhc-storm-surge .storm-selector {
+  display: flex; gap: 8px; padding: 16px 32px; background: #f7fafc;
+  border-bottom: 1px solid #e2e8f0; align-items: center; flex-wrap: wrap;
+}
+.nhc-storm-surge .selector-label { font-size: 0.85rem; color: #718096; font-weight: 500; }
+.nhc-storm-surge .selector-btn {
+  padding: 6px 16px; border: 1px solid #cbd5e0; border-radius: 20px;
+  background: #fff; cursor: pointer; font-size: 0.85rem; font-weight: 500; transition: all 0.15s;
+}
+.nhc-storm-surge .selector-btn.active { background: #2c5282; color: #fff; border-color: #2c5282; }
+.nhc-storm-surge .selector-btn:hover:not(.active) { background: #edf2f7; }
+
+.nhc-storm-surge .surge-content { padding: 24px 32px; }
+
+/* Alert banner */
+.nhc-storm-surge .surge-alert {
+  background: #fff5f5; border: 1px solid #fed7d7; border-left: 4px solid #e53e3e;
+  padding: 16px 20px; border-radius: 0 8px 8px 0; margin-bottom: 24px;
+}
+.nhc-storm-surge .surge-alert h3 { margin: 0 0 4px; color: #c53030; font-size: 1rem; }
+.nhc-storm-surge .surge-alert p { margin: 0; color: #742a2a; font-size: 0.9rem; }
+
+/* W/W sections */
+.nhc-storm-surge .ww-sections {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px;
+}
+@media (max-width: 768px) { .nhc-storm-surge .ww-sections { grid-template-columns: 1fr; } }
+
+.nhc-storm-surge .ww-box { border-radius: 8px; padding: 16px; }
+.nhc-storm-surge .ww-box.warnings { background: #fff5f5; border: 1px solid #fed7d7; }
+.nhc-storm-surge .ww-box.watches { background: #fffaf0; border: 1px solid #feebc8; }
+.nhc-storm-surge .ww-box h4 {
+  margin: 0 0 12px; font-size: 0.85rem; text-transform: uppercase;
+  letter-spacing: 0.5px; font-weight: 700;
+}
+.nhc-storm-surge .ww-box.warnings h4 { color: #c53030; }
+.nhc-storm-surge .ww-box.watches h4 { color: #c05621; }
+.nhc-storm-surge .ww-box ul { margin: 0; padding: 0 0 0 16px; }
+.nhc-storm-surge .ww-box li { margin-bottom: 6px; font-size: 0.9rem; color: #2d3748; line-height: 1.4; }
+
+/* Surge zones */
+.nhc-storm-surge .section-title { font-size: 1rem; font-weight: 600; color: #2d3748; margin: 0 0 16px; }
+
+.nhc-storm-surge .surge-zones { display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px; }
+
+.nhc-storm-surge .surge-zone-card {
+  background: #fff; border: 1px solid #e2e8f0; border-radius: 8px;
+  padding: 16px 20px; display: flex; justify-content: space-between;
+  align-items: center; gap: 16px;
+}
+.nhc-storm-surge .zone-area { flex: 1; font-size: 0.9rem; color: #2d3748; line-height: 1.4; }
+.nhc-storm-surge .zone-surge {
+  display: flex; flex-direction: column; align-items: center;
+  min-width: 100px;
+}
+.nhc-storm-surge .zone-surge-value {
+  font-size: 1.5rem; font-weight: 700;
+}
+.nhc-storm-surge .zone-surge-value.extreme { color: #9b2c2c; }
+.nhc-storm-surge .zone-surge-value.high { color: #e53e3e; }
+.nhc-storm-surge .zone-surge-value.moderate { color: #ed8936; }
+.nhc-storm-surge .zone-surge-value.low { color: #ecc94b; }
+.nhc-storm-surge .zone-surge-label { font-size: 0.75rem; color: #718096; }
+.nhc-storm-surge .zone-badge {
+  font-size: 0.7rem; padding: 1px 6px; border-radius: 3px;
+  background: #ebf4ff; color: #2b6cb0; margin-top: 2px;
+}
+
+/* Inundation map */
+.nhc-storm-surge .inundation-section { margin-bottom: 24px; }
+.nhc-storm-surge .inundation-graphic {
+  background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;
+}
+.nhc-storm-surge .inundation-graphic img { width: 100%; display: block; }
+.nhc-storm-surge .inundation-caption {
+  padding: 12px 16px; font-size: 0.85rem; color: #718096; border-top: 1px solid #e2e8f0;
+}
+
+.nhc-storm-surge .raw-text {
+  background: #1a202c; color: #e2e8f0; padding: 20px; border-radius: 8px;
+  font-family: 'Courier New', monospace; font-size: 0.8rem; line-height: 1.5;
+  white-space: pre-wrap; overflow-x: auto; max-height: 400px; overflow-y: auto;
+}
+.nhc-storm-surge .toggle-btn {
+  background: none; border: 1px solid #cbd5e0; border-radius: 4px;
+  padding: 4px 12px; cursor: pointer; font-size: 0.85rem;
+}
+.nhc-storm-surge .loading { text-align: center; padding: 60px; color: #718096; }
