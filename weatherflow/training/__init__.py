@@ -27,3 +27,13 @@ __all__ = [
     'persistence_rmse',
     'set_global_seed',
 ]
+
+# FLUX fine-tuning (optional heavy dependency)
+try:
+    from .flux_finetune_trainer import (
+        FluxFineTuneTrainer,
+        FluxFineTuneConfig,
+    )
+    __all__.extend(['FluxFineTuneTrainer', 'FluxFineTuneConfig'])
+except ImportError:
+    pass
