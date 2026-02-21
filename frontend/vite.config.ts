@@ -11,8 +11,7 @@ export default defineConfig({
       output: {
         manualChunks: {
           'react-vendor': ['react', 'react-dom'],
-          'plotly-vendor': ['plotly.js-dist-min', 'react-plotly.js'],
-          'three-vendor': ['three']
+          'leaflet-vendor': ['leaflet'],
         }
       }
     }
