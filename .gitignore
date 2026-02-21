@@ -58,6 +58,9 @@ server.pid
 # Visualization outputs
 examples/visualizations_output/
 
+# Generated NetCDF data files in visualizations
+atmospheric_chemistry_julia/visualizations/*.nc
+
 # Streamlit app data (generated locally, too large for git)
 streamlit_app/data/*.nc
 streamlit_app/data/*.h5
