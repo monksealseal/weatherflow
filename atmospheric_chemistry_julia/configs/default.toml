@@ -1,0 +1,41 @@
+# ==========================================================================
+# Atmospheric Chemistry Transport Model — Default Configuration
+# ==========================================================================
+
+[grid]
+resolution = 1.0          # Horizontal resolution [degrees]
+nlevels    = 47           # Number of vertical levels
+p_top      = 1.0          # Model top pressure [Pa]
+
+[time]
+start_date      = "2023-01-01T00:00:00"
+end_date        = "2023-01-02T00:00:00"
+dt_advection    = 900.0   # 15 minutes
+dt_chemistry    = 600.0   # 10 minutes
+dt_diffusion    = 900.0   # 15 minutes
+dt_emission     = 3600.0  # 1 hour
+met_update_freq = 6       # hours
+
+[data]
+era5_data_dir  = "data/era5"
+edgar_data_dir = "data/edgar"
+edgar_version  = "v8.0"
+edgar_year     = 2022
+
+[output]
+output_dir    = "output"
+output_freq_h = 6
+output_prefix = "actm"
+
+[numerics]
+chem_substeps = 4
+gpu           = false
+
+[physics]
+do_advection  = true
+do_chemistry  = true
+do_diffusion  = true
+do_convection = true
+do_dry_dep    = true
+do_wet_dep    = true
+do_emissions  = true

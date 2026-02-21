@@ -1,0 +1,41 @@
+# ==========================================================================
+# Quick test configuration — 6-hour run for debugging
+# ==========================================================================
+
+[grid]
+resolution = 2.0          # Coarser for speed
+nlevels    = 20           # Fewer levels
+p_top      = 100.0
+
+[time]
+start_date      = "2023-01-01T00:00:00"
+end_date        = "2023-01-01T06:00:00"   # 6 hours only
+dt_advection    = 1800.0  # 30 minutes
+dt_chemistry    = 1200.0  # 20 minutes
+dt_diffusion    = 1800.0
+dt_emission     = 3600.0
+met_update_freq = 6
+
+[data]
+era5_data_dir  = "data/era5"
+edgar_data_dir = "data/edgar"
+edgar_version  = "v8.0"
+edgar_year     = 2022
+
+[output]
+output_dir    = "output/test"
+output_freq_h = 1
+output_prefix = "test"
+
+[numerics]
+chem_substeps = 2
+gpu           = false
+
+[physics]
+do_advection  = true
+do_chemistry  = true
+do_diffusion  = true
+do_convection = false     # Skip convection for quick test
+do_dry_dep    = true
+do_wet_dep    = false     # Skip wet deposition for quick test
+do_emissions  = true
