@@ -1,0 +1,169 @@
+/* Tropical Weather Outlook View */
+.nhc-outlook-view { padding: 0; }
+
+.nhc-outlook-view .view-header {
+  padding: 24px 32px;
+  border-bottom: 1px solid #e2e8f0;
+  background: linear-gradient(135deg, #1a365d 0%, #2a4a7f 100%);
+  color: #fff;
+}
+
+.nhc-outlook-view .view-header h1 { margin: 0 0 4px; font-size: 1.5rem; }
+.nhc-outlook-view .view-header .view-subtitle { margin: 0; opacity: 0.85; font-size: 0.95rem; }
+
+.nhc-outlook-view .basin-tabs {
+  display: flex;
+  gap: 0;
+  background: #f7fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.nhc-outlook-view .basin-tab {
+  flex: 1;
+  padding: 12px 16px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 0.9rem;
+  color: #4a5568;
+  border-bottom: 3px solid transparent;
+  transition: all 0.2s;
+}
+.nhc-outlook-view .basin-tab:hover { background: #edf2f7; }
+.nhc-outlook-view .basin-tab.active {
+  color: #2b6cb0;
+  border-bottom-color: #2b6cb0;
+  background: #ebf4ff;
+}
+
+.nhc-outlook-view .outlook-content {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  padding: 24px 32px;
+}
+
+@media (max-width: 900px) {
+  .nhc-outlook-view .outlook-content { grid-template-columns: 1fr; }
+}
+
+.nhc-outlook-view .outlook-graphic {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.nhc-outlook-view .outlook-graphic img {
+  width: 100%;
+  display: block;
+}
+
+.nhc-outlook-view .outlook-graphic .graphic-caption {
+  padding: 12px 16px;
+  font-size: 0.85rem;
+  color: #718096;
+  border-top: 1px solid #e2e8f0;
+}
+
+.nhc-outlook-view .outlook-areas { display: flex; flex-direction: column; gap: 16px; }
+
+.nhc-outlook-view .outlook-area-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 16px 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.nhc-outlook-view .outlook-area-card::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 4px;
+}
+
+.nhc-outlook-view .outlook-area-card.high::before { background: #e53e3e; }
+.nhc-outlook-view .outlook-area-card.medium::before { background: #ed8936; }
+.nhc-outlook-view .outlook-area-card.low::before { background: #ecc94b; }
+
+.nhc-outlook-view .area-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+
+.nhc-outlook-view .area-title { font-weight: 600; font-size: 0.95rem; color: #2d3748; }
+
+.nhc-outlook-view .area-badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+.nhc-outlook-view .area-badge.high { background: #fed7d7; color: #c53030; }
+.nhc-outlook-view .area-badge.medium { background: #feebc8; color: #c05621; }
+.nhc-outlook-view .area-badge.low { background: #fefcbf; color: #975a16; }
+
+.nhc-outlook-view .area-probs {
+  display: flex;
+  gap: 16px;
+  margin: 12px 0;
+}
+
+.nhc-outlook-view .prob-item { display: flex; flex-direction: column; align-items: center; }
+.nhc-outlook-view .prob-label { font-size: 0.75rem; color: #718096; }
+.nhc-outlook-view .prob-value { font-size: 1.25rem; font-weight: 700; }
+.nhc-outlook-view .prob-value.high { color: #e53e3e; }
+.nhc-outlook-view .prob-value.medium { color: #ed8936; }
+.nhc-outlook-view .prob-value.low { color: #ecc94b; }
+
+.nhc-outlook-view .area-description {
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: #4a5568;
+}
+
+.nhc-outlook-view .outlook-text-section {
+  padding: 0 32px 32px;
+}
+
+.nhc-outlook-view .outlook-raw-text {
+  background: #1a202c;
+  color: #e2e8f0;
+  padding: 20px;
+  border-radius: 8px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-x: auto;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.nhc-outlook-view .section-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #2d3748;
+  margin: 0 0 12px;
+}
+
+.nhc-outlook-view .issued-at {
+  padding: 8px 32px;
+  font-size: 0.85rem;
+  color: #718096;
+  background: #f7fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.nhc-outlook-view .no-areas {
+  text-align: center;
+  color: #718096;
+  padding: 40px;
+  font-size: 1rem;
+}

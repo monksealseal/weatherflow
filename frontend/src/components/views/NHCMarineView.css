@@ -1,0 +1,67 @@
+/* Marine Forecasts View */
+.nhc-marine { padding: 0; }
+
+.nhc-marine .view-header {
+  padding: 24px 32px;
+  border-bottom: 1px solid #e2e8f0;
+  background: linear-gradient(135deg, #073b4c 0%, #0d4f6a 100%);
+  color: #fff;
+}
+.nhc-marine .view-header h1 { margin: 0 0 4px; font-size: 1.5rem; }
+.nhc-marine .view-header .view-subtitle { margin: 0; opacity: 0.85; font-size: 0.95rem; }
+
+.nhc-marine .zone-tabs {
+  display: flex; gap: 0; background: #f7fafc; border-bottom: 1px solid #e2e8f0;
+}
+.nhc-marine .zone-tab {
+  flex: 1; padding: 12px 16px; border: none; background: transparent;
+  cursor: pointer; font-weight: 500; font-size: 0.9rem; color: #4a5568;
+  border-bottom: 3px solid transparent; transition: all 0.2s;
+}
+.nhc-marine .zone-tab:hover { background: #edf2f7; }
+.nhc-marine .zone-tab.active { color: #0d4f6a; border-bottom-color: #0d4f6a; background: #ebf8ff; }
+
+.nhc-marine .marine-content { padding: 24px 32px; display: flex; flex-direction: column; gap: 20px; }
+
+.nhc-marine .marine-card {
+  background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;
+}
+.nhc-marine .marine-card-header {
+  padding: 16px 20px; display: flex; justify-content: space-between;
+  align-items: center; border-bottom: 1px solid #e2e8f0; background: #f7fafc;
+}
+.nhc-marine .marine-region { font-weight: 600; font-size: 1rem; color: #2d3748; }
+.nhc-marine .marine-issued { font-size: 0.8rem; color: #718096; }
+
+.nhc-marine .marine-card-body { padding: 16px 20px; }
+
+.nhc-marine .marine-section { margin-bottom: 16px; }
+.nhc-marine .marine-section:last-child { margin-bottom: 0; }
+.nhc-marine .marine-section-label {
+  font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;
+  color: #a0aec0; font-weight: 600; margin-bottom: 6px;
+}
+.nhc-marine .marine-section-text {
+  font-size: 0.9rem; color: #2d3748; line-height: 1.6;
+}
+
+.nhc-marine .marine-raw-text {
+  background: #1a202c; color: #e2e8f0; padding: 16px; border-radius: 6px;
+  font-family: 'Courier New', monospace; font-size: 0.8rem; line-height: 1.5;
+  white-space: pre-wrap; max-height: 300px; overflow-y: auto;
+}
+
+.nhc-marine .toggle-raw {
+  background: none; border: 1px solid #cbd5e0; border-radius: 4px;
+  padding: 4px 10px; cursor: pointer; font-size: 0.8rem; color: #4a5568;
+}
+
+.nhc-marine .no-data {
+  text-align: center; padding: 60px; color: #718096;
+}
+
+.nhc-marine .marine-info {
+  padding: 16px; background: #ebf8ff; border: 1px solid #bee3f8;
+  border-radius: 8px; font-size: 0.85rem; color: #2c5282; line-height: 1.6;
+}
+.nhc-marine .marine-info strong { display: block; margin-bottom: 4px; }

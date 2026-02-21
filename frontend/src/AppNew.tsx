@@ -17,6 +17,18 @@ import FlowMatchingView from './components/views/FlowMatchingView';
 import TrainingWorkflowsView from './components/views/TrainingWorkflowsView';
 import EvaluationView from './components/views/EvaluationView';
 
+// NHC Product view components
+import NHCOutlookView from './components/views/NHCOutlookView';
+import NHCActiveStormsView from './components/views/NHCActiveStormsView';
+import NHCPublicAdvisoryView from './components/views/NHCPublicAdvisoryView';
+import NHCForecastAdvisoryView from './components/views/NHCForecastAdvisoryView';
+import NHCDiscussionView from './components/views/NHCDiscussionView';
+import NHCTrackConeView from './components/views/NHCTrackConeView';
+import NHCWindProbabilitiesView from './components/views/NHCWindProbabilitiesView';
+import NHCStormSurgeView from './components/views/NHCStormSurgeView';
+import NHCMarineView from './components/views/NHCMarineView';
+import NHCReportsView from './components/views/NHCReportsView';
+
 // Placeholder components for different views
 function DashboardView() {
   return (
@@ -240,6 +252,38 @@ export default function AppNew(): JSX.Element {
     // Dashboard
     if (currentPath === '/' || currentPath === '/dashboard') {
       return <DashboardView />;
+    }
+
+    // NHC Products views
+    if (currentPath === '/nhc/outlook') {
+      return <NHCOutlookView />;
+    }
+    if (currentPath === '/nhc/active-storms') {
+      return <NHCActiveStormsView onNavigateToProduct={handleNavigate} />;
+    }
+    if (currentPath === '/nhc/public-advisory') {
+      return <NHCPublicAdvisoryView />;
+    }
+    if (currentPath === '/nhc/forecast-advisory') {
+      return <NHCForecastAdvisoryView />;
+    }
+    if (currentPath === '/nhc/discussion') {
+      return <NHCDiscussionView />;
+    }
+    if (currentPath === '/nhc/track-cone') {
+      return <NHCTrackConeView />;
+    }
+    if (currentPath === '/nhc/wind-probabilities') {
+      return <NHCWindProbabilitiesView />;
+    }
+    if (currentPath === '/nhc/storm-surge') {
+      return <NHCStormSurgeView />;
+    }
+    if (currentPath === '/nhc/marine') {
+      return <NHCMarineView />;
+    }
+    if (currentPath === '/nhc/reports') {
+      return <NHCReportsView />;
     }
 
     // Experiment views
