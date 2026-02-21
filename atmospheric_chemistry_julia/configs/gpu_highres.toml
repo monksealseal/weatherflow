@@ -1,0 +1,41 @@
+# ==========================================================================
+# GPU-accelerated high-resolution configuration
+# ==========================================================================
+
+[grid]
+resolution = 1.0
+nlevels    = 60           # More vertical levels for better resolution
+p_top      = 0.1          # Higher model top
+
+[time]
+start_date      = "2023-06-01T00:00:00"
+end_date        = "2023-06-08T00:00:00"   # 1-week run
+dt_advection    = 600.0   # 10 minutes (finer for stability)
+dt_chemistry    = 300.0   # 5 minutes
+dt_diffusion    = 600.0
+dt_emission     = 3600.0
+met_update_freq = 3       # Every 3 hours
+
+[data]
+era5_data_dir  = "data/era5"
+edgar_data_dir = "data/edgar"
+edgar_version  = "v8.0"
+edgar_year     = 2022
+
+[output]
+output_dir    = "output/gpu_highres"
+output_freq_h = 3
+output_prefix = "actm_gpu"
+
+[numerics]
+chem_substeps = 6
+gpu           = true
+
+[physics]
+do_advection  = true
+do_chemistry  = true
+do_diffusion  = true
+do_convection = true
+do_dry_dep    = true
+do_wet_dep    = true
+do_emissions  = true
