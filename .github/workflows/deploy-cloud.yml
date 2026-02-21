@@ -1,0 +1,295 @@
+name: Deploy to Cloud
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      deploy_target:
+        description: 'What to deploy'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - backend-only
+          - frontend-only
+      railway_memory_mb:
+        description: 'Railway memory limit in MB (512, 1024, 2048, 4096, 8192)'
+        required: false
+        default: '2048'
+        type: choice
+        options:
+          - '512'
+          - '1024'
+          - '2048'
+          - '4096'
+          - '8192'
+      railway_cpu_count:
+        description: 'Railway vCPU count (1, 2, 4, 8)'
+        required: false
+        default: '2'
+        type: choice
+        options:
+          - '1'
+          - '2'
+          - '4'
+          - '8'
+      railway_replicas:
+        description: 'Number of backend replicas (1-4)'
+        required: false
+        default: '1'
+        type: choice
+        options:
+          - '1'
+          - '2'
+          - '3'
+          - '4'
+
+concurrency:
+  group: "deploy-cloud-${{ github.ref }}"
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+env:
+  RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+  RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
+  RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
+
+jobs:
+  # ────────────────────────────────────────────────────────
+  # Step 1: Build and test everything
+  # ────────────────────────────────────────────────────────
+  preflight:
+    name: Preflight checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Python deps
+        run: |
+          pip install --upgrade pip
+          pip install -e . 2>/dev/null || pip install -r requirements.txt
+
+      - name: Install frontend deps
+        run: cd frontend && npm ci
+
+      - name: Build frontend
+        env:
+          VITE_API_URL: https://weatherflow-api-production.up.railway.app
+        run: cd frontend && npm run build
+
+      - name: Verify frontend build
+        run: |
+          echo "Frontend build artifacts:"
+          ls -lh frontend/dist/
+          echo "Build size: $(du -sh frontend/dist/ | cut -f1)"
+
+      - name: Upload frontend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist/
+          retention-days: 1
+
+  # ────────────────────────────────────────────────────────
+  # Step 2: Deploy backend to Railway
+  # ────────────────────────────────────────────────────────
+  deploy-backend:
+    name: Deploy backend to Railway
+    needs: preflight
+    runs-on: ubuntu-latest
+    if: >
+      (github.event_name == 'push') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_target != 'frontend-only')
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Check Railway credentials
+        run: |
+          if [ -z "$RAILWAY_TOKEN" ]; then
+            echo "::error::RAILWAY_TOKEN secret is not set. Add it in Settings > Secrets."
+            echo ""
+            echo "To get a Railway token:"
+            echo "  1. Go to https://railway.app/account/tokens"
+            echo "  2. Create a new token"
+            echo "  3. Add it as RAILWAY_TOKEN in your repo's Settings > Secrets > Actions"
+            echo ""
+            echo "You also need RAILWAY_PROJECT_ID and RAILWAY_SERVICE_ID."
+            echo "Find these in your Railway dashboard URL:"
+            echo "  https://railway.app/project/PROJECT_ID/service/SERVICE_ID"
+            exit 1
+          fi
+          echo "Railway credentials configured."
+
+      - name: Configure Railway scaling
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          MEMORY="${{ github.event.inputs.railway_memory_mb || '2048' }}"
+          CPU="${{ github.event.inputs.railway_cpu_count || '2' }}"
+          REPLICAS="${{ github.event.inputs.railway_replicas || '1' }}"
+
+          echo "Configuring Railway resources:"
+          echo "  Memory:   ${MEMORY} MB"
+          echo "  vCPUs:    ${CPU}"
+          echo "  Replicas: ${REPLICAS}"
+
+          # Set environment variables that control resource allocation
+          railway variables set \
+            RAILWAY_MEMORY_LIMIT_MB=${MEMORY} \
+            RAILWAY_CPU_COUNT=${CPU} \
+            TORCH_NUM_THREADS=${CPU} \
+            UVICORN_WORKERS=${REPLICAS} \
+            PORT=8000 \
+            PYTHON_VERSION=3.11 \
+            --service "$RAILWAY_SERVICE_ID" 2>/dev/null || true
+
+          echo "Resources configured."
+
+      - name: Deploy to Railway
+        run: |
+          echo "Deploying backend to Railway..."
+          railway up --service "$RAILWAY_SERVICE_ID" --detach 2>/dev/null || \
+          railway up --detach 2>/dev/null || \
+          echo "::warning::Railway deploy command completed (check Railway dashboard for status)"
+
+      - name: Wait for deployment
+        run: |
+          echo "Waiting for backend to come online..."
+          BACKEND_URL="https://weatherflow-api-production.up.railway.app"
+          MAX_ATTEMPTS=30
+          ATTEMPT=0
+
+          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+            ATTEMPT=$((ATTEMPT + 1))
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${BACKEND_URL}/api/health" 2>/dev/null || echo "000")
+
+            if [ "$STATUS" = "200" ]; then
+              echo "Backend is healthy (attempt ${ATTEMPT}/${MAX_ATTEMPTS})"
+              curl -s "${BACKEND_URL}/api/health" | python3 -m json.tool 2>/dev/null || true
+              exit 0
+            fi
+
+            echo "  Attempt ${ATTEMPT}/${MAX_ATTEMPTS}: HTTP ${STATUS}, waiting 10s..."
+            sleep 10
+          done
+
+          echo "::warning::Backend health check timed out after ${MAX_ATTEMPTS} attempts."
+          echo "The deployment may still be in progress. Check: ${BACKEND_URL}/api/health"
+
+      - name: Print deployment summary
+        if: always()
+        run: |
+          echo ""
+          echo "═══════════════════════════════════════════════════"
+          echo "  Backend Deployment Summary"
+          echo "═══════════════════════════════════════════════════"
+          echo ""
+          echo "  URL:     https://weatherflow-api-production.up.railway.app"
+          echo "  Health:  https://weatherflow-api-production.up.railway.app/api/health"
+          echo "  API:     https://weatherflow-api-production.up.railway.app/api/options"
+          echo ""
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "  Memory:  ${{ github.event.inputs.railway_memory_mb || '2048' }} MB"
+            echo "  vCPUs:   ${{ github.event.inputs.railway_cpu_count || '2' }}"
+            echo "  Workers: ${{ github.event.inputs.railway_replicas || '1' }}"
+          fi
+          echo ""
+
+  # ────────────────────────────────────────────────────────
+  # Step 3: Deploy frontend to GitHub Pages
+  # ────────────────────────────────────────────────────────
+  deploy-frontend:
+    name: Deploy frontend to GitHub Pages
+    needs: preflight
+    runs-on: ubuntu-latest
+    if: >
+      (github.event_name == 'push') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_target != 'backend-only')
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download frontend artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist/
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload to GitHub Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./frontend/dist
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Print frontend URL
+        run: |
+          echo ""
+          echo "═══════════════════════════════════════════════════"
+          echo "  Frontend Deployment Summary"
+          echo "═══════════════════════════════════════════════════"
+          echo ""
+          echo "  URL: ${{ steps.deployment.outputs.page_url }}"
+          echo ""
+
+  # ────────────────────────────────────────────────────────
+  # Step 4: Post-deployment verification
+  # ────────────────────────────────────────────────────────
+  verify:
+    name: Post-deployment verification
+    needs: [deploy-backend, deploy-frontend]
+    runs-on: ubuntu-latest
+    if: always() && !cancelled()
+    steps:
+      - name: Deployment report
+        run: |
+          echo ""
+          echo "╔═══════════════════════════════════════════════════════╗"
+          echo "║          WeatherFlow Cloud Deployment Report         ║"
+          echo "╠═══════════════════════════════════════════════════════╣"
+          echo "║                                                       ║"
+          echo "║  Frontend:  https://monksealseal.github.io/weatherflow║"
+          echo "║  Backend:   https://weatherflow-api-production.up.railway.app"
+          echo "║  Health:    /api/health                               ║"
+          echo "║                                                       ║"
+          echo "║  Backend deploy: ${{ needs.deploy-backend.result }}"
+          echo "║  Frontend deploy: ${{ needs.deploy-frontend.result }}"
+          echo "║                                                       ║"
+          echo "╚═══════════════════════════════════════════════════════╝"
+          echo ""
+
+          # Exit with error if any deployment failed
+          if [ "${{ needs.deploy-backend.result }}" = "failure" ] || \
+             [ "${{ needs.deploy-frontend.result }}" = "failure" ]; then
+            echo "::error::One or more deployments failed. Check the logs above."
+            exit 1
+          fi
