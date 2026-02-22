@@ -97,6 +97,18 @@ class SimulationRunner:
             traceback.print_exc()
 
 
+@app.route('/health')
+def health_check():
+    """Health check endpoint for load balancers and monitoring."""
+    return jsonify({
+        'status': 'healthy',
+        'service': 'weatherflow-gcm',
+        'active_simulations': len(active_simulations),
+        'completed_simulations': len(simulation_results),
+        'timestamp': datetime.now().isoformat(),
+    })
+
+
 @app.route('/')
 def index():
     """Main page"""
