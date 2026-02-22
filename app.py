@@ -4,7 +4,7 @@ Flask Web Application for the General Circulation Model (GCM)
 Provides a web interface to configure and run GCM simulations
 """
 
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify, send_file, Response
 import numpy as np
 import matplotlib
 matplotlib.use('Agg')  # Use non-interactive backend
@@ -19,6 +19,7 @@ from datetime import datetime
 from gcm import GCM
 
 app = Flask(__name__)
+app_start_time = time.time()
 
 # Store active simulations
 active_simulations = {}
@@ -275,6 +276,59 @@ def create_plot(model, plot_type):
 
         plt.tight_layout()
 
+    elif plot_type == 'temp_profile':
+        fig, ax = plt.subplots(figsize=(8, 8))
+        # Vertical temperature profile (global, tropical, polar means)
+        p_levels = model.vgrid.p_ref / 100.0  # hPa
+
+        global_mean_T = np.mean(model.state.T, axis=(1, 2))
+        lat_deg = np.rad2deg(model.grid.lat)
+
+        tropical = np.abs(lat_deg) < 30
+        polar = np.abs(lat_deg) > 60
+
+        tropical_mean_T = np.mean(model.state.T[:, tropical, :], axis=(1, 2))
+        polar_mean_T = np.mean(model.state.T[:, polar, :], axis=(1, 2))
+
+        ax.plot(global_mean_T, p_levels, 'k-', linewidth=2.5, label='Global Mean')
+        ax.plot(tropical_mean_T, p_levels, 'r--', linewidth=2, label='Tropics (<30)')
+        ax.plot(polar_mean_T, p_levels, 'b--', linewidth=2, label='Polar (>60)')
+
+        ax.set_ylim(ax.get_ylim()[::-1])  # Invert y-axis (pressure decreases up)
+        ax.set_xlabel('Temperature (K)', fontsize=12)
+        ax.set_ylabel('Pressure (hPa)', fontsize=12)
+        ax.set_title('Vertical Temperature Profile', fontsize=14)
+        ax.legend(fontsize=11)
+        ax.grid(True, alpha=0.3)
+
+    elif plot_type == 'cross_section':
+        fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+        p_levels = model.vgrid.p_ref / 100.0  # hPa
+        lat_deg = np.rad2deg(model.grid.lat)
+
+        # Zonal-mean temperature cross-section
+        zonal_mean_T = np.mean(model.state.T, axis=2)
+        im0 = axes[0].contourf(lat_deg, p_levels, zonal_mean_T,
+                                levels=20, cmap='RdYlBu_r')
+        axes[0].set_ylim(axes[0].get_ylim()[::-1])
+        axes[0].set_xlabel('Latitude')
+        axes[0].set_ylabel('Pressure (hPa)')
+        axes[0].set_title('Zonal-Mean Temperature (K)')
+        plt.colorbar(im0, ax=axes[0], label='K')
+
+        # Zonal-mean zonal wind cross-section
+        zonal_mean_u = np.mean(model.state.u, axis=2)
+        umax = max(abs(zonal_mean_u.min()), abs(zonal_mean_u.max())) or 1.0
+        im1 = axes[1].contourf(lat_deg, p_levels, zonal_mean_u,
+                                levels=20, cmap='RdBu_r', vmin=-umax, vmax=umax)
+        axes[1].set_ylim(axes[1].get_ylim()[::-1])
+        axes[1].set_xlabel('Latitude')
+        axes[1].set_ylabel('Pressure (hPa)')
+        axes[1].set_title('Zonal-Mean Zonal Wind (m/s)')
+        plt.colorbar(im1, ax=axes[1], label='m/s')
+
+        plt.tight_layout()
+
     else:
         fig, ax = plt.subplots(figsize=(10, 6))
         ax.text(0.5, 0.5, f'Plot type "{plot_type}" not implemented',
@@ -310,6 +364,133 @@ def list_simulations():
             })
 
     return jsonify(sims)
+
+
+@app.route('/api/health')
+def health_check():
+    """Health check endpoint with uptime"""
+    uptime = time.time() - app_start_time
+    return jsonify({
+        'status': 'ok',
+        'uptime_seconds': round(uptime, 1),
+        'active_simulations': len(active_simulations),
+        'completed_simulations': len(simulation_results)
+    })
+
+
+@app.route('/api/export/<sim_id>')
+def export_results(sim_id):
+    """Export simulation results as downloadable JSON"""
+    if sim_id not in simulation_results:
+        return jsonify({'error': 'Simulation not found'}), 404
+
+    result = simulation_results[sim_id]
+    model = result['model']
+
+    export_data = {
+        'simulation_id': sim_id,
+        'config': result['config'],
+        'timestamp': result['timestamp'],
+        'duration_seconds': result['duration'],
+        'results': {
+            'global_mean_temp': float(np.mean(model.state.T)),
+            'surface_temp': float(np.mean(model.state.tsurf)),
+            'max_wind': float(np.max(np.sqrt(model.state.u**2 + model.state.v**2))),
+            'mean_humidity_gkg': float(np.mean(model.state.q) * 1000),
+            'surface_pressure_hpa': float(np.mean(model.state.ps) / 100),
+        },
+        'diagnostics': {
+            key: [float(v) for v in values]
+            for key, values in model.diagnostics.items()
+            if isinstance(values, list) and len(values) > 0
+        },
+        'zonal_mean_temperature': np.mean(model.state.T, axis=2).tolist(),
+    }
+
+    json_str = json.dumps(export_data, indent=2)
+    return Response(
+        json_str,
+        mimetype='application/json',
+        headers={'Content-Disposition': f'attachment; filename={sim_id}_results.json'}
+    )
+
+
+@app.route('/api/compare/<sim_id_a>/<sim_id_b>')
+def compare_simulations(sim_id_a, sim_id_b):
+    """Compare two simulation results"""
+    if sim_id_a not in simulation_results or sim_id_b not in simulation_results:
+        return jsonify({'error': 'One or both simulations not found'}), 404
+
+    model_a = simulation_results[sim_id_a]['model']
+    model_b = simulation_results[sim_id_b]['model']
+    config_a = simulation_results[sim_id_a]['config']
+    config_b = simulation_results[sim_id_b]['config']
+
+    comparison = {
+        'simulation_a': {
+            'id': sim_id_a,
+            'config': config_a,
+            'global_mean_temp': float(np.mean(model_a.state.T)),
+            'surface_temp': float(np.mean(model_a.state.tsurf)),
+            'max_wind': float(np.max(np.sqrt(model_a.state.u**2 + model_a.state.v**2))),
+        },
+        'simulation_b': {
+            'id': sim_id_b,
+            'config': config_b,
+            'global_mean_temp': float(np.mean(model_b.state.T)),
+            'surface_temp': float(np.mean(model_b.state.tsurf)),
+            'max_wind': float(np.max(np.sqrt(model_b.state.u**2 + model_b.state.v**2))),
+        },
+        'differences': {
+            'temp_diff': float(np.mean(model_b.state.T) - np.mean(model_a.state.T)),
+            'surface_temp_diff': float(np.mean(model_b.state.tsurf) - np.mean(model_a.state.tsurf)),
+            'wind_diff': float(np.max(np.sqrt(model_b.state.u**2 + model_b.state.v**2)) -
+                               np.max(np.sqrt(model_a.state.u**2 + model_a.state.v**2))),
+        }
+    }
+
+    # Generate comparison plot
+    fig, axes = plt.subplots(1, 3, figsize=(18, 5))
+
+    lon_deg_a = np.rad2deg(model_a.grid.lon)
+    lat_deg_a = np.rad2deg(model_a.grid.lat)
+    lon_deg_b = np.rad2deg(model_b.grid.lon)
+    lat_deg_b = np.rad2deg(model_b.grid.lat)
+
+    im0 = axes[0].contourf(lon_deg_a, lat_deg_a, model_a.state.tsurf, levels=20, cmap='RdBu_r')
+    axes[0].set_title(f'Sim A: {config_a["profile"]} ({config_a["co2_ppmv"]} ppmv)')
+    axes[0].set_xlabel('Longitude')
+    axes[0].set_ylabel('Latitude')
+    plt.colorbar(im0, ax=axes[0], label='K')
+
+    im1 = axes[1].contourf(lon_deg_b, lat_deg_b, model_b.state.tsurf, levels=20, cmap='RdBu_r')
+    axes[1].set_title(f'Sim B: {config_b["profile"]} ({config_b["co2_ppmv"]} ppmv)')
+    axes[1].set_xlabel('Longitude')
+    plt.colorbar(im1, ax=axes[1], label='K')
+
+    # Difference plot (only if same grid)
+    if model_a.state.tsurf.shape == model_b.state.tsurf.shape:
+        diff = model_b.state.tsurf - model_a.state.tsurf
+        vmax = max(abs(diff.min()), abs(diff.max())) or 1.0
+        im2 = axes[2].contourf(lon_deg_a, lat_deg_a, diff, levels=20, cmap='RdBu_r',
+                                vmin=-vmax, vmax=vmax)
+        axes[2].set_title('Difference (B - A)')
+        axes[2].set_xlabel('Longitude')
+        plt.colorbar(im2, ax=axes[2], label='K')
+    else:
+        axes[2].text(0.5, 0.5, 'Different grids\ncannot diff', ha='center', va='center')
+        axes[2].set_title('Difference')
+
+    plt.tight_layout()
+
+    img_buffer = io.BytesIO()
+    fig.savefig(img_buffer, format='png', dpi=100, bbox_inches='tight')
+    img_buffer.seek(0)
+    img_base64 = base64.b64encode(img_buffer.read()).decode()
+    plt.close(fig)
+
+    comparison['comparison_plot'] = f'data:image/png;base64,{img_base64}'
+    return jsonify(comparison)
 
 
 if __name__ == '__main__':

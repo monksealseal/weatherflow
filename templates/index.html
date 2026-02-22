@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,12 +11,19 @@
         <header>
             <h1>🌍 General Circulation Model</h1>
             <p class="subtitle">Advanced Atmospheric Climate Simulation Platform</p>
+            <button id="theme-toggle" class="theme-toggle" onclick="toggleTheme()" title="Toggle dark mode">
+                <span id="theme-icon">🌙</span>
+            </button>
         </header>
 
         <div class="main-content">
             <!-- Configuration Panel -->
             <div class="panel config-panel">
                 <h2>⚙️ Simulation Configuration</h2>
+
+                <div id="validation-banner" class="validation-banner" style="display: none;">
+                    <span id="validation-message"></span>
+                </div>
 
                 <div class="config-section">
                     <h3>Resolution</h3>
@@ -103,14 +110,20 @@
                 <button id="run-button" class="run-button" onclick="runSimulation()">
                     🚀 Run Simulation
                 </button>
+                <div class="shortcut-hint">Press <kbd>Ctrl</kbd>+<kbd>Enter</kbd> to run</div>
 
                 <div id="status-container" style="display: none;">
                     <div class="status-box">
                         <div id="status-text">Initializing...</div>
                         <div class="progress-bar">
-                            <div id="progress-fill" class="progress-fill"></div>
+                            <div id="progress-fill" class="progress-fill">
+                                <div class="progress-particles"></div>
+                            </div>
                         </div>
-                        <div id="progress-percent">0%</div>
+                        <div class="progress-info">
+                            <span id="progress-percent">0%</span>
+                            <span id="elapsed-timer" class="elapsed-timer">0:00</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -148,18 +161,44 @@
                         </div>
                     </div>
 
+                    <!-- Action Buttons -->
+                    <div class="result-actions">
+                        <button class="action-btn" onclick="exportResults()" title="Export results as JSON">
+                            📥 Export JSON
+                        </button>
+                        <button class="action-btn" onclick="openCompareModal()" title="Compare with another simulation">
+                            🔀 Compare
+                        </button>
+                    </div>
+
                     <!-- Visualization Tabs -->
                     <div class="tabs">
-                        <button class="tab-btn active" onclick="showPlot('surface_temp')">Surface Temperature</button>
-                        <button class="tab-btn" onclick="showPlot('zonal_wind')">Zonal Wind</button>
-                        <button class="tab-btn" onclick="showPlot('humidity')">Humidity</button>
-                        <button class="tab-btn" onclick="showPlot('diagnostics')">Diagnostics</button>
+                        <button class="tab-btn active" data-plot="surface_temp" onclick="showPlot('surface_temp', this)">Surface Temp</button>
+                        <button class="tab-btn" data-plot="zonal_wind" onclick="showPlot('zonal_wind', this)">Zonal Wind</button>
+                        <button class="tab-btn" data-plot="humidity" onclick="showPlot('humidity', this)">Humidity</button>
+                        <button class="tab-btn" data-plot="temp_profile" onclick="showPlot('temp_profile', this)">Temp Profile</button>
+                        <button class="tab-btn" data-plot="cross_section" onclick="showPlot('cross_section', this)">Cross Section</button>
+                        <button class="tab-btn" data-plot="diagnostics" onclick="showPlot('diagnostics', this)">Diagnostics</button>
                     </div>
 
                     <div id="plot-container" class="plot-container">
                         <img id="plot-image" src="" alt="Plot" style="width: 100%; max-width: 800px;">
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- Comparison Modal -->
+        <div id="compare-modal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <h3>🔀 Compare Simulations</h3>
+                <p>Select a simulation to compare against the current result:</p>
+                <div id="compare-list"></div>
+                <div id="compare-result" style="display: none;">
+                    <div class="compare-stats"></div>
+                    <img id="compare-plot" src="" alt="Comparison" style="width: 100%; max-width: 800px;">
+                </div>
+                <button class="action-btn" onclick="closeCompareModal()">Close</button>
             </div>
         </div>
 
@@ -170,7 +209,11 @@
         </div>
 
         <footer>
-            <p>Sophisticated General Circulation Model v1.0 | Built with advanced physics parameterizations</p>
+            <p>Sophisticated General Circulation Model v1.1 | 10 improvements applied</p>
+            <div id="health-badge" class="health-badge">
+                <span class="health-dot"></span>
+                <span id="uptime-text">Checking...</span>
+            </div>
         </footer>
     </div>
 
