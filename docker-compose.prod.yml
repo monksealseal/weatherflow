@@ -1,0 +1,58 @@
+# WeatherFlow Production Deployment
+# Usage:
+#   docker compose -f docker-compose.prod.yml up --build -d
+#   docker compose -f docker-compose.prod.yml down
+#
+# Services:
+#   - nginx:     Reverse proxy (port 80)
+#   - streamlit: Streamlit app (internal port 8501)
+#   - api:       FastAPI backend (internal port 8000)
+
+version: '3.8'
+
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: weatherflow-nginx
+    ports:
+      - "${PORT:-80}:80"
+    volumes:
+      - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      streamlit:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  streamlit:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.streamlit
+    container_name: weatherflow-streamlit
+    environment:
+      - PYTHONUNBUFFERED=1
+      - MPLBACKEND=Agg
+      - WEATHERFLOW_API_URL=http://api:8000
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.api
+    container_name: weatherflow-api
+    environment:
+      - PYTHONUNBUFFERED=1
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 15s
+      retries: 3
+    restart: unless-stopped

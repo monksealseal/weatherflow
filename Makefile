@@ -8,6 +8,9 @@
 #   make lint          - Run all linters
 #   make build         - Build all artifacts
 #   make dev           - Start development servers
+#   make deploy        - ONE BUTTON: build, test, push, deploy to cloud
+#   make scale-up      - Scale backend to 4GB RAM / 4 vCPU
+#   make deploy-status - Check live deployment health
 #
 # Prerequisites:
 #   - Python >= 3.8
@@ -20,9 +23,12 @@
         build build-python build-frontend build-docs build-docker \
         dev dev-backend dev-frontend dev-streamlit \
         docker-build docker-up docker-down docker-shell \
+        deploy deploy-docker deploy-fly deploy-railway deploy-vercel deploy-stop deploy-status deploy-logs \
         clean clean-python clean-frontend clean-docs clean-docker \
         release-check version-check pre-commit-install pre-commit-run \
-        ci-test ci-build
+        ci-test ci-build \
+        deploy deploy-frontend deploy-backend deploy-status deploy-logs \
+        scale
 
 # ──────────────────────────────────────────────
 # Configuration
@@ -169,6 +175,9 @@ dev-frontend: ## Start Vite frontend dev server (port 5173)
 dev-streamlit: ## Start Streamlit app (port 8501)
 	streamlit run streamlit_app/Home.py
 
+interactive: ## Launch interactive terminal app
+	$(PYTHON) scripts/interactive.py
+
 # ──────────────────────────────────────────────
 # Docker
 # ──────────────────────────────────────────────
@@ -187,6 +196,34 @@ docker-down: ## Stop docker-compose services
 
 docker-shell: ## Open interactive shell in Docker container
 	$(COMPOSE) --profile shell run --rm gcm-shell
+
+# ──────────────────────────────────────────────
+# Production Deployment
+# ──────────────────────────────────────────────
+
+deploy: deploy-docker ## Deploy production stack (alias for deploy-docker)
+
+deploy-docker: ## Deploy full stack with Docker Compose (Streamlit + API + nginx)
+	$(COMPOSE) -f docker-compose.prod.yml up --build -d
+	@echo "$(GREEN)WeatherFlow deployed at http://localhost:$${PORT:-80}$(RESET)"
+
+deploy-fly: ## Deploy Streamlit app to Fly.io
+	flyctl deploy
+
+deploy-railway: ## Deploy API to Railway
+	railway up
+
+deploy-vercel: ## Deploy React frontend + API to Vercel
+	vercel deploy --prod
+
+deploy-stop: ## Stop production Docker Compose services
+	$(COMPOSE) -f docker-compose.prod.yml down
+
+deploy-status: ## Show status of production services
+	$(COMPOSE) -f docker-compose.prod.yml ps
+
+deploy-logs: ## Show logs from production services
+	$(COMPOSE) -f docker-compose.prod.yml logs -f --tail=100
 
 # ──────────────────────────────────────────────
 # Code Quality
@@ -253,6 +290,46 @@ ci-lint: ## CI: Run linting checks
 
 ci-frontend-build: ## CI: Build frontend
 	cd $(FRONTEND_DIR) && $(NPM) ci && $(NPM) run build
+
+# ──────────────────────────────────────────────
+# Cloud Deployment (ONE BUTTON)
+# ──────────────────────────────────────────────
+
+BACKEND_URL  ?= https://weatherflow-api-production.up.railway.app
+FRONTEND_URL ?= https://monksealseal.github.io/weatherflow
+DEPLOY_SCRIPT := scripts/deploy-cloud.sh
+
+deploy: ## Deploy everything to cloud (frontend + backend)
+	@bash $(DEPLOY_SCRIPT)
+
+deploy-frontend: ## Deploy frontend to GitHub Pages only
+	@bash $(DEPLOY_SCRIPT) --frontend-only
+
+deploy-backend: ## Deploy backend to Railway only
+	@bash $(DEPLOY_SCRIPT) --backend-only
+
+deploy-quick: ## Deploy without rebuilding (just push + trigger)
+	@bash $(DEPLOY_SCRIPT) --skip-build --skip-tests
+
+deploy-status: ## Check current deployment health
+	@bash $(DEPLOY_SCRIPT) --status
+
+deploy-logs: ## View Railway backend logs (requires Railway CLI)
+	@if command -v railway > /dev/null 2>&1; then \
+		railway logs --tail 100; \
+	else \
+		echo "Railway CLI not installed. Install with: npm install -g @railway/cli"; \
+		echo "Or view logs at: https://railway.app/dashboard"; \
+	fi
+
+scale: ## Scale Railway backend (usage: make scale MEM=4096 CPU=4)
+	@bash $(DEPLOY_SCRIPT) --scale $(MEM) $(CPU)
+
+scale-up: ## Scale to high-performance (4GB RAM, 4 vCPU)
+	@bash $(DEPLOY_SCRIPT) --scale 4096 4
+
+scale-down: ## Scale to minimum (512MB RAM, 1 vCPU)
+	@bash $(DEPLOY_SCRIPT) --scale 512 1
 
 # ──────────────────────────────────────────────
 # Cleanup

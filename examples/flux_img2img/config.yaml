@@ -1,0 +1,69 @@
+# ===========================================================================
+# FLUX.1-dev Image-to-Image LoRA Fine-Tuning Configuration
+# ===========================================================================
+#
+# Fine-tunes the FLUX.1-dev rectified flow transformer (12B params) with LoRA
+# for paired image-to-image translation, replacing GAN-based approaches
+# (pix2pix / CycleGAN) with a single flow matching model.
+#
+# Usage:
+#   python examples/flux_img2img/finetune_flux_img2img.py --config examples/flux_img2img/config.yaml
+#
+# For multi-GPU:
+#   accelerate launch examples/flux_img2img/finetune_flux_img2img.py --config examples/flux_img2img/config.yaml
+# ===========================================================================
+
+# --- Model ---
+pretrained_model: "black-forest-labs/FLUX.1-dev"
+variant: "fp16"
+
+# --- LoRA ---
+# rank 16 is a good balance between expressiveness and memory.
+# Increase to 32-64 for more complex translations; decrease to 4-8 for
+# lightweight domain adaptation.
+lora_rank: 16
+lora_alpha: 16
+lora_dropout: 0.0
+lora_target_modules:
+  - "to_q"
+  - "to_k"
+  - "to_v"
+  - "to_out.0"
+
+# --- Dataset ---
+# Point these at your paired image directories.  Files are matched by name:
+#   content_dir/001.png  <-->  target_dir/001.png
+content_dir: null   # e.g. "/data/satellite_images"
+target_dir: null    # e.g. "/data/wind_fields"
+resolution: 512
+center_crop: true
+random_flip: true
+val_split: 0.1
+
+# --- Training ---
+epochs: 20
+batch_size: 1
+gradient_accumulation_steps: 4   # effective batch size = 1 * 4 = 4
+learning_rate: 1.0e-4
+lr_scheduler: "cosine"
+lr_warmup_ratio: 0.05
+weight_decay: 0.01
+max_grad_norm: 1.0
+
+# --- Precision / Memory ---
+mixed_precision: "fp16"          # "no", "fp16", "bf16"
+gradient_checkpointing: true
+enable_xformers: true
+
+# --- Inference ---
+num_inference_steps: 28
+guidance_scale: 3.5
+strength: 0.75
+
+# --- Output ---
+output_dir: "./flux_ft_output"
+logging_steps: 10
+save_epochs: 5
+seed: 42
+use_wandb: false
+experiment_name: "flux_img2img_finetune"

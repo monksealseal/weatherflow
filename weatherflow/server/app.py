@@ -199,14 +199,6 @@ class TrainingConfig(CamelModel):
     rollout_steps: int = Field(3, ge=2, le=12, alias="rolloutSteps")
     rollout_weight: float = Field(0.3, ge=0.0, le=5.0, alias="rolloutWeight")
 
-
-class InferenceConfig(CamelModel):
-    """Inference configuration for tiling large grids."""
-
-    tile_size_lat: int = Field(0, ge=0, le=512, alias="tileSizeLat")
-    tile_size_lon: int = Field(0, ge=0, le=1024, alias="tileSizeLon")
-    tile_overlap: int = Field(0, ge=0, le=64, alias="tileOverlap")
-
     @field_validator("solver_method")
     @classmethod
     def solver_method_supported(cls, value: str) -> str:  # noqa: D401
@@ -222,6 +214,14 @@ class InferenceConfig(CamelModel):
         if value not in DEFAULT_LOSS_TYPES:
             raise ValueError(f"Unsupported loss '{value}'")
         return value
+
+
+class InferenceConfig(CamelModel):
+    """Inference configuration for tiling large grids."""
+
+    tile_size_lat: int = Field(0, ge=0, le=512, alias="tileSizeLat")
+    tile_size_lon: int = Field(0, ge=0, le=1024, alias="tileSizeLon")
+    tile_overlap: int = Field(0, ge=0, le=64, alias="tileOverlap")
 
 
 class ExperimentConfig(CamelModel):

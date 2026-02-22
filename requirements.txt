@@ -27,3 +27,11 @@ webdataset>=0.2.86
 pyyaml>=6.0
 flask>=3.0.0
 gunicorn>=21.2.0
+
+# FLUX.1 fine-tuning (optional -- install for examples/flux_img2img)
+diffusers>=0.31.0
+peft>=0.13.0
+accelerate>=1.0.0
+transformers>=4.44.0
+safetensors>=0.4.0
+torchvision>=0.15.0
