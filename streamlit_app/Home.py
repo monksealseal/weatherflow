@@ -271,19 +271,29 @@ st.markdown(
 
 # =============================================================================
 # AUTO-LOAD DATA ON FIRST VISIT - THE KEY TO INSTANT VALUE
+# (Improvement 7: wrap expensive load in st.cache_data)
 # =============================================================================
+
+@st.cache_data(show_spinner=False, ttl=3600)
+def _cached_load_sample(name: str):
+    """Cache the downloaded NCEP sample so restarts are instant."""
+    if not DATA_STORAGE_AVAILABLE:
+        return None, None
+    initialize_sample_data(name)
+    return load_sample_data(name)
+
+
+DATA_STORAGE_AVAILABLE = UTILS_AVAILABLE  # alias for cache helper
+
 if UTILS_AVAILABLE and "first_visit_data_loaded" not in st.session_state:
-    # Silently attempt to auto-load NCEP data
     try:
         auto_load_default_sample()
-        # If no data yet, try to initialize and load NCEP
         if not has_era5_data():
-            if initialize_sample_data("ncep_reanalysis_2013"):
-                data, meta = load_sample_data("ncep_reanalysis_2013")
-                if data is not None:
-                    st.session_state["era5_data"] = data
-                    st.session_state["era5_metadata"] = meta
-                    st.session_state["active_sample"] = "ncep_reanalysis_2013"
+            data, meta = _cached_load_sample("ncep_reanalysis_2013")
+            if data is not None:
+                st.session_state["era5_data"] = data
+                st.session_state["era5_metadata"] = meta
+                st.session_state["active_sample"] = "ncep_reanalysis_2013"
         st.session_state["first_visit_data_loaded"] = True
     except Exception:
         st.session_state["first_visit_data_loaded"] = True
@@ -429,7 +439,8 @@ if has_data and PLOTLY_AVAILABLE:
                     )
 
     except Exception as e:
-        st.info("Loading weather data visualization...")
+        st.warning(f"Visualization could not be rendered: {e}")
+        st.info("Navigate to the Data Manager to reload your dataset.")
 else:
     # No data yet - show a compelling call to action
     st.markdown(
@@ -700,37 +711,56 @@ with footer_col3:
     )
 
 st.markdown("---")
+
+# --- Version & environment info ---
+import torch as _torch
+_device_label = "GPU" if _torch.cuda.is_available() else "CPU"
 st.caption(
-    f"WeatherFlow v2.0 | Real Data Only | Built for the Weather AI Research Community"
+    f"WeatherFlow v0.4.3 | {_device_label} | Real Data Only | Built for the Weather AI Research Community"
 )
 
 # =============================================================================
-# MINIMAL SIDEBAR
+# ENHANCED SIDEBAR (Improvement 8 & 9)
 # =============================================================================
 with st.sidebar:
     st.markdown("## Quick Access")
 
+    # System status indicators (Improvement 8)
     if has_data:
-        st.success("✅ Data Loaded")
+        st.success("Data Loaded")
     else:
-        st.warning("📊 Load Data First")
+        st.warning("Load Data First")
 
     if has_model:
-        st.success("✅ Model Ready")
+        st.success("Model Ready")
     else:
-        st.info("🧠 No Model Yet")
+        st.info("No Model Yet")
+
+    st.markdown(f"**Runtime:** {_device_label}")
 
     st.markdown("---")
 
     st.markdown("### Core Workflow")
-    st.page_link("pages/0_Data_Manager.py", label="📊 Data Manager")
-    st.page_link("pages/03_Training_Workflow.py", label="🧠 Training")
-    st.page_link("pages/17_Weather_Prediction.py", label="🔮 Predictions")
+    st.page_link("pages/0_Data_Manager.py", label="Data Manager")
+    st.page_link("pages/03_Training_Workflow.py", label="Training")
+    st.page_link("pages/17_Weather_Prediction.py", label="Predictions")
 
     st.markdown("### Analysis")
-    st.page_link("pages/12_Model_Comparison.py", label="📈 Benchmarks")
-    st.page_link("pages/04_Visualization_Studio.py", label="🎨 Visualizations")
+    st.page_link("pages/12_Model_Comparison.py", label="Benchmarks")
+    st.page_link("pages/04_Visualization_Studio.py", label="Visualizations")
 
     st.markdown("### Advanced")
-    st.page_link("pages/4_Flow_Matching.py", label="🌊 Flow Matching")
-    st.page_link("pages/8_Physics_Losses.py", label="⚡ Physics Losses")
+    st.page_link("pages/4_Flow_Matching.py", label="Flow Matching")
+    st.page_link("pages/8_Physics_Losses.py", label="Physics Losses")
+    st.page_link("pages/24_FLUX_FineTuning.py", label="FLUX Fine-Tuning")
+
+    # Keyboard shortcuts help (Improvement 9)
+    st.markdown("---")
+    with st.expander("Keyboard Shortcuts"):
+        st.markdown("""
+| Shortcut | Action |
+|----------|--------|
+| `R` | Rerun page |
+| `C` | Clear cache |
+| `Ctrl+Shift+R` | Hard rerun |
+""")
