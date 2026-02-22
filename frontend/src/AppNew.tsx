@@ -18,6 +18,8 @@ import TrainingWorkflowsView from './components/views/TrainingWorkflowsView';
 import EvaluationView from './components/views/EvaluationView';
 
 // NHC Product view components
+import NHCHubView from './components/views/NHCHubView';
+import NHCErrorBoundary from './components/NHCErrorBoundary';
 import NHCOutlookView from './components/views/NHCOutlookView';
 import NHCActiveStormsView from './components/views/NHCActiveStormsView';
 import NHCPublicAdvisoryView from './components/views/NHCPublicAdvisoryView';
@@ -254,36 +256,45 @@ export default function AppNew(): JSX.Element {
       return <DashboardView />;
     }
 
-    // NHC Products views
+    // NHC Hurricane Center Hub (dual-mode: Public + Scientist)
+    if (currentPath === '/nhc/hub') {
+      return (
+        <NHCErrorBoundary fallbackTitle="Hurricane Center could not be loaded">
+          <NHCHubView onNavigateToProduct={handleNavigate} />
+        </NHCErrorBoundary>
+      );
+    }
+
+    // Individual NHC product views (accessible directly or via Scientist mode)
     if (currentPath === '/nhc/outlook') {
-      return <NHCOutlookView />;
+      return <NHCErrorBoundary><NHCOutlookView /></NHCErrorBoundary>;
     }
     if (currentPath === '/nhc/active-storms') {
-      return <NHCActiveStormsView onNavigateToProduct={handleNavigate} />;
+      return <NHCErrorBoundary><NHCActiveStormsView onNavigateToProduct={handleNavigate} /></NHCErrorBoundary>;
     }
     if (currentPath === '/nhc/public-advisory') {
-      return <NHCPublicAdvisoryView />;
+      return <NHCErrorBoundary><NHCPublicAdvisoryView /></NHCErrorBoundary>;
     }
     if (currentPath === '/nhc/forecast-advisory') {
-      return <NHCForecastAdvisoryView />;
+      return <NHCErrorBoundary><NHCForecastAdvisoryView /></NHCErrorBoundary>;
     }
     if (currentPath === '/nhc/discussion') {
-      return <NHCDiscussionView />;
+      return <NHCErrorBoundary><NHCDiscussionView /></NHCErrorBoundary>;
     }
     if (currentPath === '/nhc/track-cone') {
-      return <NHCTrackConeView />;
+      return <NHCErrorBoundary><NHCTrackConeView /></NHCErrorBoundary>;
     }
     if (currentPath === '/nhc/wind-probabilities') {
-      return <NHCWindProbabilitiesView />;
+      return <NHCErrorBoundary><NHCWindProbabilitiesView /></NHCErrorBoundary>;
     }
     if (currentPath === '/nhc/storm-surge') {
-      return <NHCStormSurgeView />;
+      return <NHCErrorBoundary><NHCStormSurgeView /></NHCErrorBoundary>;
     }
     if (currentPath === '/nhc/marine') {
-      return <NHCMarineView />;
+      return <NHCErrorBoundary><NHCMarineView /></NHCErrorBoundary>;
     }
     if (currentPath === '/nhc/reports') {
-      return <NHCReportsView />;
+      return <NHCErrorBoundary><NHCReportsView /></NHCErrorBoundary>;
     }
 
     // Experiment views

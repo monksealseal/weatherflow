@@ -44,13 +44,22 @@ import {
 // ---------------------------------------------------------------------------
 const PROXY_BASE = import.meta.env.VITE_NHC_PROXY_URL || '';
 
-async function proxyFetch(url: string): Promise<Response | null> {
+async function proxyFetch(url: string, retries = 3): Promise<Response | null> {
   if (!PROXY_BASE) return null;
-  try {
-    return await fetch(`${PROXY_BASE}?url=${encodeURIComponent(url)}`);
-  } catch {
-    return null;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const response = await fetch(`${PROXY_BASE}?url=${encodeURIComponent(url)}`);
+      if (response.ok) return response;
+      // Retry on server errors, not client errors
+      if (response.status < 500) return response;
+    } catch {
+      // Network error - retry with exponential backoff
+    }
+    if (attempt < retries) {
+      await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)));
+    }
   }
+  return null;
 }
 
 // ---------------------------------------------------------------------------
