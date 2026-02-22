@@ -39,8 +39,10 @@ ENV/
 .vscode/
 *.swp
 
+# Node
+node_modules/
+
 # Frontend artifacts
-frontend/node_modules/
 frontend/dist/
 frontend/frontend.log
 frontend/frontend.pid
