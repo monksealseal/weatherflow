@@ -11,15 +11,17 @@ interface NavItem {
   id: ViewMode;
   icon: string;
   label: string;
+  shortcut: string;
+  description: string;
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { id: 'map',       icon: 'M', label: 'Dashboard' },
-  { id: 'models',    icon: 'W', label: 'Models' },
-  { id: 'radar',     icon: 'R', label: 'Radar' },
-  { id: 'satellite', icon: 'S', label: 'Satellite' },
-  { id: 'soundings', icon: 'A', label: 'Soundings' },
-  { id: 'tropical',  icon: 'T', label: 'Tropical' },
+  { id: 'map',       icon: 'M', label: 'Dashboard',  shortcut: 'M', description: 'Overview map' },
+  { id: 'models',    icon: 'W', label: 'Models',     shortcut: 'W', description: 'Compare models' },
+  { id: 'radar',     icon: 'R', label: 'Radar',      shortcut: 'R', description: 'Live radar' },
+  { id: 'satellite', icon: 'S', label: 'Satellite',  shortcut: 'S', description: 'Satellite imagery' },
+  { id: 'soundings', icon: 'A', label: 'Soundings',  shortcut: 'A', description: 'Skew-T diagrams' },
+  { id: 'tropical',  icon: 'T', label: 'Tropical',   shortcut: 'T', description: 'Cyclone tracker' },
 ];
 
 export default function Sidebar({ currentView, onNavigate, collapsed, onToggle }: SidebarProps) {
@@ -45,10 +47,15 @@ export default function Sidebar({ currentView, onNavigate, collapsed, onToggle }
             key={item.id}
             className={`sidebar__item ${currentView === item.id ? 'sidebar__item--active' : ''}`}
             onClick={() => onNavigate(item.id)}
-            title={item.label}
+            title={`${item.label} (${item.shortcut})`}
           >
             <span className="sidebar__icon">{item.icon}</span>
-            {!collapsed && <span className="sidebar__label">{item.label}</span>}
+            {!collapsed && (
+              <>
+                <span className="sidebar__label">{item.label}</span>
+                <kbd className="sidebar__shortcut">{item.shortcut}</kbd>
+              </>
+            )}
           </button>
         ))}
       </nav>
@@ -56,7 +63,7 @@ export default function Sidebar({ currentView, onNavigate, collapsed, onToggle }
       <div className="sidebar__footer">
         {!collapsed && (
           <div className="sidebar__info">
-            <span className="sidebar__version">v2.0</span>
+            <span className="sidebar__version">v2.1</span>
             <span className="sidebar__source">Open-Meteo + RainViewer</span>
           </div>
         )}

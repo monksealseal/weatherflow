@@ -202,10 +202,6 @@
   min-width: 0;
 }
 
-.top-bar__right {
-  flex-shrink: 0;
-}
-
 /* ── Location Search ───────────────────────────────────────────────── */
 
 .location-search {
@@ -1216,6 +1212,327 @@
   color: var(--text-muted) !important;
 }
 
+/* ── Sidebar Shortcut Badges ────────────────────────────────────────── */
+
+.sidebar__shortcut {
+  margin-left: auto;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--text-dim);
+  opacity: 0.6;
+}
+
+.sidebar__item--active .sidebar__shortcut {
+  background: rgba(0, 212, 255, 0.1);
+  border-color: rgba(0, 212, 255, 0.2);
+  color: var(--accent-cyan);
+  opacity: 1;
+}
+
+/* ── Geolocation Button ───────────────────────────────────────────── */
+
+.geolocate-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  background: var(--bg-card);
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+
+.geolocate-btn:hover {
+  border-color: var(--accent-cyan);
+  color: var(--accent-cyan);
+  background: rgba(0, 212, 255, 0.08);
+}
+
+/* ── UTC Clock ────────────────────────────────────────────────────── */
+
+.utc-clock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0;
+  flex-shrink: 0;
+  padding: 0 8px;
+}
+
+.utc-clock__utc {
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  color: var(--accent-cyan);
+  line-height: 1.2;
+}
+
+.utc-clock__local {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--text-dim);
+  line-height: 1.2;
+}
+
+/* ── Unit Toggle ──────────────────────────────────────────────────── */
+
+.unit-toggle {
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  background: var(--bg-card);
+  flex-shrink: 0;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.unit-toggle:hover {
+  border-color: var(--accent-cyan);
+  color: var(--accent-cyan);
+}
+
+.unit-toggle--imperial {
+  border-color: var(--accent-amber);
+  color: var(--accent-amber);
+}
+
+/* ── Top Bar Right Layout ─────────────────────────────────────────── */
+
+.top-bar__right {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ── Radar Legend ──────────────────────────────────────────────────── */
+
+.radar-legend {
+  position: absolute;
+  bottom: 16px;
+  right: 60px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  z-index: 50;
+  animation: fade-in 0.25s ease-out;
+}
+
+.radar-legend__title {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.radar-legend__bar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.radar-legend__stop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.radar-legend__color {
+  width: 20px;
+  height: 8px;
+  border-radius: 1px;
+}
+
+.radar-legend__label {
+  font-size: 9px;
+  font-family: var(--font-mono);
+  color: var(--text-dim);
+}
+
+/* ── Welcome Hero ─────────────────────────────────────────────────── */
+
+.welcome-hero {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 40;
+  pointer-events: none;
+}
+
+.welcome-hero__content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 32px 48px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  pointer-events: auto;
+  animation: fade-in 0.4s ease-out;
+  max-width: 440px;
+  text-align: center;
+}
+
+.welcome-hero__icon {
+  color: var(--accent-cyan);
+  opacity: 0.8;
+}
+
+.welcome-hero__title {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.welcome-hero__subtitle {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.welcome-hero__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.welcome-hero__btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  background: rgba(0, 212, 255, 0.1);
+  border: 1px solid rgba(0, 212, 255, 0.25);
+  color: var(--accent-cyan);
+  font-size: 12px;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+
+.welcome-hero__btn:hover {
+  background: rgba(0, 212, 255, 0.2);
+  border-color: var(--accent-cyan);
+}
+
+.welcome-hero__shortcuts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.welcome-hero__shortcut {
+  font-size: 11px;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.welcome-hero__shortcut kbd {
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+}
+
+/* ── Forecast Panel Emoji ─────────────────────────────────────────── */
+
+.forecast-panel__emoji {
+  font-size: 20px;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.forecast-panel__condition {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent-cyan);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+}
+
+/* ── Loading Skeleton ─────────────────────────────────────────────── */
+
+.loading-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.skeleton-line {
+  height: 14px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--bg-card) 25%, var(--bg-elevated) 50%, var(--bg-card) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+}
+
+.skeleton-line--lg {
+  width: 60%;
+  height: 40px;
+  margin: 0 auto;
+}
+
+.skeleton-line--sm {
+  width: 40%;
+}
+
+.skeleton-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+
+.skeleton-cell {
+  height: 44px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--bg-card) 25%, var(--bg-elevated) 50%, var(--bg-card) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+}
+
+@keyframes skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
 /* ── Animations ────────────────────────────────────────────────────── */
 
 @keyframes spin {
@@ -1248,7 +1565,8 @@
 
   .sidebar__label,
   .sidebar__brand,
-  .sidebar__info {
+  .sidebar__info,
+  .sidebar__shortcut {
     display: none;
   }
 
@@ -1267,6 +1585,10 @@
     right: 16px;
     left: 16px;
   }
+
+  .utc-clock {
+    display: none;
+  }
 }
 
 @media (max-width: 600px) {
@@ -1282,5 +1604,15 @@
 
   .quick-actions {
     flex-wrap: wrap;
+  }
+
+  .welcome-hero__content {
+    margin: 16px;
+    padding: 24px;
+  }
+
+  .radar-legend {
+    right: 16px;
+    bottom: 50px;
   }
 }

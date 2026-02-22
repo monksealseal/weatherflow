@@ -104,6 +104,13 @@ export default function MapView({
     map.on('click', handler);
   }, []);
 
+  // Pan to new center when prop changes
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !center) return;
+    map.setView([center.lat, center.lng], 8, { animate: true });
+  }, [center]);
+
   // Load RainViewer data
   const loadFrames = useCallback(async () => {
     try {

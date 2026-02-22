@@ -8,6 +8,6 @@
     "skipLibCheck": true,
     "allowJs": true
   },
-  "include": ["src/main.tsx", "src/App.tsx", "src/App.css", "src/index.css", "src/types/**/*", "src/api/openMeteo.ts", "src/api/rainViewer.ts", "src/components/Sidebar.tsx", "src/components/MapView.tsx", "src/components/TimeSlider.tsx", "src/components/ForecastPanel.tsx", "src/components/Meteogram.tsx", "src/components/SkewT.tsx", "src/components/LocationSearch.tsx", "src/components/LayerControl.tsx", "src/components/ModelComparison.tsx", "src/components/StormTracker.tsx"],
+  "include": ["src/main.tsx", "src/App.tsx", "src/App.css", "src/index.css", "src/types/**/*", "src/api/openMeteo.ts", "src/api/rainViewer.ts", "src/components/Sidebar.tsx", "src/components/MapView.tsx", "src/components/TimeSlider.tsx", "src/components/ForecastPanel.tsx", "src/components/Meteogram.tsx", "src/components/SkewT.tsx", "src/components/LocationSearch.tsx", "src/components/LayerControl.tsx", "src/components/ModelComparison.tsx", "src/components/StormTracker.tsx", "src/components/RadarLegend.tsx", "src/components/UTCClock.tsx", "src/components/WelcomeHero.tsx"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

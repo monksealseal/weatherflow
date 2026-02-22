@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import type { LatLng, WeatherModel, MapLayer, ViewMode } from './types/weather';
 import Sidebar from './components/Sidebar';
 import MapView from './components/MapView';
@@ -10,8 +10,12 @@ import LocationSearch from './components/LocationSearch';
 import LayerControl from './components/LayerControl';
 import ModelComparison from './components/ModelComparison';
 import StormTracker from './components/StormTracker';
+import RadarLegend from './components/RadarLegend';
+import UTCClock from './components/UTCClock';
+import WelcomeHero from './components/WelcomeHero';
 import './App.css';
 
+export type Units = 'metric' | 'imperial';
 type Panel = 'none' | 'forecast' | 'meteogram' | 'sounding' | 'comparison' | 'tropical';
 
 export default function App() {
@@ -25,6 +29,9 @@ export default function App() {
   const [locationName, setLocationName] = useState<string>('');
   const [selectedModel, setSelectedModel] = useState<WeatherModel>('best_match');
 
+  // Units
+  const [units, setUnits] = useState<Units>('metric');
+
   // Time & animation
   const [forecastHour, setForecastHour] = useState(0);
   const [radarFrameCount, setRadarFrameCount] = useState(0);
@@ -34,6 +41,43 @@ export default function App() {
 
   // Panel
   const [activePanel, setActivePanel] = useState<Panel>('none');
+
+  // Geolocation
+  const [mapCenter, setMapCenter] = useState<LatLng | undefined>(undefined);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      // Don't trigger if typing in an input
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      switch (e.key.toLowerCase()) {
+        case 'm': handleNavigate('map'); break;
+        case 'w': handleNavigate('models'); break;
+        case 'r': handleNavigate('radar'); break;
+        case 's': handleNavigate('satellite'); break;
+        case 'a': handleNavigate('soundings'); break;
+        case 't': handleNavigate('tropical'); break;
+        case 'u': setUnits(u => u === 'metric' ? 'imperial' : 'metric'); break;
+        case 'escape': setActivePanel('none'); break;
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  });
+
+  const handleGeolocate = useCallback(() => {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const latlng = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        setSelectedLocation(latlng);
+        setLocationName('My Location');
+        setMapCenter(latlng);
+        setActivePanel('forecast');
+      },
+      () => { /* permission denied - do nothing */ }
+    );
+  }, []);
 
   const handleMapClick = useCallback((latlng: LatLng) => {
     setSelectedLocation(latlng);
@@ -139,6 +183,19 @@ export default function App() {
         {/* Top bar */}
         <div className="top-bar">
           <LocationSearch onSelect={handleLocationSelect} />
+          <button
+            className="geolocate-btn"
+            onClick={handleGeolocate}
+            title="Use my location"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <circle cx="8" cy="8" r="3" stroke="currentColor" strokeWidth="1.5"/>
+              <line x1="8" y1="1" x2="8" y2="4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              <line x1="8" y1="12" x2="8" y2="15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              <line x1="1" y1="8" x2="4" y2="8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              <line x1="12" y1="8" x2="15" y2="8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+          </button>
 
           <div className="top-bar__center">
             <TimeSlider
@@ -151,6 +208,14 @@ export default function App() {
           </div>
 
           <div className="top-bar__right">
+            <UTCClock />
+            <button
+              className={`unit-toggle ${units === 'imperial' ? 'unit-toggle--imperial' : ''}`}
+              onClick={() => setUnits(u => u === 'metric' ? 'imperial' : 'metric')}
+              title="Toggle units (U)"
+            >
+              {units === 'metric' ? 'C / km/h' : 'F / mph'}
+            </button>
             <LayerControl activeLayers={activeLayers} onToggle={handleLayerToggle} />
           </div>
         </div>
@@ -166,6 +231,7 @@ export default function App() {
             onRadarFramesLoaded={setRadarFrameCount}
             onSatelliteFramesLoaded={setSatelliteFrameCount}
             selectedLocation={selectedLocation}
+            center={mapCenter}
           />
 
           {showSatellite && satelliteFrameCount === 0 && (
@@ -173,6 +239,14 @@ export default function App() {
               Satellite imagery is temporarily unavailable from RainViewer.
             </div>
           )}
+
+          {/* Welcome hero when no location selected */}
+          {!selectedLocation && activePanel === 'none' && (
+            <WelcomeHero onGeolocate={handleGeolocate} />
+          )}
+
+          {/* Radar legend */}
+          {showRadar && <RadarLegend />}
 
           {selectedLocation && (
             <div className="map-info">
@@ -211,6 +285,7 @@ export default function App() {
             onClose={() => setActivePanel('none')}
             onOpenMeteogram={() => setActivePanel('meteogram')}
             onOpenSounding={() => setActivePanel('sounding')}
+            units={units}
           />
         )}
 
