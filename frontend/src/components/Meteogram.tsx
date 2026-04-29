@@ -72,7 +72,6 @@ export default function Meteogram({ location, model, onClose }: MeteogramProps) 
     // Scale functions
     const xScale = (i: number) => pad.left + (i / (n - 1)) * plotW;
     const yTempScale = (v: number) => pad.top + plotH - ((v - tempMin) / (tempMax - tempMin)) * plotH;
-    const yPrecipScale = (v: number) => pad.top + plotH - (v / precipMax) * plotH * 0.3;
 
     // Draw grid
     ctx.strokeStyle = 'rgba(255,255,255,0.06)';

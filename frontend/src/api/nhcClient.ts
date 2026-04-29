@@ -18,7 +18,6 @@ import {
   ActiveCyclone,
   AviationAdvisory,
   Basin,
-  CycloneClassification,
   ForecastAdvisory,
   ForecastPosition,
   KeyMessages,
@@ -57,7 +56,7 @@ async function proxyFetch(url: string): Promise<Response | null> {
 // Tropical Weather Outlook
 // ---------------------------------------------------------------------------
 export async function fetchTropicalOutlook(basin: Basin): Promise<TropicalWeatherOutlook> {
-  const _response = await proxyFetch(rssUrlForBasin(basin));
+  await proxyFetch(rssUrlForBasin(basin));
   // For now return representative sample data
   return getSampleOutlook(basin);
 }
@@ -74,7 +73,7 @@ function rssUrlForBasin(basin: Basin): string {
 // Active cyclones
 // ---------------------------------------------------------------------------
 export async function fetchActiveCyclones(): Promise<ActiveCyclone[]> {
-  const _response = await proxyFetch('https://www.nhc.noaa.gov/CurrentSummaries.json');
+  await proxyFetch('https://www.nhc.noaa.gov/CurrentSummaries.json');
   return getSampleActiveCyclones();
 }
 
@@ -82,22 +81,22 @@ export async function fetchActiveCyclones(): Promise<ActiveCyclone[]> {
 // Per-storm products
 // ---------------------------------------------------------------------------
 export async function fetchPublicAdvisory(stormId: string): Promise<PublicAdvisory> {
-  const _response = await proxyFetch(`https://www.nhc.noaa.gov/text/refresh/${stormId}+shtml/TCP.shtml`);
+  await proxyFetch(`https://www.nhc.noaa.gov/text/refresh/${stormId}+shtml/TCP.shtml`);
   return getSamplePublicAdvisory(stormId);
 }
 
 export async function fetchForecastAdvisory(stormId: string): Promise<ForecastAdvisory> {
-  const _response = await proxyFetch(`https://www.nhc.noaa.gov/text/refresh/${stormId}+shtml/TCM.shtml`);
+  await proxyFetch(`https://www.nhc.noaa.gov/text/refresh/${stormId}+shtml/TCM.shtml`);
   return getSampleForecastAdvisory(stormId);
 }
 
 export async function fetchDiscussion(stormId: string): Promise<TropicalCycloneDiscussion> {
-  const _response = await proxyFetch(`https://www.nhc.noaa.gov/text/refresh/${stormId}+shtml/TCD.shtml`);
+  await proxyFetch(`https://www.nhc.noaa.gov/text/refresh/${stormId}+shtml/TCD.shtml`);
   return getSampleDiscussion(stormId);
 }
 
 export async function fetchWindProbabilities(stormId: string): Promise<WindSpeedProbabilities> {
-  const _response = await proxyFetch(`https://www.nhc.noaa.gov/text/refresh/${stormId}+shtml/PWS.shtml`);
+  await proxyFetch(`https://www.nhc.noaa.gov/text/refresh/${stormId}+shtml/PWS.shtml`);
   return getSampleWindProbabilities(stormId);
 }
 

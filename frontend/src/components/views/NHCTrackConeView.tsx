@@ -115,7 +115,7 @@ export default function NHCTrackConeView(): JSX.Element {
             forecast track. The size of each circle is set so that two-thirds of historical
             official forecast errors over a 5-year sample fall within the circle. The cone
             does not represent the size of the storm; hazardous conditions can occur well
-            outside the cone. The "X" marks the current position, and dots indicate forecast
+            outside the cone. The &ldquo;X&rdquo; marks the current position, and dots indicate forecast
             positions. Letters inside dots indicate forecast intensity: (D)epression, (S)torm,
             (H)urricane, or (M)ajor hurricane.
           </div>

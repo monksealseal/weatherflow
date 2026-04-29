@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { LatLng, PointForecast, WeatherModel, WMO_CODES as WMOType } from '../types/weather';
+import type { LatLng, PointForecast, WeatherModel } from '../types/weather';
 import { MODELS, WMO_CODES } from '../types/weather';
 import { fetchPointForecast } from '../api/openMeteo';
 
