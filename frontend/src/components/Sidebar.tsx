@@ -20,6 +20,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'satellite', icon: 'S', label: 'Satellite' },
   { id: 'soundings', icon: 'A', label: 'Soundings' },
   { id: 'tropical',  icon: 'T', label: 'Tropical' },
+  { id: 'cascade',   icon: 'C', label: 'Cascade' },
 ];
 
 export default function Sidebar({ currentView, onNavigate, collapsed, onToggle }: SidebarProps) {

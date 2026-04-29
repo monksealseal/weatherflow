@@ -10,6 +10,7 @@ import LocationSearch from './components/LocationSearch';
 import LayerControl from './components/LayerControl';
 import ModelComparison from './components/ModelComparison';
 import StormTracker from './components/StormTracker';
+import CascadeExplorer from './components/cascade/CascadeExplorer';
 import './App.css';
 
 type Panel = 'none' | 'forecast' | 'meteogram' | 'sounding' | 'comparison' | 'tropical';
@@ -89,6 +90,9 @@ export default function App() {
           setActivePanel('comparison');
         }
         break;
+      case 'cascade':
+        // CascadeExplorer takes over the whole main area; no panel needed.
+        break;
       default:
         break;
     }
@@ -136,6 +140,10 @@ export default function App() {
       />
 
       <div className={`app__main ${sidebarCollapsed ? 'app__main--expanded' : ''}`}>
+        {viewMode === 'cascade' ? (
+          <CascadeExplorer />
+        ) : (
+        <>
         {/* Top bar */}
         <div className="top-bar">
           <LocationSearch onSelect={handleLocationSelect} />
@@ -246,6 +254,8 @@ export default function App() {
               setLocationName(`Storm @ ${lat.toFixed(1)}N, ${Math.abs(lon).toFixed(1)}${lon < 0 ? 'W' : 'E'}`);
             }}
           />
+        )}
+        </>
         )}
       </div>
     </div>

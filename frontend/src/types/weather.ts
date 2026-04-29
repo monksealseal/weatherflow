@@ -187,7 +187,7 @@ export interface CycloneForecastPoint {
 }
 
 // ── App state ───────────────────────────────────────────────────────
-export type ViewMode = 'map' | 'models' | 'satellite' | 'radar' | 'soundings' | 'tropical';
+export type ViewMode = 'map' | 'models' | 'satellite' | 'radar' | 'soundings' | 'tropical' | 'cascade';
 
 export interface AppState {
   viewMode: ViewMode;

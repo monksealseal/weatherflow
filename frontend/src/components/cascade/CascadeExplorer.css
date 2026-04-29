@@ -1,0 +1,418 @@
+/* Cascade Explorer — three-level linked map / table / drill-down view. */
+
+.cascade {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  background: #0e1117;
+  color: #d0d4da;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* ── breadcrumb ───────────────────────────────────────────────────── */
+
+.cascade__crumbs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border-bottom: 1px solid #2a313c;
+  background: #11151c;
+}
+
+.cascade__crumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border: 1px solid #2a313c;
+  border-radius: 6px;
+  background: transparent;
+  color: #d0d4da;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 120ms;
+}
+
+.cascade__crumb:hover {
+  background: #1a212c;
+}
+
+.cascade__crumb--active {
+  border-color: #4ea1ff;
+  color: #4ea1ff;
+  cursor: default;
+}
+
+.cascade__crumb-sep {
+  color: #4b5563;
+  font-size: 12px;
+}
+
+/* ── headers ──────────────────────────────────────────────────────── */
+
+.cascade__header {
+  padding: 16px 20px 0;
+}
+
+.cascade__title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 600;
+  color: #f4f6fa;
+}
+
+.cascade__question {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: #9aa0a6;
+  font-style: italic;
+}
+
+/* ── KPI strip ────────────────────────────────────────────────────── */
+
+.cascade__kpis {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  padding: 16px 20px;
+}
+
+.cascade__kpi {
+  background: #11151c;
+  border: 1px solid #2a313c;
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+
+.cascade__kpi-label {
+  display: block;
+  font-size: 12px;
+  color: #9aa0a6;
+  margin-bottom: 4px;
+}
+
+.cascade__kpi-value {
+  display: block;
+  font-size: 22px;
+  font-weight: 600;
+  color: #f4f6fa;
+}
+
+.cascade__kpi-value--crit { color: #e74c3c; }
+.cascade__kpi-value--warn { color: #f39c12; }
+
+/* ── two-pane body ────────────────────────────────────────────────── */
+
+.cascade__body {
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: 1.6fr 1fr;
+  gap: 16px;
+  padding: 0 20px 20px;
+  min-height: 0;
+}
+
+.cascade__viz {
+  display: flex;
+  flex-direction: column;
+  background: #11151c;
+  border: 1px solid #2a313c;
+  border-radius: 8px;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.cascade__viz-caption {
+  padding: 8px 12px;
+  border-top: 1px solid #2a313c;
+  font-size: 12px;
+  color: #9aa0a6;
+}
+
+.cascade__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+}
+
+.cascade__panel-section {
+  background: #11151c;
+  border: 1px solid #2a313c;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.cascade__panel-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #9aa0a6;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 10px 14px;
+  border-bottom: 1px solid #2a313c;
+}
+
+/* ── table ────────────────────────────────────────────────────────── */
+
+.cascade__table-wrap {
+  overflow: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.cascade__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.cascade__table th,
+.cascade__table td {
+  padding: 6px 10px;
+  text-align: left;
+  border-bottom: 1px solid #1a212c;
+  white-space: nowrap;
+}
+
+.cascade__table th {
+  position: sticky;
+  top: 0;
+  background: #11151c;
+  color: #9aa0a6;
+  font-weight: 500;
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+}
+
+.cascade__table tr {
+  cursor: pointer;
+  transition: background 80ms;
+}
+
+.cascade__table tr:hover {
+  background: #1a212c;
+}
+
+.cascade__table tr.is-active {
+  background: #1c2735;
+}
+
+.cascade__status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+}
+
+/* ── drill list ───────────────────────────────────────────────────── */
+
+.cascade__drill-list {
+  display: flex;
+  flex-direction: column;
+  padding: 10px 12px 12px;
+  gap: 6px;
+  overflow: auto;
+  max-height: 280px;
+}
+
+.cascade__drill-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  background: #0e1117;
+  border: 1px solid #2a313c;
+  border-radius: 6px;
+  color: #d0d4da;
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 100ms, background 100ms;
+  text-align: left;
+}
+
+.cascade__drill-btn:hover {
+  border-color: #4ea1ff;
+  background: #131a25;
+}
+
+.cascade__drill-meta {
+  font-size: 11px;
+  color: #9aa0a6;
+}
+
+/* ── search ───────────────────────────────────────────────────────── */
+
+.cascade__search {
+  padding: 8px 12px;
+  border-top: 1px solid #2a313c;
+}
+
+.cascade__search input {
+  width: 100%;
+  padding: 6px 10px;
+  background: #0e1117;
+  border: 1px solid #2a313c;
+  border-radius: 6px;
+  color: #d0d4da;
+  font-size: 12px;
+}
+
+.cascade__search input:focus {
+  outline: none;
+  border-color: #4ea1ff;
+}
+
+/* ── world map ────────────────────────────────────────────────────── */
+
+.cascade__map {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.cascade__map .leaflet-container {
+  background: #0e1117;
+  height: 100%;
+  width: 100%;
+}
+
+/* ── rack/slot grid ──────────────────────────────────────────────── */
+
+.cascade__racks {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px;
+  overflow: auto;
+}
+
+.cascade__rack-row {
+  display: grid;
+  gap: 4px;
+  align-items: center;
+}
+
+.cascade__rack-label {
+  font-size: 10px;
+  color: #5b6473;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  text-align: right;
+  padding-right: 4px;
+}
+
+.cascade__cell {
+  aspect-ratio: 1;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: transform 80ms, outline 80ms;
+  border: 1px solid #2a313c;
+  background: #1a212c;
+}
+
+.cascade__cell--filled {
+  border: none;
+}
+
+.cascade__cell--filled:hover {
+  transform: scale(1.18);
+  outline: 2px solid #fff;
+  outline-offset: 1px;
+  z-index: 2;
+}
+
+.cascade__cell.is-active {
+  outline: 2px solid #4ea1ff;
+  outline-offset: 1px;
+}
+
+/* ── sparklines ───────────────────────────────────────────────────── */
+
+.cascade__sparks {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  padding: 8px 12px;
+  gap: 4px;
+  overflow: auto;
+}
+
+.cascade__spark {
+  background: #0e1117;
+  border: 1px solid #2a313c;
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+
+.cascade__spark-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #9aa0a6;
+  margin-bottom: 4px;
+}
+
+.cascade__spark-value {
+  color: #f4f6fa;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.cascade__spark svg {
+  display: block;
+  width: 100%;
+  height: 70px;
+}
+
+/* ── alerts ───────────────────────────────────────────────────────── */
+
+.cascade__alerts {
+  padding: 8px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow: auto;
+  max-height: 200px;
+}
+
+.cascade__alert {
+  display: flex;
+  gap: 10px;
+  padding: 8px 10px;
+  background: #0e1117;
+  border: 1px solid #2a313c;
+  border-left: 3px solid #4b5563;
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.cascade__alert--info { border-left-color: #4ea1ff; }
+.cascade__alert--warn { border-left-color: #f39c12; }
+.cascade__alert--crit { border-left-color: #e74c3c; }
+
+.cascade__alert-time {
+  color: #5b6473;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.cascade__alert-msg {
+  flex: 1;
+}
+
+/* ── empty state ──────────────────────────────────────────────────── */
+
+.cascade__empty {
+  padding: 14px;
+  font-size: 12px;
+  color: #5b6473;
+  text-align: center;
+}
