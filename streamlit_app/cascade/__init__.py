@@ -1,17 +1,78 @@
-"""Cascading visualization explorer.
+"""Cascading IT Director's Control Room.
 
-A linked geographic / tabular / drill-down view where every level answers
-exactly one question and a single click moves you to the next level.
+A spatial-web exploration tool — every level changes shape, every level
+opens with a question, and the trail you walked is real history. Drill
+from the world fleet all the way down into a single ticket if you want.
 """
 
-from .data import load_world, load_datacenter, load_server
-from .views import render_world, render_datacenter, render_server
+from .data import (
+    HEALTH_COLOR,
+    SERVICES,
+    TEAMS,
+    load_control_room,
+    load_customers,
+    load_datacenter,
+    load_incident,
+    load_incidents_for_server,
+    load_people,
+    load_person,
+    load_project,
+    load_server,
+    load_service,
+    load_team_rollup,
+    load_ticket,
+    load_world,
+)
+from .views import (
+    render_control_room,
+    render_customer,
+    render_datacenter,
+    render_help_desk_board,
+    render_incident,
+    render_incidents_board,
+    render_people_board,
+    render_person,
+    render_placeholder,
+    render_project,
+    render_server,
+    render_service,
+    render_team,
+    render_ticket,
+    render_world,
+    setup_page,
+)
 
 __all__ = [
-    "load_world",
+    "HEALTH_COLOR",
+    "SERVICES",
+    "TEAMS",
+    "load_control_room",
+    "load_customers",
     "load_datacenter",
+    "load_incident",
+    "load_incidents_for_server",
+    "load_people",
+    "load_person",
+    "load_project",
     "load_server",
-    "render_world",
+    "load_service",
+    "load_team_rollup",
+    "load_ticket",
+    "load_world",
+    "render_control_room",
+    "render_customer",
     "render_datacenter",
+    "render_help_desk_board",
+    "render_incident",
+    "render_incidents_board",
+    "render_people_board",
+    "render_person",
+    "render_placeholder",
+    "render_project",
     "render_server",
+    "render_service",
+    "render_team",
+    "render_ticket",
+    "render_world",
+    "setup_page",
 ]

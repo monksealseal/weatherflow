@@ -1,17 +1,11 @@
-"""Cascade Explorer — a linked map / table / drill-down view.
+"""Cascade Explorer — IT Director's Control Room.
 
-Each level answers exactly one question. A single click on a marker, a
-table row, or a button moves you one level deeper. The breadcrumb at
-the top is always the way back.
+A spatial-web exploration tool. Every level opens with one plain-language
+question, every level changes shape (map → tile board → bridge → human →
+ticket), and the breadcrumb is the trail you walked.
 
-Levels:
-    1. world       — "Where should I focus my attention?"        (geographic)
-    2. datacenter  — "Which servers in this building need help?" (physical, not geographic)
-    3. server      — "What is happening on this machine?"        (time series)
-
-Same pattern works for any data with a "place → thing → measurement"
-hierarchy (weather stations → sensors → readings, stores → SKUs → sales,
-hospitals → wards → patients, ...).
+Drilling is unbounded — adding a new level means writing one render
+function and adding it to LEVELS below.
 """
 
 import sys
@@ -22,72 +16,144 @@ import streamlit as st
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from cascade import render_datacenter, render_server, render_world  # noqa: E402
+from cascade import (  # noqa: E402
+    render_control_room,
+    render_customer,
+    render_datacenter,
+    render_help_desk_board,
+    render_incident,
+    render_incidents_board,
+    render_people_board,
+    render_person,
+    render_placeholder,
+    render_project,
+    render_server,
+    render_service,
+    render_team,
+    render_ticket,
+    render_world,
+    setup_page,
+)
 
-st.set_page_config(page_title="Cascade Explorer", page_icon="🧭", layout="wide")
+st.set_page_config(page_title="Control Room", page_icon="🧭", layout="wide")
 
-st.session_state.setdefault("cascade_level", "world")
-st.session_state.setdefault("cascade_dc_id", None)
-st.session_state.setdefault("cascade_server_id", None)
+# ── level dispatcher ────────────────────────────────────────────────────────
+# Each entry maps a level name → render function. Adding a level is one line.
+
+LEVELS = {
+    "control_room":    (render_control_room,    "🧭  Control Room"),
+    "infrastructure":  (render_world,           "🌐  Infrastructure"),
+    "incidents_board": (render_incidents_board, "🚨  Incidents"),
+    "people_board":    (render_people_board,    "👥  People"),
+    "help_desk_board": (render_help_desk_board, "🎫  Help Desk"),
+    "datacenter":      (render_datacenter,      "🏢  Site"),
+    "server":          (render_server,          "🖥  Server"),
+    "incident":        (render_incident,        "🚨  Incident"),
+    "service":         (render_service,         "⚙️  Service"),
+    "team":            (render_team,            "👥  Team"),
+    "person":          (render_person,          "👤  Person"),
+    "project":         (render_project,         "📦  Project"),
+    "ticket":          (render_ticket,          "🎟  Ticket"),
+    "customer":        (render_customer,        "🏷  Customer"),
+    "placeholder":     (render_placeholder,     "•   Domain"),
+}
 
 
-def _go(level: str, **kwargs) -> None:
-    st.session_state.cascade_level = level
-    for k, v in kwargs.items():
-        st.session_state[f"cascade_{k}"] = v
-    st.rerun()
+def _crumb_label(entry):
+    level = entry["level"]
+    params = entry["params"]
+    base = LEVELS.get(level, (None, level))[1]
+    if "dc_id" in params:
+        return f"{base} · {params['dc_id']}"
+    if "server_id" in params:
+        return f"{base} · {params['server_id'].split('-')[-1]}"
+    if "incident_id" in params:
+        return f"{base} · {params['incident_id']}"
+    if "service_id" in params:
+        return f"{base} · {params['service_id']}"
+    if "team_id" in params:
+        return f"{base} · {params['team_id']}"
+    if "person_id" in params:
+        return f"{base} · {params['person_id']}"
+    if "project_id" in params:
+        return f"{base} · {params['project_id']}"
+    if "ticket_id" in params:
+        return f"{base} · {params['ticket_id'].split('-T')[-1]}"
+    if "customer_id" in params:
+        return f"{base} · {params['customer_id']}"
+    return base
 
 
-# ---- breadcrumb -------------------------------------------------------------
+# ── session state ───────────────────────────────────────────────────────────
 
-level = st.session_state.cascade_level
-dc_id = st.session_state.cascade_dc_id
-server_id = st.session_state.cascade_server_id
+if "cascade_stack" not in st.session_state:
+    st.session_state.cascade_stack = [{"level": "control_room", "params": {}}]
 
-crumbs = st.container()
-with crumbs:
-    cols = st.columns([1, 1, 1, 6])
-    if cols[0].button("🌍 World", use_container_width=True):
-        _go("world", dc_id=None, server_id=None)
-    if dc_id and cols[1].button(f"🏢 {dc_id}", use_container_width=True):
-        _go("datacenter", server_id=None)
-    if server_id and cols[2].button(f"🖥 {server_id}", use_container_width=True):
-        _go("server")
+stack = st.session_state.cascade_stack
+
+# ── breadcrumb (the trail you walked) ───────────────────────────────────────
+
+crumb_cols = st.columns(len(stack) + 1)
+for i, entry in enumerate(stack):
+    label = _crumb_label(entry)
+    is_last = i == len(stack) - 1
+    if crumb_cols[i].button(
+        label,
+        key=f"crumb-{i}",
+        use_container_width=True,
+        type=("primary" if is_last else "secondary"),
+        disabled=is_last,
+    ):
+        st.session_state.cascade_stack = stack[: i + 1]
+        st.rerun()
+if len(stack) > 1:
+    if crumb_cols[-1].button("↑ Up", key="crumb-up", use_container_width=True):
+        st.session_state.cascade_stack = stack[:-1]
+        st.rerun()
 
 st.divider()
 
-# ---- route ------------------------------------------------------------------
+# ── render current level ────────────────────────────────────────────────────
 
-if level == "world":
-    render_world()
-elif level == "datacenter" and dc_id:
-    render_datacenter(dc_id)
-elif level == "server" and dc_id and server_id:
-    render_server(dc_id, server_id)
-else:
-    st.warning("Lost the trail — heading back to the world view.")
-    _go("world", dc_id=None, server_id=None)
+setup_page()
+top = stack[-1]
+render_fn, _ = LEVELS.get(top["level"], (render_placeholder, "?"))
+try:
+    render_fn(**top["params"])
+except TypeError:
+    # Fallback if a level is invoked with unexpected params during dev.
+    render_fn()
 
-# ---- footer / explainer -----------------------------------------------------
+# ── side panel ──────────────────────────────────────────────────────────────
 
 with st.sidebar:
-    st.markdown("### Cascade Explorer")
+    st.markdown("### Control Room")
     st.markdown(
-        "A geographic map blended with structured data. Click any marker, "
-        "row, or button to **transport** one level deeper. Each level "
-        "answers a single question — so you always know what you're "
-        "looking at and why."
+        "A personal command surface for an IT Director — every domain you "
+        "carried, one screen, drillable to any depth."
     )
     st.markdown("---")
-    st.markdown("**Levels**")
+    st.markdown(f"**Trail depth:**  {len(stack)} level{'s' if len(stack) != 1 else ''}")
+    st.markdown(f"**Current:**  {_crumb_label(top)}")
+    st.markdown("---")
     st.markdown(
-        "- 🌍 **World** — where to focus\n"
-        "- 🏢 **Data center** — which server needs help (no longer geographic — "
-        "we're inside a building)\n"
-        "- 🖥 **Server** — what's happening, is it getting worse"
+        "**Levels reachable**\n"
+        "1. 🧭  Control Room\n"
+        "2. 🌐 / 🚨 / 👥 / 🎫  Domain board\n"
+        "3. 🏢  Site\n"
+        "4. 🖥  Server\n"
+        "5. 🚨  Incident bridge\n"
+        "6. ⚙️  Service · 👥 Team · 🏷 Customer\n"
+        "7. 👤  Person\n"
+        "8. 📦  Project\n"
+        "9. 🎟  Ticket\n"
+        "10. (loops back to people / services …)"
     )
     st.markdown("---")
+    if st.button("Reset to Control Room", use_container_width=True):
+        st.session_state.cascade_stack = [{"level": "control_room", "params": {}}]
+        st.rerun()
     st.caption(
-        "Demo data is synthetic and deterministic. Swap `cascade/data.py` "
-        "for SQL queries to point this at a real Postgres source."
+        "Demo data is synthetic and deterministic. Add a level by writing "
+        "one render function and one row in `LEVELS`."
     )
